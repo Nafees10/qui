@@ -1,5 +1,6 @@
 module lists;
 
+import qui;//used for Position & Cell in Matrix
 import misc;
 import std.file;
 import std.stdio;
@@ -123,30 +124,31 @@ public:
 	}
 }
 
-class LogList{
+///Used in logging widgets. Holds upto certain number, after which older 
+class LogList(T){
 private:
-	List!string list;
+	List!T list;
 	uinteger readFrom, maxLen;
 public:
 	this(uinteger maxLength=100){
-		list = new List!string;
+		list = new List!T;
 		readFrom = 0;
 		maxLen = maxLength;
 	}
 	~this(){
 		delete list;
 	}
-	void add(string msg){
+	void add(T dat){
 		if (list.length>=maxLen){
-			list.set(readFrom,msg);
+			list.set(readFrom,dat);
 			readFrom++;
 		}else{
-			list.add(msg);
+			list.add(dat);
 		}
 	}
 	//count = 0 == read all
-	string[] read(uinteger count=0){
-		string[] r;
+	T[] read(uinteger count=0){
+		T[] r;
 		if (count == 0){
 			uinteger i;
 			count = list.length;
@@ -166,8 +168,165 @@ public:
 		}
 		return r;
 	}
+	T read(uinteger index){
+		return list.read((index+readFrom)%list.length);
+	}
 	void reset(){
 		list.clear;
 		readFrom = 0;
+	}
+}
+
+///Used to store the widget's/terminal's display in a matrix
+class Matrix{
+private:
+	Cell[][] matrix;//read as: matrix[y][x];
+	//used to write by widgets
+	uinteger wX = 0, wY = 0, wXEnd = 0, wYEnd = 0;
+	uinteger xPosition, yPosition;
+public:
+	this(int width, int height){
+		//set matrix size
+		matrix.length = height;
+		//set width:
+		foreach(row; matrix){
+			row.length = width;
+		}
+	}
+
+	bool changeSize(uinteger width, uinteger height){
+		//make sure width & size are at least 1
+		bool r = true;
+		if (width == 0 || height == 0){
+			r = false;
+		}
+		if (r){
+			matrix.length = height;
+			foreach(row; matrix){
+				row.length = width;
+			}
+		}
+		return r;
+	}
+
+	void setWriteLimits(uinteger startX, uinteger startY, uinteger width, uinteger height){
+		wX = startX;
+		wY = startY;
+		xPosition = wX;
+		yPosition = wY;
+		wXEnd = (width-wX)-1;
+		wYEnd = (height-wY)-1;
+	}
+	void write(char[] c, RGBColor textColor, RGBColor bgColor){
+		uinteger i;
+		for (i = 0; xPosition <= wXEnd && yPosition <= wYEnd && i < c.length; xPosition++){
+			if (xPosition >= wXEnd){
+				//move to next row
+				yPosition++;
+				xPosition = wX;
+			}
+			//check if no more space left
+			if (xPosition >= wXEnd && yPosition >= wYEnd){
+				//no more space left
+				break;
+			}
+			matrix[yPosition][xPosition].c = c[i];
+		}
+	}
+
+	bool moveTo(int x, int y){
+		bool r = true;
+		if (x > matrix[0].length-1 || y > matrix.length-1){
+			r = false;
+		}
+		if (r){
+			pos.x = x;
+			pos.y = y;
+		}
+		return r;
+	}
+	@property uinteger height(){
+		return matrix.length;
+	}
+	@property uinteger width(){
+		return matrix[0].length;
+	}
+	Cell read(int x, int y){
+		return matrix[y][x];
+	}
+
+	bool insert(Matrix toInsert, int x, int y){
+		uinteger width, height;
+		height = toInsert.height;
+		width = toInsert.width;
+		bool r = true;
+		if (height + y > this.height || width + x > this.width){
+			r = false;
+		}else{
+			int col = x;
+			int row = y;
+			uinteger endAtCol = x + width-1, endAtRow = y + height-1;
+			for (; col<endAtCol && row<endAtRow; col++){
+				//check if has to move to next row/line
+				if (col >= endAtCol && row < endAtRow){
+					row++;
+					col = x;
+				}
+				//copy cells
+				matrix[row][col] = toInsert.read(col, row);
+			}
+		}
+		return r;
+	}
+
+	void flushToTerminal(QTerminal* terminal){
+		uinteger row = 0, col = 0, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
+		uinteger writeFrom = 0;
+		RGBColor prevBgColor, prevTextColor;
+		//set initial colors
+		prevBgColor = matrix[row][col].bgColor;
+		prevTextColor = matrix[row][col].textColor;
+		char[] toWrite;
+		toWrite.length = width;
+		terminal.setColors(prevTextColor, prevBgColor);
+		for (; row <= rowEnd && col <= colEnd; col++){
+			//if row just started, copy chars into `toWrite`
+			if (col == 0){
+				for (uinteger i = 0; i < width; i++){
+					toWrite[i] = matrix[row][i].c;
+				}
+			}
+			//check if has to move to next row
+			if (col >= colEnd){
+				//write remaining row to terminal
+				if (writeFrom < col){
+					terminal.writeChars(toWrite[writeFrom .. col+1]);
+				}
+				//move to next row
+				writeFrom = 0;
+				col = 0;
+				row++;
+				terminal.moveTo(col, row);
+			}
+			//check if colors have changed, if yes, write chars
+			if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
+				//write previous chars
+				if (writeFrom < col){
+					terminal.writeChars(toWrite[writeFrom .. col]);
+				}
+				writeFrom = col;
+				//update colors
+				prevBgColor = matrix[row][col].bgColor;
+				prevTextColor = matrix[row][col].textColor;
+				terminal.setColors(prevTextColor, prevBgColor);
+			}
+			//check if is at end, then write remaining chars
+			if (row == rowEnd && col == colEnd){
+				//set colors, could be different
+				terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
+				terminal.writeChars(matrix[row][col].c);
+			}
+		}
+		terminal.update;
 	}
 }
