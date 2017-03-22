@@ -1,38 +1,12 @@
 module misc;
 
-import lists;
-import std.math;
+import qui;
 import std.stdio;
-import std.conv:to;
 
+///These names are easier to understand
 alias integer = ptrdiff_t;
 alias uinteger = size_t;
 
-
-void writeArray(T)(T[] a,T sp){
-	foreach(cur; a){
-		write(cur,sp);
-	}
-}
-
-T max (T)(T[] dat){
-	T highest = dat[0];
-	foreach(key; dat){
-		if (highest<key){
-			highest = key;
-		}
-	}
-	return highest;
-}
-
-T[] convArrayType(T,T2)(T2[] dat){
-	T[] r;
-	r= new T[dat.length];
-	for (uinteger i=0;i<dat.length;i++){
-		r[i]=to!T(dat[i]);
-	}
-	return r;
-}
 
 string[] fileToArray(string fname){
 	File f = File(fname,"r");
