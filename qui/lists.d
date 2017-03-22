@@ -184,8 +184,11 @@ private:
 	//used to write by widgets
 	uinteger wX = 0, wY = 0, wXEnd = 0, wYEnd = 0;
 	uinteger xPosition, yPosition;
+
+	//stores whether the terminal needs updating or not
+	bool updateNeeded = false;
 public:
-	this(int width, int height){
+	this(uinteger width, uinteger height){
 		//set matrix size
 		matrix.length = height;
 		//set width:
@@ -193,7 +196,7 @@ public:
 			row.length = width;
 		}
 	}
-
+	///Change size of the matrix, width and height
 	bool changeSize(uinteger width, uinteger height){
 		//make sure width & size are at least 1
 		bool r = true;
@@ -208,7 +211,7 @@ public:
 		}
 		return r;
 	}
-
+	//Set write limits, so a widget cannot write outside it's rectangle
 	void setWriteLimits(uinteger startX, uinteger startY, uinteger width, uinteger height){
 		wX = startX;
 		wY = startY;
@@ -217,6 +220,7 @@ public:
 		wXEnd = (width-wX)-1;
 		wYEnd = (height-wY)-1;
 	}
+	///used to write to matrix, call Matrix.setWriteLimits before this
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
 		uinteger i;
 		for (i = 0; xPosition <= wXEnd && yPosition <= wYEnd && i < c.length; xPosition++){
@@ -232,30 +236,38 @@ public:
 			}
 			matrix[yPosition][xPosition].c = c[i];
 		}
+		updateNeeded = true;
 	}
-
-	bool moveTo(int x, int y){
+	///move to a different position to write
+	bool moveTo(uinteger x, uinteger y){
 		bool r = true;
 		if (x > matrix[0].length-1 || y > matrix.length-1){
 			r = false;
 		}
 		if (r){
-			pos.x = x;
-			pos.y = y;
+			xPosition = x;
+			yPosition = y;
 		}
 		return r;
 	}
+	///returns number of rows/lines in matrix
 	@property uinteger height(){
 		return matrix.length;
 	}
+	///returns number of columns in matrix
 	@property uinteger width(){
 		return matrix[0].length;
 	}
-	Cell read(int x, int y){
+	///read a cell from the matrix
+	Cell read(uinteger x, uinteger y){
 		return matrix[y][x];
 	}
-
-	bool insert(Matrix toInsert, int x, int y){
+	///returns whether terminal needs to be updated
+	@property bool hasChanged(){
+		return updateNeeded;
+	}
+	///insert a different matrix into this one at a position
+	bool insert(Matrix toInsert, uinteger x, uinteger y){
 		uinteger width, height;
 		height = toInsert.height;
 		width = toInsert.width;
@@ -263,8 +275,8 @@ public:
 		if (height + y > this.height || width + x > this.width){
 			r = false;
 		}else{
-			int col = x;
-			int row = y;
+			uinteger col = x;
+			uinteger row = y;
 			uinteger endAtCol = x + width-1, endAtRow = y + height-1;
 			for (; col<endAtCol && row<endAtRow; col++){
 				//check if has to move to next row/line
@@ -276,9 +288,10 @@ public:
 				matrix[row][col] = toInsert.read(col, row);
 			}
 		}
+		updateNeeded = true;
 		return r;
 	}
-
+	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal* terminal){
 		uinteger row = 0, col = 0, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
 		uinteger writeFrom = 0;
@@ -306,7 +319,7 @@ public:
 				writeFrom = 0;
 				col = 0;
 				row++;
-				terminal.moveTo(col, row);
+				terminal.moveTo(cast(int)col, cast(int)row);
 			}
 			//check if colors have changed, if yes, write chars
 			if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
@@ -327,6 +340,7 @@ public:
 				terminal.writeChars(matrix[row][col].c);
 			}
 		}
+		updateNeeded = false;
 		terminal.update;
 	}
 }
