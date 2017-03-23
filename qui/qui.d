@@ -5,7 +5,7 @@ import lists;
 import arsd.terminal;
 
 //MouseClick event
-struct MousePosition{
+struct MouseClick{
 	enum Button{
 		Left,
 		ScrollUp,
@@ -53,34 +53,15 @@ struct KeyPress{
 //same as termial.RGB, but using this, no need to `import terminal;` just for one struct
 alias RGBColor = RGB;
 
-//Vertical Alignment for layout
-enum HorizontalAlign{
-	Top,
-	Auto,
-	Fill,
-	Bottom
-}
-
-enum VerticalAlign{
-	Left,
-	Auto,
-	Fill,
-	Right
-}
-///To specify alignment in QWidget
-union Align{
-	VerticalAlign vAlign;
-	HorizontalAlign hAlign;
-}
-
 //Position
 struct Position{
-	int x, y;
+	uinteger x, y;
 }
+//Size for widgets
 struct Size{
 	uinteger width, height;
-	uinteger maxWidth, maxHeight;
-	uinteger minWidth, minHeight;
+	uinteger minHeight = 0, minWidth = 0;//0 = no limit
+	uinteger maxHeight = 0, maxWidth = 0;
 }
 //Cell (these will make up the entire terminal display)
 struct Cell{
@@ -98,6 +79,8 @@ private:
 	string widgetCaption;
 	bool widgetShow = true;
 
+	uinteger widgetSizeRatio = 1;
+
 	//so Widget can call update
 	QLayout* owner;
 public:
@@ -105,8 +88,8 @@ public:
 	this(QLayout* ownerLayout){
 		owner = ownerLayout;
 	}
-	//called by owner when mouse is clicked with cursor on widget
-	abstract void onClick(MousePosition cursorPos);
+	///called by owner when mouse is clicked with cursor on widget
+	abstract void onClick(MouseClick mouse);
 	///called by owner when widget is selected and a key is pressed
 	abstract void onKeyPress(KeyPress key);
 	///Called by owner when the terminal is updating, use this to update the widget
@@ -127,10 +110,27 @@ public:
 		return widgetPosition = newPosition;
 	}
 
+	@property uinteger sizeRatio(){
+		return widgetSizeRatio;
+	}
+	@property uinteger sizeRatio(uinteger newRatio){
+		return widgetSizeRatio = newRatio;
+	}
+
 	@property Size size(){
 		return widgetSize;
 	}
 	@property Size size(Size newSize){
+		//check if height or width < min
+		if (newSize.height < newSize.minHeight || newSize.width < newSize.minWidth){
+			return widgetSize;
+		}
+		if (newSize.height > newSize.maxHeight || newSize.width > newSize.maxWidth){
+			return widgetSize;
+		}
+		if (newSize.minWidth > newSize.maxWidth || newSize.minHeight > newSize.maxHeight){
+			return widgetSize;
+		}
 		return widgetSize = newSize;
 	}
 }
@@ -143,6 +143,69 @@ private:
 	QTerminal* ownerTerminal;
 	QLayout* ownerLayout;
 	LayoutDisplayType layoutType;
+
+	void recalculateWidgetsSize(){
+		uinteger ratioTotal = 0;
+		Size newSize;
+		//calculate total ratio
+		foreach (currentWidget; widgetList){
+			ratioTotal += currentWidget.sizeRatio;
+		}
+		Position newPosition;
+		
+		if (layoutType == LayoutDisplayType.Vertical){
+			//make space for new widget
+			uinteger availableHeight = widgetSize.height;
+			uinteger newHeight;
+			foreach(w; widgetList){
+				//if a widget is at it's minHeight, skip it
+				if (w.size.height > w.size.minHeight){
+					//recalculate position
+					newPosition.x = widgetPosition.x;//x axis is always same, cause this is a vertical (not horizontal) layout
+					newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
+					//recalculate height
+					newHeight = ratioToRaw(w.sizeRatio, ratioTotal, availableHeight);
+					if (newHeight < w.size.minHeight){
+						newHeight = w.size.minHeight;
+					}else if (newHeight > w.size.maxHeight){
+						newHeight = w.size.maxHeight;
+					}
+					newSize = w.size;
+					newSize.height = newHeight;
+					w.size = newSize;
+					//now the new size has been assigned, calculate amount of space & ratios left
+					availableHeight -= newHeight;
+					ratioTotal -= w.sizeRatio;
+				}
+			}
+		}else if (layoutType == LayoutDisplayType.Horizontal){
+			//make space for new widget
+			uinteger availableWidth = widgetSize.width;
+			uinteger newWidth;
+			foreach(w; widgetList){
+				//if a widget is at it's minHeight, skip it
+				if (w.size.width > w.size.minWidth){
+					//recalculate position
+					newPosition.y = widgetPosition.y;//y axis is always same, cause this is a horizontal (not vertical) layout
+					newPosition.x += newWidth+1;//add previous widget's height to get new y axis position
+					//recalculate height
+					newWidth = ratioToRaw(w.sizeRatio, ratioTotal, availableWidth);
+					if (newWidth < w.size.minWidth){
+						newWidth = w.size.minWidth;
+					}else if (newWidth > w.size.maxWidth){
+						newWidth = w.size.maxHeight;
+					}
+					newSize = w.size;
+					newSize.width = newWidth;
+					w.size = newSize;
+					//now the new size has been assigned, calculate amount of space & ratios left
+					availableWidth -= newWidth;
+					ratioTotal -= w.sizeRatio;
+				}
+			}
+		}
+	}
+
 public:
 	enum LayoutDisplayType{
 		Vertical,
@@ -154,14 +217,13 @@ public:
 	}
 
 	void addWidget(QWidget widget){
-		if (layoutType == LayoutDisplayType.Vertical){
-
-		}else if (layoutType == LayoutDisplayType.Horizontal){
-
-		}
+		//add it to array
+		widgetList ~= widget;
+		//recalculate all widget's size to adjust
+		recalculateWidgetsSize();
 	}
 
-	void onClick(MousePosition cursorPos){
+	void onClick(MouseClick mouse){
 		//check on which widget the cursor was on
 		Position p;
 		Size s;
@@ -172,14 +234,14 @@ public:
 			p = widget.position;
 			s = widget.size;
 			//check x-axis
-			if (cursorPos.x >= p.x && cursorPos.x < p.x + s.width){
+			if (mouse.x >= p.x && mouse.x < p.x + s.width){
 				//check y-axis
-				if (cursorPos.y >= p.y && cursorPos.y < p.y + s.height){
+				if (mouse.y >= p.y && mouse.y < p.y + s.height){
 					//then this is the widget
 					//mark this widget as active
 					activeWidget = &widget;
 					//and call onClick
-					widget.onClick(cursorPos);
+					widget.onClick(mouse);
 					break;
 				}
 			}
@@ -232,7 +294,7 @@ public:
 			}else if (event.type == event.Type.MouseEvent){
 				MouseEvent mEvent = event.get!(event.Type.MouseEvent);
 				if (mEvent.buttons != MouseEvent.Button.None){
-					MousePosition mPos;
+					MouseClick mPos;
 					mPos.x = mEvent.x;
 					mPos.y = mEvent.y;
 					switch (mEvent.buttons){
@@ -291,8 +353,8 @@ public:
 }
 
 //misc functions:
-private uinteger percentToRaw(uinteger percent, uinteger total){
+private uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
 	uinteger r;
-	r = cast(uinteger)((cast(float)percent/cast(float)100)*total);
+	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
 	return r;
 }
