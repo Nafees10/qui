@@ -10,11 +10,12 @@ struct MouseClick{
 		Left,
 		ScrollUp,
 		ScrollDown,
-		Right
+		Right,
+		None ///Indicates that mouse was moved, not clicked
 	}
 	Button mouseButton;
-	int x;
-	int y;
+	uinteger x;
+	uinteger y;
 }
 
 //Key press event
@@ -165,9 +166,9 @@ private:
 					newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
 					//recalculate height
 					newHeight = ratioToRaw(w.sizeRatio, ratioTotal, availableHeight);
-					if (newHeight < w.size.minHeight){
+					if (w.size.minHeight > 0 && newHeight < w.size.minHeight){
 						newHeight = w.size.minHeight;
-					}else if (newHeight > w.size.maxHeight){
+					}else if (w.size.maxHeight > 0 && newHeight > w.size.maxHeight){
 						newHeight = w.size.maxHeight;
 					}
 					newSize = w.size;
@@ -183,17 +184,18 @@ private:
 			uinteger availableWidth = widgetSize.width;
 			uinteger newWidth;
 			foreach(w; widgetList){
-				//if a widget is at it's minHeight, skip it
+				//if a widget is at it's minWidth, skip it
 				if (w.size.width > w.size.minWidth){
 					//recalculate position
 					newPosition.y = widgetPosition.y;//y axis is always same, cause this is a horizontal (not vertical) layout
 					newPosition.x += newWidth+1;//add previous widget's height to get new y axis position
+					w.position = newPosition;
 					//recalculate height
 					newWidth = ratioToRaw(w.sizeRatio, ratioTotal, availableWidth);
-					if (newWidth < w.size.minWidth){
+					if (w.size.minWidth > 0 && newWidth < w.size.minWidth){
 						newWidth = w.size.minWidth;
-					}else if (newWidth > w.size.maxWidth){
-						newWidth = w.size.maxHeight;
+					}else if (w.size.maxWidth > 0 && newWidth > w.size.maxWidth){
+						newWidth = w.size.maxWidth;
 					}
 					newSize = w.size;
 					newSize.width = newWidth;
@@ -293,28 +295,29 @@ public:
 				this.onKeyPress(kPress);
 			}else if (event.type == event.Type.MouseEvent){
 				MouseEvent mEvent = event.get!(event.Type.MouseEvent);
-				if (mEvent.buttons != MouseEvent.Button.None){
-					MouseClick mPos;
-					mPos.x = mEvent.x;
-					mPos.y = mEvent.y;
-					switch (mEvent.buttons){
-						case MouseEvent.Button.Left:
-							mPos.mouseButton = mPos.Button.Left;
-							break;
-						case MouseEvent.Button.Right:
-							mPos.mouseButton = mPos.Button.Right;
-							break;
-						case MouseEvent.Button.ScrollUp:
-							mPos.mouseButton = mPos.Button.ScrollUp;
-							break;
-						case MouseEvent.Button.ScrollDown:
-							mPos.mouseButton = mPos.Button.ScrollDown;
-							break;
-						default:
-							continue;
-					}
-					this.onClick(mPos);
+				MouseClick mPos;
+				mPos.x = mEvent.x;
+				mPos.y = mEvent.y;
+				switch (mEvent.buttons){
+					case MouseEvent.Button.Left:
+						mPos.mouseButton = mPos.Button.Left;
+						break;
+					case MouseEvent.Button.Right:
+						mPos.mouseButton = mPos.Button.Right;
+						break;
+					case MouseEvent.Button.ScrollUp:
+						mPos.mouseButton = mPos.Button.ScrollUp;
+						break;
+					case MouseEvent.Button.ScrollDown:
+						mPos.mouseButton = mPos.Button.ScrollDown;
+						break;
+					case MouseEvent.Button.None:
+						mPos.mouseButton = mPos.Button.None;
+						break;
+					default:
+						continue;
 				}
+				this.onClick(mPos);
 			}else if (event.type == event.Type.SizeChangedEvent){
 				this.update;
 			}
