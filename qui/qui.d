@@ -2,6 +2,7 @@
 
 import misc;
 import lists;
+import baseconv;//used for hexadecimal colors
 import arsd.terminal;
 
 //MouseClick event
@@ -74,12 +75,12 @@ struct Cell{
 
 //base class for all widgets, including layouts
 abstract class QWidget{
-private:
+protected:
 	Position widgetPosition;
 	Size widgetSize;
 	string widgetCaption;
 	bool widgetShow = true;
-	bool needsUpdate = false;
+	bool needsUpdate = true;
 
 	uinteger widgetSizeRatio = 1;
 public:
@@ -232,7 +233,8 @@ public:
 
 	void addWidget(QWidget widget){
 		//add it to array
-		widgetList ~= widget;
+		widgetList.length++;
+		widgetList[widgetList.length-1] = widget;
 		//recalculate all widget's size to adjust
 		recalculateWidgetsSize();
 	}
@@ -268,12 +270,15 @@ public:
 		}
 	}
 	bool update(ref Matrix display){
+		//first resize all widgets, the size could've changed
+		recalculateWidgetsSize;
 		//go through all widgets, check if they need update, update them
 		bool updated = false;
 		Matrix wDisplay = new Matrix(1,1);
 		foreach(widget; widgetList){
 			if (widget.visible){
 				wDisplay.changeSize(widget.size.width, widget.size.height);
+				wDisplay.setWriteLimits(0, 0, widget.size.width, widget.size.height);//to prevent writing outside limits
 				if (widget.update(wDisplay)){
 					display.insert(wDisplay, widget.position.x, widget.position.y);
 					updated = true;
@@ -311,8 +316,6 @@ public:
 		delete termDisplay;
 	}
 
-	///do not use this function
-
 	///Use this to forcefully update teriminal, returns true if at least 1 widget was updated
 	bool updateDisplay(){
 		bool r = update(termDisplay);
@@ -322,10 +325,12 @@ public:
 		return r;
 	}
 
-
 	void run(){
 		InputEvent event;
 		isRunning = true;
+		//draw the whole thing
+		recalculateWidgetsSize;
+		updateDisplay();
 		while (isRunning){
 			event = input.nextEvent;
 			//check event type
@@ -364,6 +369,11 @@ public:
 				widgetSize.width = terminal.width;
 				//call size change on all widgets
 				recalculateWidgetsSize;
+			}else if (event.type == event.Type.UserInterruptionEvent){
+				//die here
+				terminal.clear;
+				isRunning = false;
+				break;
 			}
 		}
 	}
@@ -382,9 +392,6 @@ public:
 	}
 
 	//functions below are used by Matrix.flushToTerminal
-	void updateDislay(){
-		terminal.flush;
-	}
 	void setColors(RGBColor textColor, RGBColor bgColor){
 		terminal.setTrueColor(textColor, bgColor);
 	}
@@ -400,8 +407,23 @@ public:
 }
 
 //misc functions:
-private uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
+uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
 	uinteger r;
 	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
 	return r;
 }
+
+RGBColor hexToColor(string hex){
+	RGBColor r;
+	r.r = cast(ubyte)hexToDen(hex[0..2]);
+	r.g = cast(ubyte)hexToDen(hex[2..4]);
+	r.b = cast(ubyte)hexToDen(hex[4..6]);
+	return r;
+}
+
+
+/* Color standards
+ * background: black, 000000
+ * text: green, 00FF00
+ * selected-widget: ???
+*/
