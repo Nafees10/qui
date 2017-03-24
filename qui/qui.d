@@ -177,6 +177,7 @@ private:
 					//recalculate position
 					newPosition.x = widgetPosition.x;//x axis is always same, cause this is a vertical (not horizontal) layout
 					newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
+					w.position = newPosition;
 					//recalculate height
 					newHeight = ratioToRaw(w.sizeRatio, ratioTotal, availableHeight);
 					if (w.size.minHeight > 0 && newHeight < w.size.minHeight){
