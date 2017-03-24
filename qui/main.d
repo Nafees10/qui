@@ -1,8 +1,18 @@
 ﻿module main;
 
-import std.stdio;
+import qui;
+import widgets;
 
 void main(string[] args){
-	readln();
+	TextLabelWidget label = new TextLabelWidget;
+	label.caption = "Caption";
+	label.sizeRatio = 1;
+	QTerminal term = new QTerminal("Title");
+	term.addWidget(label);
+
+	term.run;
+
+	delete term;
+	delete label;
 }
 
