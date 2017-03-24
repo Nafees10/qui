@@ -293,54 +293,56 @@ public:
 	}
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal* terminal){
-		uinteger row = 0, col = 0, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
-		uinteger writeFrom = 0;
-		RGBColor prevBgColor, prevTextColor;
-		//set initial colors
-		prevBgColor = matrix[row][col].bgColor;
-		prevTextColor = matrix[row][col].textColor;
-		char[] toWrite;
-		toWrite.length = width;
-		terminal.setColors(prevTextColor, prevBgColor);
-		for (; row <= rowEnd && col <= colEnd; col++){
-			//if row just started, copy chars into `toWrite`
-			if (col == 0){
-				for (uinteger i = 0; i < width; i++){
-					toWrite[i] = matrix[row][i].c;
+		if (updateNeeded){
+			uinteger row = 0, col = 0, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
+			uinteger writeFrom = 0;
+			RGBColor prevBgColor, prevTextColor;
+			//set initial colors
+			prevBgColor = matrix[row][col].bgColor;
+			prevTextColor = matrix[row][col].textColor;
+			char[] toWrite;
+			toWrite.length = width;
+			terminal.setColors(prevTextColor, prevBgColor);
+			for (; row <= rowEnd && col <= colEnd; col++){
+				//if row just started, copy chars into `toWrite`
+				if (col == 0){
+					for (uinteger i = 0; i < width; i++){
+						toWrite[i] = matrix[row][i].c;
+					}
+				}
+				//check if has to move to next row
+				if (col >= colEnd){
+					//write remaining row to terminal
+					if (writeFrom < col){
+						terminal.writeChars(toWrite[writeFrom .. col+1]);
+					}
+					//move to next row
+					writeFrom = 0;
+					col = 0;
+					row++;
+					terminal.moveTo(cast(int)col, cast(int)row);
+				}
+				//check if colors have changed, if yes, write chars
+				if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
+					//write previous chars
+					if (writeFrom < col){
+						terminal.writeChars(toWrite[writeFrom .. col]);
+					}
+					writeFrom = col;
+					//update colors
+					prevBgColor = matrix[row][col].bgColor;
+					prevTextColor = matrix[row][col].textColor;
+					terminal.setColors(prevTextColor, prevBgColor);
+				}
+				//check if is at end, then write remaining chars
+				if (row == rowEnd && col == colEnd){
+					//set colors, could be different
+					terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
+					terminal.writeChars(matrix[row][col].c);
 				}
 			}
-			//check if has to move to next row
-			if (col >= colEnd){
-				//write remaining row to terminal
-				if (writeFrom < col){
-					terminal.writeChars(toWrite[writeFrom .. col+1]);
-				}
-				//move to next row
-				writeFrom = 0;
-				col = 0;
-				row++;
-				terminal.moveTo(cast(int)col, cast(int)row);
-			}
-			//check if colors have changed, if yes, write chars
-			if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
-				//write previous chars
-				if (writeFrom < col){
-					terminal.writeChars(toWrite[writeFrom .. col]);
-				}
-				writeFrom = col;
-				//update colors
-				prevBgColor = matrix[row][col].bgColor;
-				prevTextColor = matrix[row][col].textColor;
-				terminal.setColors(prevTextColor, prevBgColor);
-			}
-			//check if is at end, then write remaining chars
-			if (row == rowEnd && col == colEnd){
-				//set colors, could be different
-				terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
-				terminal.writeChars(matrix[row][col].c);
-			}
+			updateNeeded = false;
+			terminal.updateDislay;
 		}
-		updateNeeded = false;
-		terminal.update;
 	}
 }
