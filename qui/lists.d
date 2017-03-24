@@ -192,8 +192,8 @@ public:
 		//set matrix size
 		matrix.length = height;
 		//set width:
-		foreach(row; matrix){
-			row.length = width;
+		for (uinteger i = 0; i < matrix.length; i++){
+			matrix[i].length = width;
 		}
 	}
 	///Change size of the matrix, width and height
@@ -205,8 +205,8 @@ public:
 		}
 		if (r){
 			matrix.length = height;
-			foreach(row; matrix){
-				row.length = width;
+			for (uinteger i = 0; i < matrix.length; i++){
+				matrix[i].length = width;
 			}
 		}
 		return r;
@@ -217,24 +217,27 @@ public:
 		wY = startY;
 		xPosition = wX;
 		yPosition = wY;
-		wXEnd = (width-wX)-1;
-		wYEnd = (height-wY)-1;
+		wXEnd = width-wX;
+		wYEnd = height-wY;
 	}
 	///used to write to matrix, call Matrix.setWriteLimits before this
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
 		uinteger i;
-		for (i = 0; xPosition <= wXEnd && yPosition <= wYEnd && i < c.length; xPosition++){
+		for (i = 0; xPosition < wXEnd && yPosition < wYEnd && i < c.length; xPosition++){
 			if (xPosition >= wXEnd){
 				//move to next row
 				yPosition++;
 				xPosition = wX;
 			}
 			//check if no more space left
-			if (xPosition >= wXEnd && yPosition >= wYEnd){
+			if (xPosition == 0 && yPosition >= wYEnd){
 				//no more space left
 				break;
 			}
 			matrix[yPosition][xPosition].c = c[i];
+			matrix[yPosition][xPosition].bgColor = bgColor;
+			matrix[yPosition][xPosition].textColor = textColor;
+			i++;
 		}
 		updateNeeded = true;
 	}
@@ -278,14 +281,14 @@ public:
 			uinteger col = x;
 			uinteger row = y;
 			uinteger endAtCol = x + width-1, endAtRow = y + height-1;
-			for (; col<endAtCol && row<endAtRow; col++){
+			for (; col<=endAtCol && row<=endAtRow; col++){
+				//copy cells
+				matrix[row][col] = toInsert.read(col, row);
 				//check if has to move to next row/line
 				if (col >= endAtCol && row < endAtRow){
 					row++;
 					col = x;
 				}
-				//copy cells
-				matrix[row][col] = toInsert.read(col, row);
 			}
 		}
 		updateNeeded = true;
@@ -320,6 +323,9 @@ public:
 					writeFrom = 0;
 					col = 0;
 					row++;
+					if (row >= rowEnd){
+						break;
+					}
 					terminal.moveTo(cast(int)col, cast(int)row);
 				}
 				//check if colors have changed, if yes, write chars
@@ -342,7 +348,6 @@ public:
 				}
 			}
 			updateNeeded = false;
-			terminal.updateDislay;
 		}
 	}
 }
