@@ -75,13 +75,3 @@ string denToHex(uinteger den){
 	ubyte[] buffer;
 	return toFormat(fromDenary(16,den),cast(char[])"0123456789ABCDEF");
 }
-
-import arsd.terminal;
-
-RGB hexToColor(string hex){
-	RGB r;
-	r.r = cast(ubyte)hexToDen(hex[0..2]);
-	r.g = cast(ubyte)hexToDen(hex[2..4]);
-	r.b = cast(ubyte)hexToDen(hex[4..6]);
-	return r;
-}
