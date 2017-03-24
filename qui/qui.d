@@ -79,28 +79,27 @@ private:
 	Size widgetSize;
 	string widgetCaption;
 	bool widgetShow = true;
+	bool needsUpdate = false;
 
 	uinteger widgetSizeRatio = 1;
-
-	//so Widget can call update
-	QLayout* owner;
 public:
 	//constructor, to define owner and ownerTerminal
-	this(QLayout* ownerLayout){
+	/*this(QLayout* ownerLayout){
 		owner = ownerLayout;
-	}
+	}*/
 	///called by owner when mouse is clicked with cursor on widget
 	abstract void onClick(MouseClick mouse);
 	///called by owner when widget is selected and a key is pressed
 	abstract void onKeyPress(KeyPress key);
 	///Called by owner when the terminal is updating, use this to update the widget
-	abstract void update(ref Matrix display);
+	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 
 	//properties:
 	@property string caption(){
 		return widgetCaption;
 	}
 	@property string caption(string newCaption){
+		needsUpdate = true;
 		return widgetCaption = newCaption;
 	}
 
@@ -115,7 +114,15 @@ public:
 		return widgetSizeRatio;
 	}
 	@property uinteger sizeRatio(uinteger newRatio){
+		needsUpdate = true;
 		return widgetSizeRatio = newRatio;
+	}
+
+	@property bool visible(){
+		return widgetShow;
+	}
+	@property bool visible(bool visibility){
+		return widgetShow = visibility;
 	}
 
 	@property Size size(){
@@ -132,6 +139,7 @@ public:
 		if (newSize.minWidth > newSize.maxWidth || newSize.minHeight > newSize.maxHeight){
 			return widgetSize;
 		}
+		needsUpdate = true;
 		return widgetSize = newSize;
 	}
 }
@@ -141,9 +149,13 @@ class QLayout : QWidget{
 private:
 	QWidget[] widgetList;
 	QWidget* activeWidget;
-	QTerminal* ownerTerminal;
-	QLayout* ownerLayout;
 	LayoutDisplayType layoutType;
+	/* Just a note: Layouts do not use these variables inherited from QWidget:
+	 * widgetCaption
+	 * needsUpdate
+	 * 
+	 * They have no caption, and needsUpdate is determined by child widgets
+	*/
 
 	void recalculateWidgetsSize(){
 		uinteger ratioTotal = 0;
@@ -159,8 +171,8 @@ private:
 			uinteger availableHeight = widgetSize.height;
 			uinteger newHeight;
 			foreach(w; widgetList){
-				//if a widget is at it's minHeight, skip it
-				if (w.size.height > w.size.minHeight){
+				//if a widget is at it's minHeight, or if it's not visible, skip it
+				if (w.size.height > w.size.minHeight || w.visible == false){
 					//recalculate position
 					newPosition.x = widgetPosition.x;//x axis is always same, cause this is a vertical (not horizontal) layout
 					newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
@@ -184,8 +196,8 @@ private:
 			uinteger availableWidth = widgetSize.width;
 			uinteger newWidth;
 			foreach(w; widgetList){
-				//if a widget is at it's minWidth, skip it
-				if (w.size.width > w.size.minWidth){
+				//if a widget is at it's minWidth, or if it's not visible, skip it
+				if (w.size.width > w.size.minWidth || w.visible == false){
 					//recalculate position
 					newPosition.y = widgetPosition.y;//y axis is always same, cause this is a horizontal (not vertical) layout
 					newPosition.x += newWidth+1;//add previous widget's height to get new y axis position
@@ -213,8 +225,8 @@ public:
 		Vertical,
 		Horizontal,
 	}
-	this(LayoutDisplayType type, QLayout* owner = null){
-		super(owner);
+	this(LayoutDisplayType type/*, QLayout* owner = null*/){
+		//super(owner);
 		layoutType = type;
 	}
 
@@ -255,8 +267,20 @@ public:
 			activeWidget.onKeyPress(key);
 		}
 	}
-	void update(ref Matrix display){
-
+	bool update(ref Matrix display){
+		//go through all widgets, check if they need update, update them
+		bool updated = false;
+		Matrix wDisplay = new Matrix(1,1);
+		foreach(widget; widgetList){
+			if (widget.visible){
+				wDisplay.changeSize(widget.size.width, widget.size.height);
+				if (widget.update(wDisplay)){
+					display.insert(wDisplay, widget.position.x, widget.position.y);
+					updated = true;
+				}
+			}
+		}
+		return updated;
 	}
 }
 
@@ -264,11 +288,12 @@ class QTerminal : QLayout{
 private:
 	Terminal terminal;
 	RealTimeConsoleInput input;
+	Matrix termDisplay;
 	bool isRunning = false;
-	//QWidget[] widgetList;
+
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
-		super(displayType, null);
+		super(displayType/*, null*/);
 		//create terminal & input
 		terminal = Terminal(ConsoleOutputType.cellular);
 		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
@@ -278,10 +303,25 @@ public:
 		widgetCaption = caption;
 		//set caption
 		terminal.setTitle(widgetCaption);
+		//create display matrix
+		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
 	}
 	~this(){
 		terminal.clear;
+		delete termDisplay;
 	}
+
+	///do not use this function
+
+	///Use this to forcefully update teriminal, returns true if at least 1 widget was updated
+	bool updateDisplay(){
+		bool r = update(termDisplay);
+		if (r){
+			termDisplay.flushToTerminal(&this);
+		}
+		return r;
+	}
+
 
 	void run(){
 		InputEvent event;
@@ -319,7 +359,11 @@ public:
 				}
 				this.onClick(mPos);
 			}else if (event.type == event.Type.SizeChangedEvent){
-				this.update;
+				//update self size
+				widgetSize.height = terminal.height;
+				widgetSize.width = terminal.width;
+				//call size change on all widgets
+				recalculateWidgetsSize;
 			}
 		}
 	}
@@ -338,7 +382,7 @@ public:
 	}
 
 	//functions below are used by Matrix.flushToTerminal
-	void update(){
+	void updateDislay(){
 		terminal.flush;
 	}
 	void setColors(RGBColor textColor, RGBColor bgColor){
