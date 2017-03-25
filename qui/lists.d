@@ -188,16 +188,17 @@ private:
 	//stores whether the terminal needs updating or not
 	bool updateNeeded = false;
 public:
-	this(uinteger width, uinteger height){
+	this(uinteger width, uinteger height, Cell fill){
 		//set matrix size
 		matrix.length = height;
 		//set width:
 		for (uinteger i = 0; i < matrix.length; i++){
 			matrix[i].length = width;
+			matrix[i][0 .. width] = fill;
 		}
 	}
 	///Change size of the matrix, width and height
-	bool changeSize(uinteger width, uinteger height){
+	bool changeSize(uinteger width, uinteger height, Cell fill){
 		//make sure width & size are at least 1
 		bool r = true;
 		if (width == 0 || height == 0){
@@ -207,6 +208,7 @@ public:
 			matrix.length = height;
 			for (uinteger i = 0; i < matrix.length; i++){
 				matrix[i].length = width;
+				matrix[i][0 .. width] = fill;
 			}
 		}
 		return r;
@@ -265,6 +267,10 @@ public:
 	Cell read(uinteger x, uinteger y){
 		return matrix[y][x];
 	}
+	///read a complete row from matrix
+	Cell[] readRow(uinteger y){
+		return matrix[y][];
+	}
 	///returns whether terminal needs to be updated
 	@property bool hasChanged(){
 		return updateNeeded;
@@ -278,17 +284,10 @@ public:
 		if (height + y > this.height || width + x > this.width){
 			r = false;
 		}else{
-			uinteger col = x;
 			uinteger row = y;
-			uinteger endAtCol = x + width-1, endAtRow = y + height-1;
-			for (; col<=endAtCol && row<=endAtRow; col++){
-				//copy cells
-				matrix[row][col] = toInsert.read(col, row);
-				//check if has to move to next row/line
-				if (col >= endAtCol && row < endAtRow){
-					row++;
-					col = x;
-				}
+			uinteger endAtRow = height;
+			for (;row<endAtRow; row++){
+				matrix[y + row] = toInsert.readRow(row);
 			}
 		}
 		updateNeeded = true;
@@ -297,6 +296,8 @@ public:
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal* terminal){
 		if (updateNeeded){
+			//first clear everything:
+			terminal.clear;
 			uinteger row = 0, col = 0, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
 			uinteger writeFrom = 0;
 			RGBColor prevBgColor, prevTextColor;
@@ -306,13 +307,11 @@ public:
 			char[] toWrite;
 			toWrite.length = width;
 			terminal.setColors(prevTextColor, prevBgColor);
+			//copy first row's chars
+			for (uinteger i = 0; i < width; i++){
+				toWrite[i] = matrix[row][i].c;
+			}
 			for (; row <= rowEnd && col <= colEnd; col++){
-				//if row just started, copy chars into `toWrite`
-				if (col == 0){
-					for (uinteger i = 0; i < width; i++){
-						toWrite[i] = matrix[row][i].c;
-					}
-				}
 				//check if has to move to next row
 				if (col >= colEnd){
 					//write remaining row to terminal
@@ -325,6 +324,10 @@ public:
 					row++;
 					if (row >= rowEnd){
 						break;
+					}
+					//copy row's chars
+					for (uinteger i = 0; i < width; i++){
+						toWrite[i] = matrix[row][i].c;
 					}
 					terminal.moveTo(cast(int)col, cast(int)row);
 				}
