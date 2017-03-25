@@ -84,15 +84,11 @@ protected:
 
 	uinteger widgetSizeRatio = 1;
 public:
-	//constructor, to define owner and ownerTerminal
-	/*this(QLayout* ownerLayout){
-		owner = ownerLayout;
-	}*/
-	///called by owner when mouse is clicked with cursor on widget
+	///called by owner when mouse is clicked with cursor on this widget
 	abstract void onClick(MouseClick mouse);
 	///called by owner when widget is selected and a key is pressed
 	abstract void onKeyPress(KeyPress key);
-	///Called by owner when the terminal is updating, use this to update the widget
+	///called when the owner is redrawing, return false if no need to redraw
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 
 	//properties:
@@ -131,17 +127,18 @@ public:
 	}
 	@property Size size(Size newSize){
 		//check if height or width < min
-		if (newSize.height < newSize.minHeight || newSize.width < newSize.minWidth){
+		if (newSize.minWidth > 0 && newSize.width < newSize.minWidth){
 			return widgetSize;
-		}
-		if (newSize.height > newSize.maxHeight || newSize.width > newSize.maxWidth){
+		}else if (newSize.maxWidth > 0 && newSize.width > newSize.maxWidth){
 			return widgetSize;
-		}
-		if (newSize.minWidth > newSize.maxWidth || newSize.minHeight > newSize.maxHeight){
+		}else if (newSize.minHeight > 0 && newSize.height < newSize.minHeight){
 			return widgetSize;
+		}else if (newSize.maxHeight > 0 && newSize.height > newSize.maxHeight){
+			return widgetSize;
+		}else{
+			needsUpdate = true;
+			return widgetSize = newSize;
 		}
-		needsUpdate = true;
-		return widgetSize = newSize;
 	}
 }
 
@@ -151,6 +148,10 @@ private:
 	QWidget[] widgetList;
 	QWidget* activeWidget;
 	LayoutDisplayType layoutType;
+
+	RGBColor backColor;
+	RGBColor foreColor;
+	Cell emptySpace;
 	/* Just a note: Layouts do not use these variables inherited from QWidget:
 	 * widgetCaption
 	 * needsUpdate
@@ -166,17 +167,22 @@ private:
 			ratioTotal += currentWidget.sizeRatio;
 		}
 		Position newPosition;
+		uinteger newWidth = 0, newHeight = 0;
+		uinteger availableWidth = widgetSize.width;
+		uinteger availableHeight = widgetSize.height;
 		
 		if (layoutType == LayoutDisplayType.Vertical){
 			//make space for new widget
-			uinteger availableHeight = widgetSize.height;
-			uinteger newHeight;
 			foreach(w; widgetList){
-				//if a widget is at it's minHeight, or if it's not visible, skip it
-				if (w.size.height > w.size.minHeight || w.visible == false){
+				//if a widget is not visible, skip it
+				if (w.visible){
 					//recalculate position
 					newPosition.x = widgetPosition.x;//x axis is always same, cause this is a vertical (not horizontal) layout
-					newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
+					if (newHeight > 0){
+						newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
+					}else{
+						newPosition.y = 0;
+					}
 					w.position = newPosition;
 					//recalculate height
 					newHeight = ratioToRaw(w.sizeRatio, ratioTotal, availableHeight);
@@ -185,8 +191,26 @@ private:
 					}else if (w.size.maxHeight > 0 && newHeight > w.size.maxHeight){
 						newHeight = w.size.maxHeight;
 					}
-					newSize = w.size;
+					//recalculate width
+					newWidth = widgetSize.width;//default is max
+					//compare with min & max
+					if (w.size.minWidth > 0 && newWidth < w.size.minWidth){
+						//although there isn't that much width, still assign it, that will be dealt with later
+						newWidth = w.size.minWidth;
+					}else if (w.size.maxWidth > 0 && newWidth > w.size.maxWidth){
+						newWidth = w.size.maxWidth;
+					}
+					//check if there's not enough space available, then make it invisible
+					if (newWidth > availableWidth || newHeight > availableHeight){
+						newWidth = 0;
+						newHeight = 0;
+						w.visible = false;
+						continue;
+					}
+					//apply new size
+					newSize = w.size;//to get min and max values
 					newSize.height = newHeight;
+					newSize.width = newWidth;
 					w.size = newSize;
 					//now the new size has been assigned, calculate amount of space & ratios left
 					availableHeight -= newHeight;
@@ -195,27 +219,47 @@ private:
 			}
 		}else if (layoutType == LayoutDisplayType.Horizontal){
 			//make space for new widget
-			uinteger availableWidth = widgetSize.width;
-			uinteger newWidth;
 			foreach(w; widgetList){
-				//if a widget is at it's minWidth, or if it's not visible, skip it
-				if (w.size.width > w.size.minWidth || w.visible == false){
+				//if a widget is not visible, skip it
+				if (w.visible){
 					//recalculate position
-					newPosition.y = widgetPosition.y;//y axis is always same, cause this is a horizontal (not vertical) layout
-					newPosition.x += newWidth+1;//add previous widget's height to get new y axis position
+					newPosition.y = widgetPosition.y;//x axis is always same, cause this is a vertical (not horizontal) layout
+					if (newWidth > 0){
+						newPosition.x += newWidth+1;//add previous widget's height to get new y axis position
+					}else{
+						newPosition.x = 0;
+					}
 					w.position = newPosition;
-					//recalculate height
+					//recalculate width
 					newWidth = ratioToRaw(w.sizeRatio, ratioTotal, availableWidth);
 					if (w.size.minWidth > 0 && newWidth < w.size.minWidth){
 						newWidth = w.size.minWidth;
 					}else if (w.size.maxWidth > 0 && newWidth > w.size.maxWidth){
 						newWidth = w.size.maxWidth;
 					}
-					newSize = w.size;
+					//recalculate height
+					newHeight = widgetSize.height;//default is max
+					//compare with min & max
+					if (w.size.minHeight > 0 && newHeight < w.size.minHeight){
+						//although there isn't that much width, still assign it, that will be dealt with later
+						newHeight = w.size.minHeight;
+					}else if (w.size.maxHeight > 0 && newHeight > w.size.maxHeight){
+						newHeight = w.size.maxHeight;
+					}
+					//check if there's not enough space available, then make it invisible
+					if (newWidth > availableWidth || newHeight > availableHeight){
+						newWidth = 0;
+						newHeight = 0;
+						w.visible = false;
+						continue;
+					}
+					//apply new size
+					newSize = w.size;//to get min and max values
+					newSize.height = newHeight;
 					newSize.width = newWidth;
 					w.size = newSize;
 					//now the new size has been assigned, calculate amount of space & ratios left
-					availableWidth -= newWidth;
+					availableHeight -= newHeight;
 					ratioTotal -= w.sizeRatio;
 				}
 			}
@@ -227,9 +271,14 @@ public:
 		Vertical,
 		Horizontal,
 	}
-	this(LayoutDisplayType type/*, QLayout* owner = null*/){
+	this(LayoutDisplayType type){
 		//super(owner);
 		layoutType = type;
+		activeWidget = null;
+
+		emptySpace.bgColor = hexToColor("000000");
+		emptySpace.textColor = hexToColor("00FF00");
+		emptySpace.c = ' ';
 	}
 
 	void addWidget(QWidget widget){
@@ -266,19 +315,17 @@ public:
 	}
 	void onKeyPress(KeyPress key){
 		//check active widget, call onKeyPress
-		if (activeWidget !is null){
-			activeWidget.onKeyPress(key);
-		}
+		/*if (activeWidget){
+			(*activeWidget).onKeyPress(key);
+		}*/
 	}
 	bool update(ref Matrix display){
-		//first resize all widgets, the size could've changed
-		recalculateWidgetsSize;
 		//go through all widgets, check if they need update, update them
 		bool updated = false;
-		Matrix wDisplay = new Matrix(1,1);
+		Matrix wDisplay = new Matrix(1,1,emptySpace);
 		foreach(widget; widgetList){
 			if (widget.visible){
-				wDisplay.changeSize(widget.size.width, widget.size.height);
+				wDisplay.changeSize(widget.size.width, widget.size.height, emptySpace);
 				wDisplay.setWriteLimits(0, 0, widget.size.width, widget.size.height);//to prevent writing outside limits
 				if (widget.update(wDisplay)){
 					display.insert(wDisplay, widget.position.x, widget.position.y);
@@ -299,7 +346,7 @@ private:
 
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
-		super(displayType/*, null*/);
+		super(displayType);
 		//create terminal & input
 		terminal = Terminal(ConsoleOutputType.cellular);
 		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
@@ -310,14 +357,14 @@ public:
 		//set caption
 		terminal.setTitle(widgetCaption);
 		//create display matrix
-		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
+		termDisplay = new Matrix(widgetSize.width, widgetSize.height, emptySpace);
 	}
 	~this(){
 		terminal.clear;
 		delete termDisplay;
 	}
 
-	///Use this to forcefully update teriminal, returns true if at least 1 widget was updated
+	///Use this to update teriminal, returns true if at least 1 widget was updated, don't call update directly on terminal
 	bool updateDisplay(){
 		bool r = update(termDisplay);
 		if (r){
@@ -339,6 +386,7 @@ public:
 				KeyPress kPress;
 				kPress.key = event.get!(event.Type.KeyboardEvent).which;
 				this.onKeyPress(kPress);
+				updateDisplay;
 			}else if (event.type == event.Type.MouseEvent){
 				MouseEvent mEvent = event.get!(event.Type.MouseEvent);
 				MouseClick mPos;
@@ -364,12 +412,14 @@ public:
 						continue;
 				}
 				this.onClick(mPos);
+				updateDisplay;
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//update self size
 				widgetSize.height = terminal.height;
 				widgetSize.width = terminal.width;
 				//call size change on all widgets
 				recalculateWidgetsSize;
+				updateDisplay;
 			}else if (event.type == event.Type.UserInterruptionEvent){
 				//die here
 				terminal.clear;
@@ -393,6 +443,9 @@ public:
 	}
 
 	//functions below are used by Matrix.flushToTerminal
+	void clear(){
+		terminal.clear;
+	}
 	void setColors(RGBColor textColor, RGBColor bgColor){
 		terminal.setTrueColor(textColor, bgColor);
 	}
