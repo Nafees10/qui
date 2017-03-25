@@ -275,23 +275,37 @@ public:
 	@property bool hasChanged(){
 		return updateNeeded;
 	}
-	///insert a different matrix into this one at a position
+	///insert a matrix into this one at a position
 	bool insert(Matrix toInsert, uinteger x, uinteger y){
 		uinteger width, height;
 		height = toInsert.height;
 		width = toInsert.width;
 		bool r = true;
+		debug{toFile("/home/nafees/Desktop/b");}
 		if (height + y > this.height || width + x > this.width){
 			r = false;
 		}else{
-			uinteger row = y;
+			uinteger row = 0;
 			uinteger endAtRow = height;
 			for (;row<endAtRow; row++){
-				matrix[y + row] = toInsert.readRow(row);
+				matrix[y + row][x .. x+width] = toInsert.readRow(row);
 			}
 		}
 		updateNeeded = true;
+		debug{toFile("/home/nafees/Desktop/a");}
 		return r;
+	}
+	debug{
+		void toFile(string fname){
+			File f = File(fname, "w");
+			for (uinteger i = 0; i < matrix.length; i++){
+				for (uinteger j = 0; j < matrix[i].length; j++){
+					f.write(matrix[i][j].c);
+				}
+				f.write('|','\n');
+			}
+			f.close;
+		}
 	}
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal* terminal){
