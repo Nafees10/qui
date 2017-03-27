@@ -197,6 +197,12 @@ public:
 			matrix[i][0 .. width] = fill;
 		}
 	}
+	///Clear the matrix, and put fill in every cell
+	void clear(Cell fill){
+		for (uinteger row = 0; row < matrix.length; row++){
+			matrix[row][0 .. matrix[row].length] = fill;
+		}
+	}
 	///Change size of the matrix, width and height
 	bool changeSize(uinteger width, uinteger height, Cell fill){
 		//make sure width & size are at least 1
@@ -360,11 +366,15 @@ public:
 				//check if is at end, then write remaining chars
 				if (row == rowEnd && col == colEnd){
 					//set colors, could be different
+					if (writeFrom < col){
+						terminal.writeChars(toWrite[writeFrom .. col]);
+					}
 					terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
 					terminal.writeChars(matrix[row][col].c);
 				}
 			}
 			updateNeeded = false;
+			terminal.flush;
 		}
 	}
 }
