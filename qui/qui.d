@@ -5,21 +5,20 @@ import lists;
 import baseconv;//used for hexadecimal colors
 import arsd.terminal;
 
-//MouseClick event
+///Mouse Click, or Ms Wheel scroll event
 struct MouseClick{
 	enum Button{
 		Left,
 		ScrollUp,
 		ScrollDown,
 		Right,
-		None ///Indicates that mouse was moved, not clicked
 	}
 	Button mouseButton;
 	uinteger x;
 	uinteger y;
 }
 
-//Key press event
+///Key press event
 struct KeyPress{
 	dchar key;
 	bool isChar(){
@@ -52,20 +51,20 @@ struct KeyPress{
 	}
 }
 
-//same as termial.RGB, but using this, no need to `import terminal;` just for one struct
+///A 24 bit, RGB, color
 alias RGBColor = RGB;
 
-//Position
+///To store position for widgets
 struct Position{
 	uinteger x, y;
 }
-//Size for widgets
+///To store size for widgets
 struct Size{
 	uinteger width, height;
 	uinteger minHeight = 0, minWidth = 0;//0 = no limit
 	uinteger maxHeight = 0, maxWidth = 0;
 }
-//Cell (these will make up the entire terminal display)
+///Cell, character in terminal is a Cell, that has it's own background color, and foreground color
 struct Cell{
 	char c;
 	RGBColor textColor;
@@ -73,7 +72,7 @@ struct Cell{
 }
 
 
-//base class for all widgets, including layouts
+///base class for all widgets, including layouts and QTerminal
 abstract class QWidget{
 protected:
 	Position widgetPosition;
@@ -142,7 +141,7 @@ public:
 	}
 }
 
-//to contain widgets in an order
+///to contain widgets in an order, vertical or horizontal
 class QLayout : QWidget{
 private:
 	QWidget[] widgetList;
@@ -276,8 +275,8 @@ public:
 		layoutType = type;
 		activeWidget = null;
 
-		emptySpace.bgColor = hexToColor("000000");
-		emptySpace.textColor = hexToColor("00FF00");
+		emptySpace.bgColor = hexToColor("0000FF");
+		emptySpace.textColor = hexToColor("FFFFFF");
 		emptySpace.c = ' ';
 	}
 
@@ -366,6 +365,7 @@ public:
 
 	///Use this to update teriminal, returns true if at least 1 widget was updated, don't call update directly on terminal
 	bool updateDisplay(){
+		termDisplay.clear(emptySpace);
 		bool r = update(termDisplay);
 		if (r){
 			termDisplay.flushToTerminal(&this);
@@ -405,16 +405,16 @@ public:
 					case MouseEvent.Button.ScrollDown:
 						mPos.mouseButton = mPos.Button.ScrollDown;
 						break;
-					case MouseEvent.Button.None:
-						mPos.mouseButton = mPos.Button.None;
-						break;
 					default:
 						continue;
 				}
 				this.onClick(mPos);
 				updateDisplay;
 			}else if (event.type == event.Type.SizeChangedEvent){
+				//change matrix size
+				termDisplay.changeSize(cast(uinteger)terminal.width, cast(uinteger)terminal.height, emptySpace);
 				//update self size
+				terminal.updateSize;
 				widgetSize.height = terminal.height;
 				widgetSize.width = terminal.width;
 				//call size change on all widgets
@@ -443,6 +443,9 @@ public:
 	}
 
 	//functions below are used by Matrix.flushToTerminal
+	void flush(){
+		terminal.flush;
+	}
 	void clear(){
 		terminal.clear;
 	}
@@ -477,7 +480,7 @@ RGBColor hexToColor(string hex){
 
 
 /* Color standards
- * background: black, 000000
- * text: green, 00FF00
+ * background: black, BFBFBF
+ * text: green, FFFFFF
  * selected-widget: ???
 */
