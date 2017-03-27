@@ -8,9 +8,9 @@ void main(string[] args){
 	label.caption = "Caption";
 	label.sizeRatio = 1;
 	QTerminal term = new QTerminal("Title");
-	//term.addWidget(label);
+	term.addWidget(label);
 
-	ProgressbarWidget pBar = new ProgressbarWidget(ProgressbarWidget.Direction.Backward, 200, 40);
+	ProgressbarWidget pBar = new ProgressbarWidget(ProgressbarWidget.Direction.Forward, 200, 40);
 	term.addWidget(pBar);
 
 	term.run;
