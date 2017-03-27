@@ -5,14 +5,18 @@ import misc;
 import lists;
 
 class TextLabelWidget : QWidget{
+private:
+	RGBColor textColor, bgColor;
 public:
 	this(string caption = ""){
 		widgetCaption = caption;
+		textColor = hexToColor("000000");
+		bgColor = hexToColor("0000FF");
 	}
 	bool update(ref Matrix display){
 		if (needsUpdate && widgetShow){
 			//redraw text
-			display.write(cast(char[])widgetCaption, hexToColor("00FF00"), hexToColor("000000"));
+			display.write(cast(char[])widgetCaption, textColor, bgColor);
 			needsUpdate = false;
 			return true;
 		}else{
@@ -49,8 +53,8 @@ public:
 		//set max height
 		widgetSize.maxHeight = 1;
 		//set colors
-		bgColor = hexToColor("000000");
-		barColor = hexToColor("00FF00");
+		bgColor = hexToColor("0000FF");
+		barColor = hexToColor("FFFFFF");
 	}
 	bool update(ref Matrix display){
 		bool r = false;
