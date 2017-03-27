@@ -287,7 +287,7 @@ public:
 		height = toInsert.height;
 		width = toInsert.width;
 		bool r = true;
-		debug{toFile("/home/nafees/Desktop/b");}
+		//debug{toFile("/home/nafees/Desktop/b");}
 		if (height + y > this.height || width + x > this.width){
 			r = false;
 		}else{
@@ -298,10 +298,10 @@ public:
 			}
 		}
 		updateNeeded = true;
-		debug{toFile("/home/nafees/Desktop/a");}
+		//debug{toFile("/home/nafees/Desktop/a");}
 		return r;
 	}
-	debug{
+	/*debug{
 		void toFile(string fname){
 			File f = File(fname, "w");
 			for (uinteger i = 0; i < matrix.length; i++){
@@ -312,7 +312,7 @@ public:
 			}
 			f.close;
 		}
-	}
+	}*/
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal* terminal){
 		if (updateNeeded){
