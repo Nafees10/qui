@@ -3,6 +3,7 @@
 import misc;
 import lists;
 import baseconv;//used for hexadecimal colors
+import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
 
 ///Mouse Click, or Ms Wheel scroll event
@@ -463,6 +464,112 @@ public:
 	}
 }
 
+///Theme class
+class QTheme{
+private:
+	RGBColor[string][string] colors;//ind0 = widgetName, ind1 = color; if ind0 == null, ind0 = forAllWidgets
+public:
+	this(string themeFile = null){
+		if (themeFile != null){
+
+		}
+	}
+	RGBColor getColor(string widgetName, string which){
+		if (!(widgetName in colors) || !(which in colors[widgetName])){
+			throw new Exception("Color "~which~" not defined for "~widgetName);
+		}else{
+			return colors[widgetName][which];
+		}
+	}
+	RGBColor[string] getColors(string widgetName){
+		if (!(widgetName in colors)){
+			throw new Exception("Widget "~widgetName~" not defined");
+		}else{
+			return colors[widgetName];
+		}
+	}
+	void setColor(string widgetName, string which, RGBColor color){
+		colors[widgetName][which] = color;
+	}
+	void setColors(string widgetName, RGBColor[string] widgetColors){
+		colors[widgetName] = widgetColors;
+	}
+	///Saves current theme to a file, returns false on error
+	bool saveTheme(string filename){
+		bool r = true;
+		try{
+			File f = File(filename, "w");
+			foreach(widgetName; colors.keys){
+				foreach(colorName; colors[widgetName].keys){
+					f.write(widgetName,' ',colorName,' ',colorToHex(colors[widgetName][colorName]),'\n');
+				}
+			}
+			f.close;
+		}catch(Exception e){
+			r = false;
+		}
+		return r;
+	}
+	///Loads a theme from file, returns false on error
+	bool loadTheme(string filename){
+		bool r = true;
+		try{
+			string[] fcontents = fileToArray(filename);
+			string widgetName, colorName, colorCode, line;
+			uinteger lEnd;
+			for (uinteger lno = 0; lno < fcontents.length; lno++){
+				line = fcontents[lno];
+				uinteger readFrom = 0;
+				lEnd = line.length - 1;
+				for (uinteger i = 0; i < line.length; i++){
+					if (line[i] == ' ' || i == lEnd){
+						if (widgetName == null){
+							widgetName = line[readFrom .. i];
+						}
+						if (colorName == null){
+							colorName = line[readFrom .. i];
+						}
+						if (colorCode == null){
+							colorCode = line[readFrom .. i];
+						}
+						readFrom = i+1;
+					}
+				}
+				//add color, if any
+				if (widgetName && colorName && colorCode){
+					colors[widgetName][colorName] = hexToColor(colorCode);
+					//clear name ...
+					widgetName, colorName, colorCode = null;
+				}
+			}
+		}catch(Exception e){
+			r = false;
+		}
+		return r;
+	}
+
+	///checks if theme has config for a widget
+	bool hasConfigForWidget(string widgetName){
+		if (widgetName in colors){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	///checks if theme has config for a widget's color
+	bool hasConfigForColor(string widgetName, string colorName){
+		if (widgetName in colors){
+			if (colorName in colors[widgetName]){
+				return true;
+			}else{
+				return false;
+			}
+		}else{
+			return false;
+		}
+	}
+}
+
 //misc functions:
 uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
 	uinteger r;
@@ -478,9 +585,16 @@ RGBColor hexToColor(string hex){
 	return r;
 }
 
-
-/* Color standards
- * background: black, BFBFBF
- * text: green, FFFFFF
- * selected-widget: ???
-*/
+string colorToHex(RGBColor col){
+	char[] r;
+	char[] code;
+	r.length = 6;
+	r[0 .. 6] = '0';
+	code = cast(char[])denToHex(col.r);
+	r[2 - code.length .. 2] = code;
+	code = cast(char[])denToHex(col.g);
+	r[4 - code.length .. 4] = code;
+	code = cast(char[])denToHex(col.b);
+	r[6 - code.length .. 6] = code;
+	return cast(string)r;
+}
