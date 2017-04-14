@@ -72,13 +72,6 @@ struct Cell{
 	RGBColor bgColor;
 }
 
-///Used by QWidget to retreive colors from QTheme
-alias GetColorFunction = RGBColor delegate(string forWhichWidget, string whichColor);
-alias GetColorsFunction = RGBColor[] delegate(string whichColor);
-
-///used by widgets to force layout/terminal to redraw
-alias ForceUpdate = bool delegate();
-
 
 ///base class for all widgets, including layouts and QTerminal
 abstract class QWidget{
@@ -92,11 +85,8 @@ protected:
 
 	uinteger widgetSizeRatio = 1;
 
-	//widget uses these to retreive colors from theme
-	GetColorFunction getColor;
-	GetColorsFunction getColors;
-
-	ForceUpdate forceOwnerUpdate;
+	//used to retreive colors
+	QTheme widgetTheme;
 public:
 	///called by owner when mouse is clicked with cursor on this widget
 	abstract void onClick(MouseClick mouse);
@@ -143,16 +133,13 @@ public:
 		return widgetShow = visibility;
 	}
 
-	@property GetColorFunction onGetColor(GetColorFunction newGetColor){
-		return getColor = newGetColor;
+	@property QTheme theme(){
+		return widgetTheme;
 	}
 
-	@property GetColorsFunction onGetColors(GetColorsFunction newGetColors){
-		return getColors = newGetColors;
-	}
-
-	@property ForceUpdate onForceUpdate(ForceUpdate newOnForceUpdate){
-		return forceOwnerUpdate = newOnForceUpdate;
+	@property QTheme theme(QTheme newTheme){
+		widgetTheme = newTheme;
+		return widgetTheme;
 	}
 
 	@property Size size(){
@@ -312,9 +299,9 @@ public:
 	}
 
 	void updateColors(){
-		if (getColor){
-			emptySpace.bgColor = getColor(name, "background");
-			emptySpace.textColor = getColor(name, "text");
+		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
+			emptySpace.bgColor = widgetTheme.getColor(name, "background");
+			emptySpace.textColor = widgetTheme.getColor(name, "text");
 		}else{
 			emptySpace.bgColor = hexToColor("000000");
 			emptySpace.textColor = hexToColor("00FF00");
@@ -322,12 +309,8 @@ public:
 	}
 
 	void addWidget(QWidget widget){
-		//set getColor(s)
-		widget.onGetColor = getColor;
-		widget.onGetColors = getColors;
+		widget.theme = widgetTheme;
 		widget.updateColors();
-		//set onForceUpdate
-		widget.onForceUpdate = this.forceOwnerUpdate;
 		//add it to array
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
@@ -387,6 +370,7 @@ private:
 	Terminal terminal;
 	RealTimeConsoleInput input;
 	Matrix termDisplay;
+
 	bool isRunning = false;
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
@@ -402,6 +386,8 @@ public:
 		terminal.setTitle(widgetCaption);
 		//create display matrix
 		termDisplay = new Matrix(widgetSize.width, widgetSize.height, emptySpace);
+		//create theme
+		widgetTheme = new QTheme;
 	}
 	~this(){
 		terminal.clear;
@@ -410,7 +396,6 @@ public:
 
 	override public void addWidget(QWidget widget) {
 		super.addWidget(widget);
-		widget.onForceUpdate = &this.updateDisplay;
 	}
 
 	///Use this to update teriminal, returns true if at least 1 widget was updated, don't call update directly on terminal
@@ -528,22 +513,22 @@ public:
 	///if not found, returns a default color provided by theme. If that color
 	///is also not found, throws exception
 	RGBColor getColor(string widgetName, string which){
-		if (!(widgetName in colors) || !(which in colors[widgetName])){
+		if (widgetName in colors && which in colors[widgetName]){
+			return colors[widgetName][which];
+		}else{
 			if (which in globalColors){
 				return globalColors[which];
 			}else{
 				throw new Exception("Color "~which~" not defined (for "~widgetName~')');
 			}
-		}else{
-			return colors[widgetName][which];
 		}
 	}
 	///gets all colors for a  widget. does not return default-colors for theme
 	RGBColor[string] getColors(string widgetName){
-		if (!(widgetName in colors)){
-			throw new Exception("Widget "~widgetName~" not defined");
-		}else{
+		if (widgetName in colors){
 			return colors[widgetName];
+		}else{
+			throw new Exception("Widget "~widgetName~" not defined");
 		}
 	}
 	///sets color for a widget
@@ -639,6 +624,17 @@ public:
 			return false;
 		}
 	}
+	///checks if theme has colors for a widget
+	bool hasColors(string widgetName, string[] colorNames){
+		bool r = true;
+		foreach(color; colorNames){
+			if (hasColor(widgetName, color) == false){
+				r = false;
+				break;
+			}
+		}
+		return r;
+	}
 	///checks if theme has a color
 	bool hasColor(string colorName){
 		if (colorName in globalColors){
@@ -646,6 +642,16 @@ public:
 		}else{
 			return false;
 		}
+	}///checks if theme has colors
+	bool hasColors(string[] colorNames){
+		bool r = true;
+		foreach(color; colorNames){
+			if (hasColor(color) == false){
+				r = false;
+				break;
+			}
+		}
+		return r;
 	}
 }
 
