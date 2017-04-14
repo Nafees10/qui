@@ -231,14 +231,14 @@ public:
 	///used to write to matrix, call Matrix.setWriteLimits before this
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
 		uinteger i;
-		for (i = 0; xPosition < wXEnd && yPosition < wYEnd && i < c.length; xPosition++){
+		for (i = 0; xPosition <= wXEnd && yPosition <= wYEnd && i < c.length; xPosition++){
 			if (xPosition >= wXEnd){
 				//move to next row
 				yPosition++;
 				xPosition = wX;
 			}
 			//check if no more space left
-			if (xPosition == 0 && yPosition >= wYEnd){
+			if (xPosition == wXEnd && yPosition >= wYEnd){
 				//no more space left
 				break;
 			}
@@ -287,7 +287,6 @@ public:
 		height = toInsert.height;
 		width = toInsert.width;
 		bool r = true;
-		//debug{toFile("/home/nafees/Desktop/b");}
 		if (height + y > this.height || width + x > this.width){
 			r = false;
 		}else{
@@ -296,8 +295,8 @@ public:
 			for (;row<endAtRow; row++){
 				matrix[y + row][x .. x+width] = toInsert.readRow(row);
 			}
+			updateNeeded = true;
 		}
-		updateNeeded = true;
 		//debug{toFile("/home/nafees/Desktop/a");}
 		return r;
 	}
