@@ -12,7 +12,10 @@ public:
 	this(string caption = ""){
 		widgetName = "text-label";
 		widgetCaption = caption;
-		//check if theme for this widget exists
+		updateColors();
+	}
+
+	void updateColors(){
 		if (getColor){
 			textColor = getColor(name, "text");
 			bgColor = getColor(name, "background");
@@ -22,6 +25,7 @@ public:
 			bgColor = hexToColor("000000");
 		}
 	}
+
 	bool update(ref Matrix display){
 		if (needsUpdate && widgetShow){
 			//redraw text
@@ -58,10 +62,21 @@ public:
 		done = complete;
 		fillCells = ratioToRaw(complete, max, widgetSize.width);
 		//set colors
-		bgColor = getColor(name, "background");
-		barColor = getColor(name, "bar");
-		textColor = getColor(name, "text");
+		updateColors();
 	}
+
+	void updateColors(){
+		if (getColor){
+			bgColor = getColor(name, "background");
+			barColor = getColor(name, "bar");
+			textColor = getColor(name, "text");
+		}else{
+			bgColor = hexToColor("A6A6A6");
+			barColor = hexToColor("00FF00");
+			textColor = hexToColor("000000");
+		}
+	}
+
 	bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
@@ -75,16 +90,20 @@ public:
 				uinteger middle = widgetSize.height/2;
 				for (uinteger i = 0; i < widgetSize.height; i++){
 					if (i == middle){
-						bar = centerAlignText(cast(char[])caption, widgetSize.width);
+						bar = centerAlignText(cast(char[])widgetCaption, widgetSize.width);
 						writeBarLine(display, filled, bar);
 						bar[0 .. bar.length] = ' ';
 						continue;
+					}else{
+						writeBarLine(display, filled, bar);
 					}
+				}
+			}else{
+				for (uinteger i = 0; i < widgetSize.height; i++){
 					writeBarLine(display, filled, bar);
 				}
 			}
 			//write it
-			display.write(bar, barColor, bgColor);
 			needsUpdate = false;
 		}
 		return r;
@@ -96,13 +115,30 @@ public:
 		
 	}
 
+	@property string caption(string newCaption){
+		needsUpdate = true;
+		widgetCaption = newCaption;
+		if (&forceOwnerUpdate){
+			forceOwnerUpdate();
+		}
+		return widgetCaption;
+	}
+
+	@property string caption(){
+		return widgetCaption;
+	}
+
 	@property uinteger total(){
 		return max;
 	}
 	@property uinteger total(uinteger newTotal){
 		needsUpdate = true;
 		fillCells = ratioToRaw(done, newTotal, widgetSize.width);
-		return max = newTotal;
+		max = newTotal;
+		if (forceOwnerUpdate){
+			forceOwnerUpdate();
+		}
+		return max;
 	}
 
 	@property uinteger progress(){
@@ -111,6 +147,10 @@ public:
 	@property uinteger progress(uinteger newProgress){
 		needsUpdate = true;
 		fillCells = ratioToRaw(newProgress, total, widgetSize.width);
-		return done = newProgress;
+		done = newProgress;
+		if (forceOwnerUpdate){
+			forceOwnerUpdate();
+		}
+		return done;
 	}
 }
