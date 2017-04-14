@@ -12,17 +12,19 @@ public:
 	this(string caption = ""){
 		widgetName = "text-label";
 		widgetCaption = caption;
-		updateColors();
 	}
 
 	void updateColors(){
-		if (getColor){
-			textColor = getColor(name, "text");
-			bgColor = getColor(name, "background");
-		}else{
-			//use default values
-			textColor = hexToColor("00FF00");
-			bgColor = hexToColor("000000");
+		//use default values
+		textColor = hexToColor("00FF00");
+		bgColor = hexToColor("000000");
+		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
+			try{
+				textColor = widgetTheme.getColor(name, "text");
+				bgColor = widgetTheme.getColor(name, "background");
+			}catch(Exception e){
+				delete e;
+			}
 		}
 	}
 
@@ -61,19 +63,16 @@ public:
 		max = totalAmount;
 		done = complete;
 		fillCells = ratioToRaw(complete, max, widgetSize.width);
-		//set colors
-		updateColors();
 	}
 
 	void updateColors(){
-		if (getColor){
-			bgColor = getColor(name, "background");
-			barColor = getColor(name, "bar");
-			textColor = getColor(name, "text");
-		}else{
-			bgColor = hexToColor("A6A6A6");
-			barColor = hexToColor("00FF00");
-			textColor = hexToColor("000000");
+		bgColor = hexToColor("A6A6A6");
+		barColor = hexToColor("00FF00");
+		textColor = hexToColor("000000");
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "bar", "text"])){
+			bgColor = widgetTheme.getColor(name, "background");
+			barColor = widgetTheme.getColor(name, "bar");
+			textColor = widgetTheme.getColor(name, "text");
 		}
 	}
 
@@ -90,7 +89,7 @@ public:
 				uinteger middle = widgetSize.height/2;
 				for (uinteger i = 0; i < widgetSize.height; i++){
 					if (i == middle){
-						bar = centerAlignText(cast(char[])widgetCaption, widgetSize.width);
+						bar = centerAlignText(cast(char[])caption, widgetSize.width);
 						writeBarLine(display, filled, bar);
 						bar[0 .. bar.length] = ' ';
 						continue;
@@ -115,16 +114,13 @@ public:
 		
 	}
 
-	@property string caption(string newCaption){
+	override @property string caption(string newCaption){
 		needsUpdate = true;
 		widgetCaption = newCaption;
-		if (&forceOwnerUpdate){
-			forceOwnerUpdate();
-		}
 		return widgetCaption;
 	}
 
-	@property string caption(){
+	override @property string caption(){
 		return widgetCaption;
 	}
 
@@ -135,9 +131,6 @@ public:
 		needsUpdate = true;
 		fillCells = ratioToRaw(done, newTotal, widgetSize.width);
 		max = newTotal;
-		if (forceOwnerUpdate){
-			forceOwnerUpdate();
-		}
 		return max;
 	}
 
@@ -148,9 +141,6 @@ public:
 		needsUpdate = true;
 		fillCells = ratioToRaw(newProgress, total, widgetSize.width);
 		done = newProgress;
-		if (forceOwnerUpdate){
-			forceOwnerUpdate();
-		}
 		return done;
 	}
 }
