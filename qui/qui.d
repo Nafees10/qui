@@ -19,7 +19,7 @@ struct MouseClick{
 	uinteger y;
 }
 
-///Key press event
+///Key press event, somewhat similar to arsd.terminal.KeyPress
 struct KeyPress{
 	dchar key;
 	bool isChar(){
@@ -72,6 +72,10 @@ struct Cell{
 	RGBColor bgColor;
 }
 
+///Used by QWidget to retreive colors from QTheme
+alias GetColorFunction = RGBColor delegate(string forWhichWidget, string whichColor);
+alias GetColorsFunction = RGBColor[] delegate(string whichColor);
+
 
 ///base class for all widgets, including layouts and QTerminal
 abstract class QWidget{
@@ -81,8 +85,13 @@ protected:
 	string widgetCaption;
 	bool widgetShow = true;
 	bool needsUpdate = true;
+	string widgetName = null;//should be initialized in `this()`
 
 	uinteger widgetSizeRatio = 1;
+
+	//widget uses these to retreive colors from theme
+	GetColorFunction getColor;
+	GetColorsFunction getColors;
 public:
 	///called by owner when mouse is clicked with cursor on this widget
 	abstract void onClick(MouseClick mouse);
@@ -92,6 +101,10 @@ public:
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 
 	//properties:
+	@property string name(){
+		return widgetName;
+	}
+
 	@property string caption(){
 		return widgetCaption;
 	}
@@ -119,7 +132,16 @@ public:
 		return widgetShow;
 	}
 	@property bool visible(bool visibility){
+		needsUpdate = true;
 		return widgetShow = visibility;
+	}
+
+	@property GetColorFunction onGetColor(GetColorFunction newGetColor){
+		return getColor = newGetColor;
+	}
+
+	@property GetColorsFunction onGetColors(GetColorsFunction newGetColors){
+		return getColors = newGetColors;
 	}
 
 	@property Size size(){
@@ -142,11 +164,11 @@ public:
 	}
 }
 
-///to contain widgets in an order, vertical or horizontal
+///name: `layout`; Used to contain widgets
 class QLayout : QWidget{
 private:
 	QWidget[] widgetList;
-	QWidget* activeWidget;
+	QWidget activeWidget;
 	LayoutDisplayType layoutType;
 
 	RGBColor backColor;
@@ -156,7 +178,7 @@ private:
 	 * widgetCaption
 	 * needsUpdate
 	 * 
-	 * They have no caption, and needsUpdate is determined by child widgets
+	 * They have no caption, and needsUpdate is determined by child widgets, when update is called
 	*/
 
 	void recalculateWidgetsSize(){
@@ -272,16 +294,23 @@ public:
 		Horizontal,
 	}
 	this(LayoutDisplayType type){
-		//super(owner);
+		widgetName = "layout";
 		layoutType = type;
 		activeWidget = null;
-
-		emptySpace.bgColor = hexToColor("0000FF");
-		emptySpace.textColor = hexToColor("FFFFFF");
+		if (getColor){
+			emptySpace.bgColor = getColor(name, "background");
+			emptySpace.textColor = getColor(name, "text");
+		}else{
+			emptySpace.bgColor = hexToColor("000000");
+			emptySpace.textColor = hexToColor("00FF00");
+		}
 		emptySpace.c = ' ';
 	}
 
 	void addWidget(QWidget widget){
+		//set getColor(s)
+		widget.onGetColor = getColor;
+		widget.onGetColors = getColors;
 		//add it to array
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
@@ -303,11 +332,10 @@ public:
 			if (mouse.x >= p.x && mouse.x < p.x + s.width){
 				//check y-axis
 				if (mouse.y >= p.y && mouse.y < p.y + s.height){
-					//then this is the widget
-					//mark this widget as active
-					activeWidget = &widget;
-					//and call onClick
+					//call onClick
 					widget.onClick(mouse);
+					//mark this widget as active
+					activeWidget = widget;
 					break;
 				}
 			}
@@ -315,9 +343,9 @@ public:
 	}
 	void onKeyPress(KeyPress key){
 		//check active widget, call onKeyPress
-		/*if (activeWidget){
-			(*activeWidget).onKeyPress(key);
-		}*/
+		if (activeWidget){
+			activeWidget.onKeyPress(key);
+		}
 	}
 	bool update(ref Matrix display){
 		//go through all widgets, check if they need update, update them
@@ -468,19 +496,28 @@ public:
 class QTheme{
 private:
 	RGBColor[string][string] colors;//ind0 = widgetName, ind1 = color; if ind0 == null, ind0 = forAllWidgets
+	RGBColor[string] globalColors;//contains colors for widgets without color
 public:
 	this(string themeFile = null){
 		if (themeFile != null){
-
+			loadTheme(themeFile);
 		}
 	}
+	///gets color, provided the widgetName, and which-color (like textColor).
+	///if not found, returns a default color provided by theme. If that color
+	///is also not found, throws exception
 	RGBColor getColor(string widgetName, string which){
 		if (!(widgetName in colors) || !(which in colors[widgetName])){
-			throw new Exception("Color "~which~" not defined for "~widgetName);
+			if (which in globalColors){
+				return globalColors[which];
+			}else{
+				throw new Exception("Color "~which~" not defined (for "~widgetName~')');
+			}
 		}else{
 			return colors[widgetName][which];
 		}
 	}
+	///gets all colors for a  widget. does not return default-colors for theme
 	RGBColor[string] getColors(string widgetName){
 		if (!(widgetName in colors)){
 			throw new Exception("Widget "~widgetName~" not defined");
@@ -488,9 +525,15 @@ public:
 			return colors[widgetName];
 		}
 	}
+	///sets color for a widget
 	void setColor(string widgetName, string which, RGBColor color){
 		colors[widgetName][which] = color;
 	}
+	///sets a color for widgets that are not defined
+	void setColor(string which, RGBColor color){
+		globalColors[which] = color;
+	}
+	///sets all colors for a widget
 	void setColors(string widgetName, RGBColor[string] widgetColors){
 		colors[widgetName] = widgetColors;
 	}
@@ -503,6 +546,9 @@ public:
 				foreach(colorName; colors[widgetName].keys){
 					f.write(widgetName,' ',colorName,' ',colorToHex(colors[widgetName][colorName]),'\n');
 				}
+			}
+			foreach(colorName; globalColors.keys){
+				f.write("* ",colorName,' ',colorToHex(globalColors[colorName]),'\n');
 			}
 			f.close;
 		}catch(Exception e){
@@ -537,7 +583,11 @@ public:
 				}
 				//add color, if any
 				if (widgetName && colorName && colorCode){
-					colors[widgetName][colorName] = hexToColor(colorCode);
+					if (widgetName == "*"){
+						globalColors[colorName] = hexToColor(colorCode);
+					}else{
+						colors[widgetName][colorName] = hexToColor(colorCode);
+					}
 					//clear name ...
 					widgetName, colorName, colorCode = null;
 				}
@@ -548,16 +598,16 @@ public:
 		return r;
 	}
 
-	///checks if theme has config for a widget
-	bool hasConfigForWidget(string widgetName){
+	///checks if theme has colors for a widget
+	bool hasWidget(string widgetName){
 		if (widgetName in colors){
 			return true;
 		}else{
 			return false;
 		}
 	}
-	///checks if theme has config for a widget's color
-	bool hasConfigForColor(string widgetName, string colorName){
+	///checks if theme has a color for a widget
+	bool hasColor(string widgetName, string colorName){
 		if (widgetName in colors){
 			if (colorName in colors[widgetName]){
 				return true;
@@ -568,15 +618,40 @@ public:
 			return false;
 		}
 	}
+	///checks if theme has a color
+	bool hasColor(string colorName){
+		if (colorName in globalColors){
+			return true;
+		}else{
+			return false;
+		}
+	}
 }
 
 //misc functions:
+///Center-aligns text, returns that in an char[] with width as length
+char[] centerAlignText(char[] text, uinteger width, char fill = ' '){
+	char[] r;
+	if (text.length < width){
+		r.length = width;
+		uinteger offset = (width - text.length)/2;
+		r[0 .. offset] = fill;
+		r[offset .. offset+text.length][] = text;
+		r[offset+text.length .. r.length] = fill;
+	}else{
+		r = text[0 .. width];
+	}
+	return r;
+}
+
+///Can be used to calculate percentage->raw
 uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
 	uinteger r;
 	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
 	return r;
 }
 
+///Converts hex color code to RGBColor
 RGBColor hexToColor(string hex){
 	RGBColor r;
 	r.r = cast(ubyte)hexToDen(hex[0..2]);
@@ -585,6 +660,7 @@ RGBColor hexToColor(string hex){
 	return r;
 }
 
+///Converts RGBColor to hex color code
 string colorToHex(RGBColor col){
 	char[] r;
 	char[] code;
