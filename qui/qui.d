@@ -76,6 +76,9 @@ struct Cell{
 alias GetColorFunction = RGBColor delegate(string forWhichWidget, string whichColor);
 alias GetColorsFunction = RGBColor[] delegate(string whichColor);
 
+///used by widgets to force layout/terminal to redraw
+alias ForceUpdate = bool delegate();
+
 
 ///base class for all widgets, including layouts and QTerminal
 abstract class QWidget{
@@ -92,6 +95,8 @@ protected:
 	//widget uses these to retreive colors from theme
 	GetColorFunction getColor;
 	GetColorsFunction getColors;
+
+	ForceUpdate forceOwnerUpdate;
 public:
 	///called by owner when mouse is clicked with cursor on this widget
 	abstract void onClick(MouseClick mouse);
@@ -99,6 +104,8 @@ public:
 	abstract void onKeyPress(KeyPress key);
 	///called when the owner is redrawing, return false if no need to redraw
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
+	///called when a theme has been applied, or when widget was added to layout. The widget then must get new colors from the getColor/getColors
+	abstract void updateColors();
 
 	//properties:
 	@property string name(){
@@ -142,6 +149,10 @@ public:
 
 	@property GetColorsFunction onGetColors(GetColorsFunction newGetColors){
 		return getColors = newGetColors;
+	}
+
+	@property ForceUpdate onForceUpdate(ForceUpdate newOnForceUpdate){
+		return forceOwnerUpdate = newOnForceUpdate;
 	}
 
 	@property Size size(){
@@ -201,7 +212,7 @@ private:
 					//recalculate position
 					newPosition.x = widgetPosition.x;//x axis is always same, cause this is a vertical (not horizontal) layout
 					if (newHeight > 0){
-						newPosition.y += newHeight+1;//add previous widget's height to get new y axis position
+						newPosition.y += newHeight;//add previous widget's height to get new y axis position
 					}else{
 						newPosition.y = 0;
 					}
@@ -247,7 +258,7 @@ private:
 					//recalculate position
 					newPosition.y = widgetPosition.y;//x axis is always same, cause this is a vertical (not horizontal) layout
 					if (newWidth > 0){
-						newPosition.x += newWidth+1;//add previous widget's height to get new y axis position
+						newPosition.x += newWidth;//add previous widget's height to get new y axis position
 					}else{
 						newPosition.x = 0;
 					}
@@ -297,6 +308,10 @@ public:
 		widgetName = "layout";
 		layoutType = type;
 		activeWidget = null;
+		emptySpace.c = ' ';
+	}
+
+	void updateColors(){
 		if (getColor){
 			emptySpace.bgColor = getColor(name, "background");
 			emptySpace.textColor = getColor(name, "text");
@@ -304,13 +319,15 @@ public:
 			emptySpace.bgColor = hexToColor("000000");
 			emptySpace.textColor = hexToColor("00FF00");
 		}
-		emptySpace.c = ' ';
 	}
 
 	void addWidget(QWidget widget){
 		//set getColor(s)
 		widget.onGetColor = getColor;
 		widget.onGetColors = getColors;
+		widget.updateColors();
+		//set onForceUpdate
+		widget.onForceUpdate = this.forceOwnerUpdate;
 		//add it to array
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
@@ -371,7 +388,6 @@ private:
 	RealTimeConsoleInput input;
 	Matrix termDisplay;
 	bool isRunning = false;
-
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
 		super(displayType);
@@ -392,9 +408,14 @@ public:
 		delete termDisplay;
 	}
 
+	override public void addWidget(QWidget widget) {
+		super.addWidget(widget);
+		widget.onForceUpdate = &this.updateDisplay;
+	}
+
 	///Use this to update teriminal, returns true if at least 1 widget was updated, don't call update directly on terminal
 	bool updateDisplay(){
-		termDisplay.clear(emptySpace);
+		//termDisplay.clear(emptySpace);
 		bool r = update(termDisplay);
 		if (r){
 			termDisplay.flushToTerminal(&this);
