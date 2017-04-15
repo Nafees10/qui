@@ -216,6 +216,7 @@ private:
 	RGBColor backColor;
 	RGBColor foreColor;
 	Cell emptySpace;
+	bool isUpdating = false;
 	/* Just a note: Layouts do not use these variables inherited from QWidget:
 	 * widgetCaption
 	 * needsUpdate
@@ -397,18 +398,25 @@ public:
 		}
 	}
 	bool update(ref Matrix display){
-		//go through all widgets, check if they need update, update them
 		bool updated = false;
-		Matrix wDisplay = new Matrix(1,1,emptySpace);
-		foreach(widget; widgetList){
-			if (widget.visible){
-				wDisplay.changeSize(widget.size.width, widget.size.height, emptySpace);
-				wDisplay.setWriteLimits(0, 0, widget.size.width, widget.size.height);//to prevent writing outside limits
-				if (widget.update(wDisplay)){
-					display.insert(wDisplay, widget.position.x, widget.position.y);
-					updated = true;
+		//check if already updating, case yes, return false
+		if (!isUpdating){
+			isUpdating = true;
+			//go through all widgets, check if they need update, update them
+			Matrix wDisplay = new Matrix(1,1,emptySpace);
+			foreach(widget; widgetList){
+				if (widget.visible){
+					wDisplay.changeSize(widget.size.width, widget.size.height, emptySpace);
+					wDisplay.setWriteLimits(0, 0, widget.size.width, widget.size.height);//to prevent writing outside limits
+					if (widget.update(wDisplay)){
+						display.insert(wDisplay, widget.position.x, widget.position.y);
+						updated = true;
+					}
 				}
 			}
+			isUpdating = false;
+		}else{
+			return false;
 		}
 		return updated;
 	}
