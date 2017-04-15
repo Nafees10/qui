@@ -341,7 +341,7 @@ public:
 					writeFrom = 0;
 					col = 0;
 					row++;
-					if (row >= rowEnd){
+					if (row > rowEnd){
 						break;
 					}
 					//copy row's chars
