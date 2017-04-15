@@ -9,22 +9,19 @@ class TextLabelWidget : QWidget{
 private:
 	RGBColor textColor, bgColor;
 public:
-	this(string caption = ""){
+	this(string wCaption = ""){
 		widgetName = "text-label";
-		widgetCaption = caption;
+		widgetCaption = wCaption;
 	}
 
 	void updateColors(){
-		//use default values
-		textColor = hexToColor("00FF00");
-		bgColor = hexToColor("000000");
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
-			try{
-				textColor = widgetTheme.getColor(name, "text");
-				bgColor = widgetTheme.getColor(name, "background");
-			}catch(Exception e){
-				delete e;
-			}
+			textColor = widgetTheme.getColor(name, "text");
+			bgColor = widgetTheme.getColor(name, "background");
+		}else{
+			//use default values
+			textColor = hexToColor("00FF00");
+			bgColor = hexToColor("000000");
 		}
 	}
 
@@ -38,15 +35,11 @@ public:
 			return false;
 		}
 	}
-	void onClick(MouseClick mouse){
-		//do nothing
-	}
-	void onKeyPress(KeyPress key){
-		//do nothing
-	}
+	void onClick(MouseClick mouse){}
+	void onKeyPress(KeyPress key){}
 }
 
-///name: `progressbar`; Displays a left-to-right progressbar, with some text inside
+///name: `progressbar`; Displays a left-to-right progressbar, with some text inside (optional)
 class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
@@ -66,13 +59,14 @@ public:
 	}
 
 	void updateColors(){
-		bgColor = hexToColor("A6A6A6");
-		barColor = hexToColor("00FF00");
-		textColor = hexToColor("000000");
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "bar", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
 			barColor = widgetTheme.getColor(name, "bar");
 			textColor = widgetTheme.getColor(name, "text");
+		}else{
+			bgColor = hexToColor("A6A6A6");
+			barColor = hexToColor("00FF00");
+			textColor = hexToColor("000000");
 		}
 	}
 
@@ -102,27 +96,12 @@ public:
 					writeBarLine(display, filled, bar);
 				}
 			}
-			//write it
 			needsUpdate = false;
 		}
 		return r;
 	}
-	void onClick(MouseClick mouse){
-		
-	}
-	void onKeyPress(KeyPress key){
-		
-	}
-
-	override @property string caption(string newCaption){
-		needsUpdate = true;
-		widgetCaption = newCaption;
-		return widgetCaption;
-	}
-
-	override @property string caption(){
-		return widgetCaption;
-	}
+	void onClick(MouseClick mouse){}
+	void onKeyPress(KeyPress key){}
 
 	@property uinteger total(){
 		return max;
@@ -131,6 +110,9 @@ public:
 		needsUpdate = true;
 		fillCells = ratioToRaw(done, newTotal, widgetSize.width);
 		max = newTotal;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
 		return max;
 	}
 
@@ -141,6 +123,152 @@ public:
 		needsUpdate = true;
 		fillCells = ratioToRaw(newProgress, total, widgetSize.width);
 		done = newProgress;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
 		return done;
+	}
+}
+
+///name: 'edit-line'; To take single-line input
+class EditLineWidget : QWidget{
+private:
+	char[] inputText;
+	uinteger cursorX;
+	uinteger scrollX = 0;//amount of chars that won't be displayed because of not enough space
+	RGBColor bgColor, textColor, captionTextColor, captionBgColor;
+public:
+	this(string wCaption = "", string inputTxt = ""){
+		inputText = cast(char[])inputTxt;
+		widgetCaption = wCaption;
+		//specify min/max
+		widgetSize.minWidth = 1;
+		widgetSize.minHeight = 1;
+		widgetSize.maxHeight = 1;
+	}
+	void updateColors(){
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "captionText", "text"])){
+			bgColor = widgetTheme.getColor(name, "background");
+			textColor = widgetTheme.getColor(name, "text");
+			captionTextColor = widgetTheme.getColor(name, "captionText");
+			captionBgColor = widgetTheme.getColor(name, "captionBackground");
+		}else{
+			bgColor = hexToColor("404040");
+			textColor = hexToColor("00FF00");
+			captionTextColor = textColor;
+			captionBgColor = hexToColor("000000");
+		}
+	}
+	bool update(ref Matrix display){
+		bool r = false;
+		if (needsUpdate){
+			r = true;
+			//make sure there's enough space
+			if (display.width > widgetCaption.length){
+				//draw the caption
+				display.write(cast(char[])widgetCaption, captionTextColor, captionBgColor);
+				//draw the inputText
+				uinteger width = display.width - widgetCaption.length;
+				if (width >= inputText.length){
+					//draw it as it is
+					display.write(inputText, textColor, bgColor);
+				}else{
+					//draw scrolled
+					if (scrollX + width > inputText.length){
+						display.write(inputText[scrollX .. inputText.length], textColor, bgColor);
+					}else{
+						debug{
+							import std.stdio;
+							writeln("scrollX: ",scrollX,";inputText.length: ",inputText.length,";width: ",width);//readln;
+						}
+						display.write(inputText[scrollX .. scrollX + width], textColor, bgColor);
+					}
+				}
+				//fill the left with bgColor
+				if (widgetCaption.length + inputText.length < widgetSize.width){
+					char[] tmp;
+					tmp.length = widgetSize.width - (inputText.length + widgetCaption.length);
+					tmp[0 .. tmp.length] = ' ';
+					display.write(tmp, textColor, bgColor);
+				}
+				//set cursor pos, if can
+				if (cursorPos !is null){
+					cursorPos(widgetPosition.x + widgetCaption.length + (cursorX - scrollX), widgetPosition.y);
+				}
+			}else{
+				widgetShow = false;
+				r = false;
+			}
+		}
+		return r;
+	}
+
+	void onClick(MouseClick mouse){
+		if (mouse.mouseButton == mouse.Button.Left){
+			//move cursor to that pos
+			uinteger tmp = widgetPosition.x + widgetCaption.length;
+			if (mouse.x > tmp && mouse.x < tmp + inputText.length){
+				cursorX = mouse.x - (widgetPosition.x + widgetCaption.length + scrollX);
+			}
+		}
+	}
+	void onKeyPress(KeyPress key){
+		if (key.isChar){
+			//insert that key
+			if (key.key != '\b' && key.key != '\n'){
+				if (cursorX == inputText.length){
+					//insert at end
+					inputText ~= cast(char)key.key;
+				}else{
+					inputText = inputText.insertArray([cast(char)key.key], cursorX);
+				}
+				cursorX ++;
+			}else if (key.key == '\b'){
+				//backspace
+				if (cursorX > 0){
+					if (cursorX == inputText.length){
+						inputText.length --;
+					}else{
+						inputText = inputText.deleteArray(cursorX);
+					}
+					cursorX --;
+				}
+			}
+			//check if has to modify scrollX
+			if (widgetSize.width < widgetCaption.length + inputText.length){
+				scrollX = (widgetCaption.length + inputText.length) - widgetSize.width;
+			}else if (scrollX > 0){
+				scrollX = 0;
+			}
+		}else{
+			if (key.key == key.NonCharKey.LeftArrow || key.key == key.NonCharKey.UpArrow){
+				if (cursorX > 0){
+					cursorX --;
+					if (scrollX > cursorX){
+						scrollX = cursorX;
+					}
+				}
+			}else if (key.key == key.NonCharKey.RightArrow || key.key == key.NonCharKey.DownArrow){
+				if (cursorX < inputText.length){
+					cursorX ++;
+					if (cursorX == widgetSize.width - widgetCaption.length && inputText.length > cursorX){
+						scrollX = inputText.length - (widgetSize.width - widgetCaption.length);
+					}
+				}
+			}
+		}
+		//set cursor pos, if can
+		if (cursorPos !is null){
+			cursorPos(widgetPosition.x + widgetCaption.length + (cursorX - scrollX), widgetPosition.y);
+		}
+	}
+	///returns text that was entered
+	@property string text(){
+		return cast(string)inputText;
+	}
+	///modify the entered text
+	@property string text(string newText){
+		inputText = cast(char[])newText;
+		return cast(string)inputText;
 	}
 }

@@ -59,10 +59,10 @@ alias RGBColor = RGB;
 struct Position{
 	uinteger x, y;
 }
-///To store size for widgets
+///To store size for widgets, use 0 on min/max to specify no-limit
 struct Size{
 	uinteger width, height;
-	uinteger minHeight = 0, minWidth = 0;//0 = no limit
+	uinteger minHeight = 0, minWidth = 0;
 	uinteger maxHeight = 0, maxWidth = 0;
 }
 ///Cell, character in terminal is a Cell, that has it's own background color, and foreground color
@@ -76,25 +76,37 @@ struct Cell{
 ///base class for all widgets, including layouts and QTerminal
 abstract class QWidget{
 protected:
+	///specifies position of this widget
 	Position widgetPosition;
+	///size of this widget
 	Size widgetSize;
+	///caption of this widget, it's up to the widget how to use this, ProgressbarWidget shows this inside the bar...
 	string widgetCaption;
+	///whether this widget should be drawn or not
 	bool widgetShow = true;
+	///to specify if this widget needs to be updated or not, use this to save CPU
 	bool needsUpdate = true;
-	string widgetName = null;//should be initialized in `this()`
-
+	///specifies name of this widget. must be unique, as it is used to identify widgets in theme
+	string widgetName = null;
+	///specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
+	///The ratio of all widgets is added up and height/width for each widget is then calculated using this
 	uinteger widgetSizeRatio = 1;
 
-	//used to retreive colors
+	///The theme that is currently used
 	QTheme widgetTheme;
+	///Called by widget when a redraw is needed, but no redraw is scheduled (e.g when the caption of text-label is changed, a force update is called)
+	bool delegate() forceUpdate;
+	///Called by keyboard-input-taking widget (currently active) to position the cursor. For non-active widgets, this is null.
+	void delegate(uinteger x, uinteger y) cursorPos;
 public:
-	///called by owner when mouse is clicked with cursor on this widget
+	///called by owner when mouse is clicked with cursor on this widget. do not call forceUpdate, it's not required here
 	abstract void onClick(MouseClick mouse);
-	///called by owner when widget is selected and a key is pressed
+	///called by owner when widget is selected and a key is pressed. do not call forceUpdate, it's not required here
 	abstract void onKeyPress(KeyPress key);
-	///called when the owner is redrawing, return false if no need to redraw
+	///called when the owner is redrawing, return false if no need to redraw. do not call forceUpdate, it's not required here
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
-	///called when a theme has been applied, or when widget was added to layout. The widget then must get new colors from the getColor/getColors
+	///called when a theme has been applied, or when widget was added to layout. The widget then must get new colors from the getColor/getColors. 
+	///Do not call forceUpdate in this function, call it separately.
 	abstract void updateColors();
 
 	//properties:
@@ -107,14 +119,22 @@ public:
 	}
 	@property string caption(string newCaption){
 		needsUpdate = true;
-		return widgetCaption = newCaption;
+		widgetCaption = newCaption;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return widgetCaption;
 	}
 
 	@property Position position(){
 		return widgetPosition;
 	}
 	@property Position position(Position newPosition){
-		return widgetPosition = newPosition;
+		widgetPosition = newPosition;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return widgetPosition;
 	}
 
 	@property uinteger sizeRatio(){
@@ -122,7 +142,11 @@ public:
 	}
 	@property uinteger sizeRatio(uinteger newRatio){
 		needsUpdate = true;
-		return widgetSizeRatio = newRatio;
+		widgetSizeRatio = newRatio;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return widgetSizeRatio;
 	}
 
 	@property bool visible(){
@@ -130,7 +154,11 @@ public:
 	}
 	@property bool visible(bool visibility){
 		needsUpdate = true;
-		return widgetShow = visibility;
+		widgetShow = visibility;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return widgetShow;
 	}
 
 	@property QTheme theme(){
@@ -138,8 +166,20 @@ public:
 	}
 
 	@property QTheme theme(QTheme newTheme){
+		needsUpdate = true;
 		widgetTheme = newTheme;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
 		return widgetTheme;
+	}
+
+	@property bool delegate() onForceUpdate(bool delegate() newOnForceUpdate){
+		return forceUpdate = newOnForceUpdate;
+	}
+
+	@property void delegate(uinteger, uinteger) onCursorPosition(void delegate(uinteger, uinteger) newOnCursorPos){
+		return cursorPos = newOnCursorPos;
 	}
 
 	@property Size size(){
@@ -157,7 +197,11 @@ public:
 			return widgetSize;
 		}else{
 			needsUpdate = true;
-			return widgetSize = newSize;
+			widgetSize = newSize;
+			if (forceUpdate !is null){
+				forceUpdate();
+			}
+			return widgetSize;
 		}
 	}
 }
@@ -311,6 +355,7 @@ public:
 	void addWidget(QWidget widget){
 		widget.theme = widgetTheme;
 		widget.updateColors();
+		widget.onForceUpdate = forceUpdate;
 		//add it to array
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
@@ -324,6 +369,8 @@ public:
 		Size s;
 		uinteger i;
 		QWidget widget;
+		//remove access to cursor from previous active widget
+		activeWidget.onCursorPosition = null;
 		for (i = 0; i < widgetList.length; i++){
 			widget = widgetList[i];
 			p = widget.position;
@@ -332,6 +379,8 @@ public:
 			if (mouse.x >= p.x && mouse.x < p.x + s.width){
 				//check y-axis
 				if (mouse.y >= p.y && mouse.y < p.y + s.height){
+					//give access to cursor position
+					widget.onCursorPosition = cursorPos;
 					//call onClick
 					widget.onClick(mouse);
 					//mark this widget as active
@@ -371,6 +420,8 @@ private:
 	RealTimeConsoleInput input;
 	Matrix termDisplay;
 
+	Position cursorPos;
+
 	bool isRunning = false;
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
@@ -378,6 +429,7 @@ public:
 		//create terminal & input
 		terminal = Terminal(ConsoleOutputType.cellular);
 		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
+		terminal.showCursor();
 		//init vars
 		widgetSize.height = terminal.height;
 		widgetSize.width = terminal.width;
@@ -396,6 +448,37 @@ public:
 
 	override public void addWidget(QWidget widget) {
 		super.addWidget(widget);
+		widget.onForceUpdate = &updateDisplay;
+	}
+
+	override public void onClick(MouseClick mouse) {
+		//check on which widget the cursor was on
+		Position p;
+		Size s;
+		uinteger i;
+		QWidget widget;
+		//remove access to cursor from previous active widget
+		if (activeWidget){
+			activeWidget.onCursorPosition = null;
+		}
+		for (i = 0; i < widgetList.length; i++){
+			widget = widgetList[i];
+			p = widget.position;
+			s = widget.size;
+			//check x-axis
+			if (mouse.x >= p.x && mouse.x < p.x + s.width){
+				//check y-axis
+				if (mouse.y >= p.y && mouse.y < p.y + s.height){
+					//give access to cursor position
+					widget.onCursorPosition = &setCursorPos;
+					//call onClick
+					widget.onClick(mouse);
+					//mark this widget as active
+					activeWidget = widget;
+					break;
+				}
+			}
+		}
 	}
 
 	///Use this to update teriminal, returns true if at least 1 widget was updated, don't call update directly on terminal
@@ -405,6 +488,9 @@ public:
 		if (r){
 			termDisplay.flushToTerminal(&this);
 		}
+		//set cursor position
+		terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
+		terminal.showCursor();
 		return r;
 	}
 
@@ -462,6 +548,8 @@ public:
 				break;
 			}
 		}
+		//in case an exception prevents it from being set to false before
+		isRunning = false;
 	}
 
 	void terminate(){
@@ -476,23 +564,39 @@ public:
 	override @property Position position(Position newPosition){
 		return widgetPosition;
 	}
+	//to change cursor position
+	void setCursorPos(uinteger x, uinteger y){
+		cursorPos.x = x;
+		cursorPos.y = y;
+	}
+
+	///returns true if UI loop is running
+	@property bool running(){
+		return isRunning;
+	}
 
 	//functions below are used by Matrix.flushToTerminal
+	///flush changes to terminal
 	void flush(){
 		terminal.flush;
 	}
+	///clear terminal, called before writing
 	void clear(){
 		terminal.clear;
 	}
+	///change colors
 	void setColors(RGBColor textColor, RGBColor bgColor){
 		terminal.setTrueColor(textColor, bgColor);
 	}
+	///move cursor to a position
 	void moveTo(int x, int y){
 		terminal.moveTo(x, y);
 	}
+	///write chars to terminal
 	void writeChars(char[] c){
 		terminal.write(c);
 	}
+	///write char to terminal
 	void writeChars(char c){
 		terminal.write(c);
 	}
