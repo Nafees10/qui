@@ -163,6 +163,7 @@ public:
 	bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
+			needsUpdate = false;
 			r = true;
 			//make sure there's enough space
 			if (display.width > widgetCaption.length){
@@ -308,6 +309,7 @@ public:
 	bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
+			needsUpdate = false;
 			r = true;
 			//check if there's lines to be displayed
 			uinteger count = widgetLines.length;
@@ -342,7 +344,9 @@ public:
 				//put the cursor at correct position, if possible
 				if (cursorPos !is null){
 					//check if cursor is at a position that's possible
-					//if (count > cursorY && widgetLines.read)
+					if (count > cursorY && widgetLines.read(cursorY).length > cursorX){
+						cursorPos(cursorX - scrollX, cursorY - scrollY);
+					}
 				}
 			}
 		}
@@ -350,6 +354,37 @@ public:
 	}
 
 	void onClick(MouseClick mouse){
+		if (mouse.mouseButton == mouse.Button.Left){
+			//get relative mouse position
+			uinteger x, y;
+			x = mouse.x - scrollX;
+			y = mouse.y - scrollY;
+
+			if (cursorY >= widgetLines.length){
+				cursorY = widgetLines.length-1;
+			}
+			if (cursorX >= widgetLines.read(cursorY)){
+				cursorX = widgetLines.read(cursorY).length-1;
+			}
+			//update cursor on screen
+			if (cursorPos !is null){
+				cursorPos(cursorX, cursorY);
+			}
+		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
+			//scroll down, i.e scrollY ++;
+			if (scrollY < widgetLines.length+(widgetSize.height-2)){
+				scrollY += 3;
+			}
+		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
+			//scroll up, i.e ScrollY --;
+			if (scrollY > 0){
+				if (scrollY < 3){
+					scrollY = 0;
+				}else{
+					scrollY -= 3;
+				}
+			}
+		}
 
 	}
 
