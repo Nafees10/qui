@@ -130,7 +130,7 @@ public:
 	}
 }
 
-///name: 'edit-line'; To take single-line input
+///name: 'editLine'; To take single-line input
 class EditLineWidget : QWidget{
 private:
 	char[] inputText;
@@ -139,6 +139,7 @@ private:
 	RGBColor bgColor, textColor, captionTextColor, captionBgColor;
 public:
 	this(string wCaption = "", string inputTxt = ""){
+		widgetName = "editLine";
 		inputText = cast(char[])inputTxt;
 		widgetCaption = wCaption;
 		//specify min/max
@@ -229,7 +230,7 @@ public:
 					if (cursorX == inputText.length){
 						inputText.length --;
 					}else{
-						inputText = inputText.deleteArray(cursorX);
+						inputText = inputText.deleteArray(cursorX-1);
 					}
 					cursorX --;
 				}
@@ -269,6 +270,99 @@ public:
 	///modify the entered text
 	@property string text(string newText){
 		inputText = cast(char[])newText;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
 		return cast(string)inputText;
+	}
+}
+
+///name: 'memo'; Use to display/edit 1+ lines, something like a simple text editor
+class MemoWidget : QWidget{
+private:
+	List!string widgetLines;
+	uinteger scrollX, scrollY;
+	uinteger cursorX, cursorY;
+	RGBColor bgColor, textColor;
+public:
+	this(){
+		widgetName = "memo";
+		widgetLines = new List!string;
+		scrollX, scrollY = 0;
+		cursorX, cursorY = 0;
+	}
+	~this(){
+		delete widgetLines;
+	}
+
+	void updateColors(){
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
+			bgColor = widgetTheme.getColor(name, "background");
+			textColor = widgetTheme.getColor(name, "text");
+		}else{
+			bgColor = hexToColor("404040");
+			textColor = hexToColor("00FF00");
+		}
+	}
+
+	bool update(ref Matrix display){
+		bool r = false;
+		if (needsUpdate){
+			r = true;
+			//check if there's lines to be displayed
+			uinteger count = widgetLines.length;
+			char[] emptyLine;
+			emptyLine.length = widgetSize.width;
+			emptyLine[0 .. emptyLine.length] = ' ';
+			if (count > 0){
+				//write lines to memo
+				char[] line;
+				for (uinteger i = scrollY; i < count; i++){
+					//echo current line
+					line = cast(char[])widgetLines.read(i);
+					//check if the line doesn't fit in
+					uinteger displayWidth = scrollX+widgetSize.width;
+					if (line.length > displayWidth){
+						//write the partial line
+						display.write(line[scrollX .. displayWidth], textColor, bgColor);
+					}else{
+						if (line.length == displayWidth){
+							display.write(line[scrollX .. displayWidth], textColor, bgColor);
+						}else{
+							display.write(line[scrollX .. line.length], textColor, bgColor);
+							//fill empty space
+							display.write(emptyLine[0 .. widgetSize.width - line.length], textColor, bgColor);
+						}
+					}
+					//check if is at end
+					if (i-scrollY >= widgetSize.height){
+						break;
+					}
+				}
+				//put the cursor at correct position, if possible
+				if (cursorPos !is null){
+					//check if cursor is at a position that's possible
+					//if (count > cursorY && widgetLines.read)
+				}
+			}
+		}
+		return r;
+	}
+
+	void onClick(MouseClick mouse){
+
+	}
+
+	void onKeyPress(KeyPress key){
+
+	}
+
+	///returns a list of lines in memo
+	@property List!string lines(){
+		return widgetLines;
+	}
+	///modify the lines in memo, be sure to delete the previous lines, or memory-leak... And be sure to not to put \n in a line
+	@property List!string lines(List!string newLines){
+		return widgetLines = newLines;
 	}
 }
