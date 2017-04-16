@@ -324,7 +324,7 @@ private:
 					newSize.width = newWidth;
 					w.size = newSize;
 					//now the new size has been assigned, calculate amount of space & ratios left
-					availableHeight -= newHeight;
+					availableWidth -= newWidth;
 					ratioTotal -= w.sizeRatio;
 				}
 			}
