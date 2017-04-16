@@ -279,7 +279,7 @@ public:
 }
 
 ///name: 'memo'; Use to display/edit 1+ lines, something like a simple text editor
-class MemoWidget : QWidget{
+/*class MemoWidget : QWidget{
 private:
 	List!string widgetLines;
 	uinteger scrollX, scrollY;
@@ -401,3 +401,4 @@ public:
 		return widgetLines = newLines;
 	}
 }
+*/
