@@ -9,7 +9,7 @@ __gshared ProgressbarWidget pBar;
 __gshared QTerminal term;
 
 void main(string[] args){
-	term = new QTerminal("Title");
+	term = new QTerminal("Title",QTerminal.LayoutDisplayType.Horizontal);
 
 	TextLabelWidget label = new TextLabelWidget;
 	label.caption = "Caption";
@@ -20,11 +20,8 @@ void main(string[] args){
 	pBar.sizeRatio = 1;
 	pBar.caption = "Progress bar!";
 
-	EditLineWidget edit = new EditLineWidget("Input here: ", "placeholder");
-
-	term.addWidget(edit);
-	term.addWidget(label);
 	term.addWidget(pBar);
+	term.addWidget(label);
 
 	//spawn(&increment);
 
@@ -33,12 +30,11 @@ void main(string[] args){
 	delete term;
 	delete label;
 	delete pBar;
-	delete edit;
 }
 /*
 void increment(){
 	while (pBar.progress < pBar.total && term.running){
-		if (pBar.total - pBar.progress < 8){
+		if (pBar.total - pBar.progress < 2){
 			pBar.progress = pBar.total;
 		}else{
 			pBar.progress = pBar.progress + 2;
