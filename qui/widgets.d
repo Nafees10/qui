@@ -59,6 +59,7 @@ public:
 	}
 
 	void updateColors(){
+		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "bar", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
 			barColor = widgetTheme.getColor(name, "bar");
@@ -67,6 +68,9 @@ public:
 			bgColor = hexToColor("A6A6A6");
 			barColor = hexToColor("00FF00");
 			textColor = hexToColor("000000");
+		}
+		if (forceUpdate !is null){
+			forceUpdate();
 		}
 	}
 
@@ -148,7 +152,8 @@ public:
 		widgetSize.maxHeight = 1;
 	}
 	void updateColors(){
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "captionText", "text"])){
+		needsUpdate = true;
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "caption-text", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
 			textColor = widgetTheme.getColor(name, "text");
 			captionTextColor = widgetTheme.getColor(name, "captionText");
@@ -158,6 +163,9 @@ public:
 			textColor = hexToColor("00FF00");
 			captionTextColor = textColor;
 			captionBgColor = hexToColor("000000");
+		}
+		if (forceUpdate !is null){
+			forceUpdate();
 		}
 	}
 	bool update(ref Matrix display){
@@ -207,6 +215,7 @@ public:
 
 	void onClick(MouseClick mouse){
 		if (mouse.mouseButton == mouse.Button.Left){
+			needsUpdate = true;
 			//move cursor to that pos
 			uinteger tmp = widgetPosition.x + widgetCaption.length;
 			if (mouse.x > tmp && mouse.x < tmp + inputText.length){
@@ -216,6 +225,7 @@ public:
 	}
 	void onKeyPress(KeyPress key){
 		if (key.isChar){
+			needsUpdate = true;
 			//insert that key
 			if (key.key != '\b' && key.key != '\n'){
 				if (cursorX == inputText.length){
@@ -245,6 +255,7 @@ public:
 		}else{
 			if (key.key == key.NonCharKey.LeftArrow || key.key == key.NonCharKey.UpArrow){
 				if (cursorX > 0){
+					needsUpdate = true;
 					cursorX --;
 					if (scrollX > cursorX){
 						scrollX = cursorX;
@@ -252,6 +263,7 @@ public:
 				}
 			}else if (key.key == key.NonCharKey.RightArrow || key.key == key.NonCharKey.DownArrow){
 				if (cursorX < inputText.length){
+					needsUpdate = true;
 					cursorX ++;
 					if (cursorX == widgetSize.width - widgetCaption.length && inputText.length > cursorX){
 						scrollX = inputText.length - (widgetSize.width - widgetCaption.length);
@@ -279,30 +291,62 @@ public:
 }
 
 ///name: 'memo'; Use to display/edit 1+ lines, something like a simple text editor
-/*class MemoWidget : QWidget{
+class MemoWidget : QWidget{
 private:
 	List!string widgetLines;
 	uinteger scrollX, scrollY;
 	uinteger cursorX, cursorY;
 	RGBColor bgColor, textColor;
+	bool writeProtected = false;
+
+	void reScroll(){
+		//first rescroll Y axis
+		//calculate scrollY, if it needs to be decreased
+		if (cursorY - scrollY >= widgetSize.height){
+			scrollY = cursorY - (widgetSize.height+2);
+		}
+		//calculate scrollY, if it needs to be decreaed
+		if (scrollY > cursorY){
+			scrollY = cursorY - 3;
+		}
+
+		//then X axis
+		//make sure cursor is within length of line
+		uinteger len = widgetLines.read(cursorY).length;
+		if (cursorX >= len){
+			cursorX = len-1;
+		}
+		if (cursorX > widgetSize.width + scrollX){
+			scrollX = cursorX - (widgetSize.width+2);
+		}
+		if (scrollY > cursorX){
+			scrollY = cursorX - 3;
+		}
+	}
+
 public:
-	this(){
+	this(bool readOnly = false){
 		widgetName = "memo";
 		widgetLines = new List!string;
 		scrollX, scrollY = 0;
 		cursorX, cursorY = 0;
+		writeProtected = readOnly;//cause if readOnly, then writeProtected = true also
 	}
 	~this(){
 		delete widgetLines;
 	}
 
 	void updateColors(){
+		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
 			textColor = widgetTheme.getColor(name, "text");
 		}else{
 			bgColor = hexToColor("404040");
 			textColor = hexToColor("00FF00");
+		}
+		if (forceUpdate !is null){
+			forceUpdate();
 		}
 	}
 
@@ -355,15 +399,16 @@ public:
 
 	void onClick(MouseClick mouse){
 		if (mouse.mouseButton == mouse.Button.Left){
+			needsUpdate = true;
 			//get relative mouse position
 			uinteger x, y;
-			x = mouse.x - scrollX;
-			y = mouse.y - scrollY;
+			x = mouse.x - (widgetPosition.x + scrollX);
+			y = mouse.y - (widgetPosition.y + scrollY);
 
 			if (cursorY >= widgetLines.length){
 				cursorY = widgetLines.length-1;
 			}
-			if (cursorX >= widgetLines.read(cursorY)){
+			if (cursorX >= widgetLines.read(cursorY).length){
 				cursorX = widgetLines.read(cursorY).length-1;
 			}
 			//update cursor on screen
@@ -371,11 +416,13 @@ public:
 				cursorPos(cursorX, cursorY);
 			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
+			needsUpdate = true;
 			//scroll down, i.e scrollY ++;
 			if (scrollY < widgetLines.length+(widgetSize.height-2)){
 				scrollY += 3;
 			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
+			needsUpdate = true;
 			//scroll up, i.e ScrollY --;
 			if (scrollY > 0){
 				if (scrollY < 3){
@@ -389,7 +436,86 @@ public:
 	}
 
 	void onKeyPress(KeyPress key){
+		if (key.isChar){
+			if (!writeProtected){
+				needsUpdate = true;
+				string currentLine = widgetLines.read(cursorY);
+				//check if backspace
+				if (key.key == '\b'){
+					//make sure that it's not the first line, first line cannot be removed
+					if (cursorY > 0){
+						//check if has to remove a '\n'
+						if (cursorX == 0){
+							cursorY --;
+							//if line's not empty, append it to previous line
+							if (currentLine != ""){
+								//else, append this line to previous
+								widgetLines.set(cursorY, widgetLines.read(cursorY)~currentLine);
+							}
+							widgetLines.remove(cursorY+1);
+							cursorX = widgetLines.read(cursorY).length-1;
+						}else{
+							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX));
+							cursorX --;
+						}
+					}
 
+				}else if (key.key == '\n'){
+					//insert a newline
+					//if is at end, just add it
+					if (cursorY == widgetLines.length-1 && cursorX == widgetLines.read(cursorY).length-1){
+						widgetLines.add("");
+					}else{
+						//insert somewhere in middle
+						widgetLines.insert(cursorX+1,[""]);
+					}
+					cursorY ++;
+					cursorX = 0;
+					scrollX = 0;
+				}else{
+					//insert that char
+					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,[cast(char)key.key],cursorX));
+				}
+			}
+			reScroll();
+		}else{
+			if (key.key == key.NonCharKey.Delete){
+				//TODO: implement action for delete button
+			}else if (key.key == key.NonCharKey.DownArrow){
+				needsUpdate = true;
+				//scroll down, i.e scrollY ++;
+				if (scrollY < widgetLines.length+(widgetSize.height-2)){
+					scrollY += 3;
+				}
+			}else if (key.key == key.NonCharKey.UpArrow){
+				needsUpdate = true;
+				//scroll up, i.e ScrollY --;
+				if (scrollY > 0){
+					if (scrollY < 3){
+						scrollY = 0;
+					}else{
+						scrollY -= 3;
+					}
+				}
+			}else if (key.key == key.NonCharKey.LeftArrow){
+				needsUpdate = true;
+				if (cursorX == 0 && cursorY > 0){
+					cursorY --;
+					cursorX = widgetLines.read(cursorY-1).length-1;
+					reScroll();
+				}else{
+					cursorX --;
+					reScroll();
+				}
+			}else if (key.key == key.NonCharKey.RightArrow){
+				needsUpdate = true;
+				if (cursorX == widgetLines.read(cursorY).length-1 && cursorY < widgetLines.length-1){
+					cursorX ++;
+					cursorY ++;
+					reScroll();
+				}
+			}
+		}
 	}
 
 	///returns a list of lines in memo
@@ -398,7 +524,22 @@ public:
 	}
 	///modify the lines in memo, be sure to delete the previous lines, or memory-leak... And be sure to not to put \n in a line
 	@property List!string lines(List!string newLines){
-		return widgetLines = newLines;
+		widgetLines = newLines;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return widgetLines;
+	}
+	///Returns true if memo's contents cannot be modified, by user
+	@property bool readOnly(){
+		return writeProtected;
+	}
+	///modify whether to allow modifying of contents or not
+	@property bool readOnly(bool newPermission){
+		writeProtected = newPermission;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return writeProtected;
 	}
 }
-*/
