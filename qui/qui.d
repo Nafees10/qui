@@ -20,6 +20,7 @@ struct MouseClick{
 }
 
 ///Key press event, somewhat similar to arsd.terminal.KeyPress
+///A note: backspace is not included in NonCharKey, it's the '\b' char
 struct KeyPress{
 	dchar key;
 	bool isChar(){
@@ -344,12 +345,16 @@ public:
 	}
 
 	void updateColors(){
+		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
 			emptySpace.bgColor = widgetTheme.getColor(name, "background");
 			emptySpace.textColor = widgetTheme.getColor(name, "text");
 		}else{
 			emptySpace.bgColor = hexToColor("000000");
 			emptySpace.textColor = hexToColor("00FF00");
+		}
+		if (forceUpdate !is null){
+			forceUpdate();
 		}
 	}
 
