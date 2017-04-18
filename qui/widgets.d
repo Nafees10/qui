@@ -4,6 +4,10 @@ import qui;
 import misc;
 import lists;
 
+debug{
+	import std.stdio;
+}
+
 ///name: `text-label`; Displays some text (caption)
 class TextLabelWidget : QWidget{
 private:
@@ -323,7 +327,16 @@ private:
 			scrollY = cursorX - 3;
 		}
 	}
-
+	
+	void setCursor(){
+		//put the cursor at correct position, if possible
+		if (cursorPos !is null){
+			//check if cursor is at a position that's possible
+			if (widgetLines.length > cursorY && widgetLines.read(cursorY).length > cursorX){
+				cursorPos(cursorX - scrollX, cursorY - scrollY);
+			}
+		}
+	}
 public:
 	this(bool readOnly = false){
 		widgetName = "memo";
@@ -356,14 +369,14 @@ public:
 			needsUpdate = false;
 			r = true;
 			//check if there's lines to be displayed
-			uinteger count = widgetLines.length;
+			uinteger count = widgetLines.length, i;
 			char[] emptyLine;
 			emptyLine.length = widgetSize.width;
 			emptyLine[0 .. emptyLine.length] = ' ';
 			if (count > 0){
 				//write lines to memo
 				char[] line;
-				for (uinteger i = scrollY; i < count; i++){
+				for (i = scrollY; i < count; i++){
 					//echo current line
 					line = cast(char[])widgetLines.read(i);
 					//check if the line doesn't fit in
@@ -385,13 +398,15 @@ public:
 						break;
 					}
 				}
-				//put the cursor at correct position, if possible
-				if (cursorPos !is null){
-					//check if cursor is at a position that's possible
-					if (count > cursorY && widgetLines.read(cursorY).length > cursorX){
-						cursorPos(cursorX - scrollX, cursorY - scrollY);
+				//fill empty space with emptyLine
+				if (i-scrollY < widgetSize.height){
+					count = widgetSize.height;
+					for (i -= scrollY; i < count; i++){
+						display.write(emptyLine,textColor, bgColor);
 					}
 				}
+				//put the cursor at correct position, if possible
+				setCursor();
 			}
 		}
 		return r;
@@ -405,15 +420,14 @@ public:
 			x = mouse.x - (widgetPosition.x + scrollX);
 			y = mouse.y - (widgetPosition.y + scrollY);
 
+			cursorX = x;
+			cursorY = y;
+
 			if (cursorY >= widgetLines.length){
 				cursorY = widgetLines.length-1;
 			}
 			if (cursorX >= widgetLines.read(cursorY).length){
 				cursorX = widgetLines.read(cursorY).length-1;
-			}
-			//update cursor on screen
-			if (cursorPos !is null){
-				cursorPos(cursorX, cursorY);
 			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
 			needsUpdate = true;
@@ -455,7 +469,7 @@ public:
 							widgetLines.remove(cursorY+1);
 							cursorX = widgetLines.read(cursorY).length-1;
 						}else{
-							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX));
+							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
 							cursorX --;
 						}
 					}
@@ -475,6 +489,7 @@ public:
 				}else{
 					//insert that char
 					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,[cast(char)key.key],cursorX));
+					cursorX ++;
 				}
 			}
 			reScroll();
@@ -501,19 +516,21 @@ public:
 				needsUpdate = true;
 				if (cursorX == 0 && cursorY > 0){
 					cursorY --;
-					cursorX = widgetLines.read(cursorY-1).length-1;
-					reScroll();
-				}else{
-					cursorX --;
-					reScroll();
+					cursorX = widgetLines.read(cursorY).length;//cause we're doning -1 below
 				}
+				cursorX --;
+				reScroll();
 			}else if (key.key == key.NonCharKey.RightArrow){
 				needsUpdate = true;
-				if (cursorX == widgetLines.read(cursorY).length-1 && cursorY < widgetLines.length-1){
+				if (cursorX == widgetLines.read(cursorY).length-1){
+					if (cursorY < widgetLines.length-1){
+						cursorX = 0;
+						cursorY ++;
+					}
+				}else{
 					cursorX ++;
-					cursorY ++;
-					reScroll();
 				}
+				reScroll();
 			}
 		}
 	}
