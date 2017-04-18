@@ -311,20 +311,32 @@ private:
 		}
 		//calculate scrollY, if it needs to be decreaed
 		if (scrollY > cursorY){
-			scrollY = cursorY - 3;
+			if (cursorY < 3){
+				scrollY = 0;
+			}else{
+				scrollY = cursorY - 3;
+			}
 		}
 
 		//then X axis
 		//make sure cursor is within length of line
 		uinteger len = widgetLines.read(cursorY).length;
-		if (cursorX >= len){
-			cursorX = len-1;
+		if (cursorX > len){
+			if (len == 0){
+				cursorX = 0;
+			}else{
+				cursorX = len-1;
+			}
 		}
 		if (cursorX > widgetSize.width + scrollX){
 			scrollX = cursorX - (widgetSize.width+2);
 		}
-		if (scrollY > cursorX){
-			scrollY = cursorX - 3;
+		if (scrollX > cursorX){
+			if (cursorX < 3){
+				scrollX = 0;
+			}else{
+				scrollX = cursorX - 3;
+			}
 		}
 	}
 	
@@ -370,6 +382,7 @@ public:
 			r = true;
 			//check if there's lines to be displayed
 			uinteger count = widgetLines.length, i;
+			uinteger displayWidth = scrollX+widgetSize.width;
 			char[] emptyLine;
 			emptyLine.length = widgetSize.width;
 			emptyLine[0 .. emptyLine.length] = ' ';
@@ -380,31 +393,31 @@ public:
 					//echo current line
 					line = cast(char[])widgetLines.read(i);
 					//check if the line doesn't fit in
-					uinteger displayWidth = scrollX+widgetSize.width;
-					if (line.length > displayWidth){
+					if (line.length - scrollX > displayWidth){
 						//write the partial line
-						display.write(line[scrollX .. displayWidth], textColor, bgColor);
+						display.write(line[scrollX .. scrollX + displayWidth], textColor, bgColor);
+					}else if (scrollX < line.length){
+						display.write(line[scrollX .. line.length], textColor, bgColor);
+						//fill empty space
+						display.write(emptyLine[0 .. widgetSize.width - line.length], textColor, bgColor);
 					}else{
-						if (line.length == displayWidth){
-							display.write(line[scrollX .. displayWidth], textColor, bgColor);
-						}else{
-							display.write(line[scrollX .. line.length], textColor, bgColor);
-							//fill empty space
-							display.write(emptyLine[0 .. widgetSize.width - line.length], textColor, bgColor);
-						}
+
 					}
+						
 					//check if is at end
 					if (i-scrollY >= widgetSize.height){
 						break;
 					}
 				}
 				//fill empty space with emptyLine
-				if (i-scrollY < widgetSize.height){
+				/*if (i-scrollY < widgetSize.height){
 					count = widgetSize.height;
 					for (i -= scrollY; i < count; i++){
 						display.write(emptyLine,textColor, bgColor);
 					}
-				}
+				}*/
+				import std.conv : to;
+				display.write(cast(char[])("scrollX: "~to!string(scrollX)~" width: "~to!string(widgetSize.width)), textColor, bgColor);
 				//put the cursor at correct position, if possible
 				setCursor();
 			}
@@ -417,8 +430,8 @@ public:
 			needsUpdate = true;
 			//get relative mouse position
 			uinteger x, y;
-			x = mouse.x - (widgetPosition.x + scrollX);
-			y = mouse.y - (widgetPosition.y + scrollY);
+			x = mouse.x - (scrollX + widgetPosition.x);
+			y = mouse.y - (scrollY - widgetPosition.y);
 
 			cursorX = x;
 			cursorY = y;
@@ -481,7 +494,7 @@ public:
 						widgetLines.add("");
 					}else{
 						//insert somewhere in middle
-						widgetLines.insert(cursorX+1,[""]);
+						widgetLines.insert(cursorY,[""]);
 					}
 					cursorY ++;
 					cursorX = 0;
