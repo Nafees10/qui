@@ -60,7 +60,7 @@ public:
 		ar2=list[index..taken];
 		list.length=0;
 		list=ar~[dat]~ar2;
-		taken+=dat.length;
+		taken++;
 	}
 	void saveFile(string s, T sp){
 		File f = File(s,"w");
