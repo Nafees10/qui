@@ -339,7 +339,7 @@ private:
 		cursorY = y;
 		
 		if (cursorY >= widgetLines.length){
-			cursorY = widgetLines.length-1;
+			cursorY = widgetLines.length;
 		}
 		if (cursorX >= widgetLines.read(cursorY).length){
 			cursorX = widgetLines.read(cursorY).length;
@@ -467,35 +467,35 @@ public:
 							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
 							cursorX --;
 						}
+					}else if (cursorX > 0){
+						widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
+						cursorX --;
 					}
 
 				}else if (key.key == '\n'){
 					//insert a newline
 					//if is at end, just add it
-					if (cursorY == widgetLines.length-1){
-						if (cursorX == widgetLines.read(cursorY).length-1){
+					bool atEnd = false;
+					if (cursorY >= widgetLines.length - 1){
+						atEnd = true;
+					}
+					if (cursorX == widgetLines.read(cursorY).length){
+						if (atEnd){
 							widgetLines.add("");
 						}else{
-							string[2] line;
-							line[0] = widgetLines.read(cursorY);
-							line[1] = line[0][cursorX+1 .. line[0].length];
-							line[0] = line[0][0 .. cursorX + 1];
-							widgetLines.set(cursorY, line[0]);
-							widgetLines.add(line[1]);
+							widgetLines.insert(cursorY + 1,"");
 						}
 					}else{
-						//insert somewhere in middle
-						if (cursorX == widgetLines.read(cursorY).length-1){
-							widgetLines.insert(cursorY+1, "");
+						string[2] line;
+						line[0] = widgetLines.read(cursorY);
+						line[1] = line[0][cursorX .. line[0].length];
+						line[0] = line[0][0 .. cursorX];
+						widgetLines.set(cursorY, line[0]);
+						if (atEnd){
+							widgetLines.add(line[1]);
 						}else{
-							string[2] line;
-							line[0] = widgetLines.read(cursorY);
-							line[1] = line[0][cursorX+1 .. line[0].length];
-							line[0] = line[0][0 .. cursorX + 1];
-							widgetLines.set(cursorY, line[0]);
 							widgetLines.insert(cursorY + 1, line[1]);
 						}
-
 					}
 					cursorY ++;
 					cursorX = 0;
