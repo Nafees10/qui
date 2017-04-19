@@ -304,39 +304,23 @@ private:
 	bool writeProtected = false;
 
 	void reScroll(){
-		//first rescroll Y axis
-		//calculate scrollY, if it needs to be decreased
-		if (cursorY - scrollY >= widgetSize.height){
-			scrollY = cursorY - (widgetSize.height+2);
-		}
-		//calculate scrollY, if it needs to be decreaed
-		if (scrollY > cursorY){
-			if (cursorY < 3){
+		//calculate scrollY first
+		//if it needs to be increased
+		if ((scrollY + widgetSize.height < cursorY || scrollY + widgetSize.height >= cursorY) && cursorX != 0){
+			if (cursorY < widgetSize.height/2){
 				scrollY = 0;
 			}else{
-				scrollY = cursorY - 3;
+				scrollY = cursorY - (widgetSize.height/2);
 			}
+			uinteger tmp = scrollY;
+			tmp += 1;
+			tmp -= 1;
 		}
-
-		//then X axis
-		//make sure cursor is within length of line
+		//now time for scrollX
+		//check if is within length of line
 		uinteger len = widgetLines.read(cursorY).length;
 		if (cursorX > len){
-			if (len == 0){
-				cursorX = 0;
-			}else{
-				cursorX = len-1;
-			}
-		}
-		if (cursorX > widgetSize.width + scrollX){
-			scrollX = cursorX - (widgetSize.width+2);
-		}
-		if (scrollX > cursorX){
-			if (cursorX < 3){
-				scrollX = 0;
-			}else{
-				scrollX = cursorX - 3;
-			}
+			cursorX = len;
 		}
 	}
 	
@@ -344,9 +328,21 @@ private:
 		//put the cursor at correct position, if possible
 		if (cursorPos !is null){
 			//check if cursor is at a position that's possible
-			if (widgetLines.length > cursorY && widgetLines.read(cursorY).length > cursorX){
+			if (widgetLines.length >= cursorY && widgetLines.read(cursorY).length >= cursorX){
 				cursorPos(cursorX - scrollX, cursorY - scrollY);
 			}
+		}
+	}
+
+	void moveCursor(uinteger x, uinteger y){
+		cursorX = x;
+		cursorY = y;
+		
+		if (cursorY >= widgetLines.length){
+			cursorY = widgetLines.length-1;
+		}
+		if (cursorX >= widgetLines.read(cursorY).length){
+			cursorX = widgetLines.read(cursorY).length;
 		}
 	}
 public:
@@ -381,7 +377,7 @@ public:
 			needsUpdate = false;
 			r = true;
 			//check if there's lines to be displayed
-			uinteger count = widgetLines.length, i;
+			uinteger count = widgetLines.length, i, linesWritten = 0;
 			uinteger displayWidth = scrollX+widgetSize.width;
 			char[] emptyLine;
 			emptyLine.length = widgetSize.width;
@@ -400,24 +396,22 @@ public:
 						display.write(line[scrollX .. line.length], textColor, bgColor);
 						//fill empty space
 						display.write(emptyLine[0 .. widgetSize.width - line.length], textColor, bgColor);
-					}else{
-
+					}else if (line.length == 0){
+						display.write(emptyLine[0 .. widgetSize.width], textColor, bgColor);
 					}
-						
+					linesWritten ++;
 					//check if is at end
 					if (i-scrollY >= widgetSize.height){
 						break;
 					}
 				}
 				//fill empty space with emptyLine
-				/*if (i-scrollY < widgetSize.height){
+				if (linesWritten < widgetSize.height){
 					count = widgetSize.height;
-					for (i -= scrollY; i < count; i++){
+					for (i = linesWritten; i < count; i++){
 						display.write(emptyLine,textColor, bgColor);
 					}
-				}*/
-				import std.conv : to;
-				display.write(cast(char[])("scrollX: "~to!string(scrollX)~" width: "~to!string(widgetSize.width)), textColor, bgColor);
+				}
 				//put the cursor at correct position, if possible
 				setCursor();
 			}
@@ -428,30 +422,18 @@ public:
 	void onClick(MouseClick mouse){
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
-			//get relative mouse position
-			uinteger x, y;
-			x = mouse.x - (scrollX + widgetPosition.x);
-			y = mouse.y - (scrollY - widgetPosition.y);
+			moveCursor(mouse.x - (scrollX + widgetPosition.x), mouse.y - (scrollY - widgetPosition.y));
 
-			cursorX = x;
-			cursorY = y;
-
-			if (cursorY >= widgetLines.length){
-				cursorY = widgetLines.length-1;
-			}
-			if (cursorX >= widgetLines.read(cursorY).length){
-				cursorX = widgetLines.read(cursorY).length-1;
-			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
-			needsUpdate = true;
 			//scroll down, i.e scrollY ++;
 			if (scrollY < widgetLines.length+(widgetSize.height-2)){
+				needsUpdate = true;
 				scrollY += 3;
 			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
-			needsUpdate = true;
 			//scroll up, i.e ScrollY --;
 			if (scrollY > 0){
+				needsUpdate = true;
 				if (scrollY < 3){
 					scrollY = 0;
 				}else{
@@ -490,15 +472,33 @@ public:
 				}else if (key.key == '\n'){
 					//insert a newline
 					//if is at end, just add it
-					if (cursorY == widgetLines.length-1 && cursorX == widgetLines.read(cursorY).length-1){
-						widgetLines.add("");
+					if (cursorY == widgetLines.length-1){
+						if (cursorX == widgetLines.read(cursorY).length-1){
+							widgetLines.add("");
+						}else{
+							string[2] line;
+							line[0] = widgetLines.read(cursorY);
+							line[1] = line[0][cursorX+1 .. line[0].length];
+							line[0] = line[0][0 .. cursorX + 1];
+							widgetLines.set(cursorY, line[0]);
+							widgetLines.add(line[1]);
+						}
 					}else{
 						//insert somewhere in middle
-						widgetLines.insert(cursorY,[""]);
+						if (cursorX == widgetLines.read(cursorY).length-1){
+							widgetLines.insert(cursorY+1, "");
+						}else{
+							string[2] line;
+							line[0] = widgetLines.read(cursorY);
+							line[1] = line[0][cursorX+1 .. line[0].length];
+							line[0] = line[0][0 .. cursorX + 1];
+							widgetLines.set(cursorY, line[0]);
+							widgetLines.insert(cursorY + 1, line[1]);
+						}
+
 					}
 					cursorY ++;
 					cursorX = 0;
-					scrollX = 0;
 				}else{
 					//insert that char
 					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,[cast(char)key.key],cursorX));
@@ -510,41 +510,38 @@ public:
 			if (key.key == key.NonCharKey.Delete){
 				//TODO: implement action for delete button
 			}else if (key.key == key.NonCharKey.DownArrow){
-				needsUpdate = true;
-				//scroll down, i.e scrollY ++;
-				if (scrollY < widgetLines.length+(widgetSize.height-2)){
-					scrollY += 3;
+				if (cursorY < widgetLines.length-1){
+					needsUpdate = true;
+					cursorY ++;
 				}
 			}else if (key.key == key.NonCharKey.UpArrow){
-				needsUpdate = true;
-				//scroll up, i.e ScrollY --;
-				if (scrollY > 0){
-					if (scrollY < 3){
-						scrollY = 0;
-					}else{
-						scrollY -= 3;
-					}
+				if (cursorY > 0){
+					needsUpdate = true;
+					cursorY --;
 				}
 			}else if (key.key == key.NonCharKey.LeftArrow){
 				needsUpdate = true;
-				if (cursorX == 0 && cursorY > 0){
-					cursorY --;
-					cursorX = widgetLines.read(cursorY).length;//cause we're doning -1 below
+				if ((cursorY >= 0 && cursorX > 0) || (cursorY > 0 && cursorX == 0)){
+					uinteger x, y;
+					if (cursorX == 0){
+						cursorY --;
+						cursorX = widgetLines.read(cursorY).length;
+					}else{
+						cursorX --;
+					}
 				}
-				cursorX --;
-				reScroll();
 			}else if (key.key == key.NonCharKey.RightArrow){
 				needsUpdate = true;
-				if (cursorX == widgetLines.read(cursorY).length-1){
-					if (cursorY < widgetLines.length-1){
+				if (cursorX == widgetLines.read(cursorY).length){
+					if (cursorY < widgetLines.length){
 						cursorX = 0;
 						cursorY ++;
 					}
 				}else{
 					cursorX ++;
 				}
-				reScroll();
 			}
+			reScroll();
 		}
 	}
 
