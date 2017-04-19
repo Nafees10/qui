@@ -53,6 +53,15 @@ public:
 		list=ar~dat~ar2;
 		taken+=dat.length;
 	}
+	void insert(uinteger index, T dat){
+		integer i;
+		T[] ar,ar2;
+		ar=list[0..index];
+		ar2=list[index..taken];
+		list.length=0;
+		list=ar~[dat]~ar2;
+		taken+=dat.length;
+	}
 	void saveFile(string s, T sp){
 		File f = File(s,"w");
 		uinteger i;
