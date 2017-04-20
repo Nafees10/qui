@@ -5,7 +5,7 @@ import misc;
 import lists;
 
 debug{
-	import std.stdio;
+	import std.stdio, std.conv : to;
 }
 
 ///name: `text-label`; Displays some text (caption)
@@ -305,22 +305,26 @@ private:
 
 	void reScroll(){
 		//calculate scrollY first
-		//if it needs to be increased
-		if ((scrollY + widgetSize.height < cursorY || scrollY + widgetSize.height >= cursorY) && cursorX != 0){
+		if ((scrollY + widgetSize.height < cursorY || scrollY + widgetSize.height >= cursorY) && cursorY != 0){
 			if (cursorY < widgetSize.height/2){
 				scrollY = 0;
 			}else{
 				scrollY = cursorY - (widgetSize.height/2);
 			}
-			uinteger tmp = scrollY;
-			tmp += 1;
-			tmp -= 1;
 		}
 		//now time for scrollX
 		//check if is within length of line
 		uinteger len = widgetLines.read(cursorY).length;
 		if (cursorX > len){
 			cursorX = len;
+		}
+		//now calculate scrollX, if it needs to be increased
+		if (scrollX + widgetSize.width < cursorX){
+			if (cursorX < widgetSize.width/2){
+				scrollX = 0;
+			}else{
+				scrollX = cursorX - (widgetSize.width/2);
+			}
 		}
 	}
 	
@@ -339,7 +343,7 @@ private:
 		cursorY = y;
 		
 		if (cursorY >= widgetLines.length){
-			cursorY = widgetLines.length;
+			cursorY = widgetLines.length-1;
 		}
 		if (cursorX >= widgetLines.read(cursorY).length){
 			cursorX = widgetLines.read(cursorY).length;
@@ -378,6 +382,10 @@ public:
 			r = true;
 			//check if there's lines to be displayed
 			uinteger count = widgetLines.length, i, linesWritten = 0;
+			//calculate the number of lines that have to be written
+			/*if (count > widgetSize.height){
+				count = 
+			}*/
 			uinteger displayWidth = scrollX+widgetSize.width;
 			char[] emptyLine;
 			emptyLine.length = widgetSize.width;
@@ -388,16 +396,20 @@ public:
 				for (i = scrollY; i < count; i++){
 					//echo current line
 					line = cast(char[])widgetLines.read(i);
-					//check if the line doesn't fit in
-					if (line.length - scrollX > displayWidth){
-						//write the partial line
+					//fit the line into screen, i.e check if only a part of it will be displayed
+					if (line.length >= displayWidth+scrollX){
+						//display only partial line
 						display.write(line[scrollX .. scrollX + displayWidth], textColor, bgColor);
-					}else if (scrollX < line.length){
-						display.write(line[scrollX .. line.length], textColor, bgColor);
-						//fill empty space
-						display.write(emptyLine[0 .. widgetSize.width - line.length], textColor, bgColor);
-					}else if (line.length == 0){
-						display.write(emptyLine[0 .. widgetSize.width], textColor, bgColor);
+					}else{
+						//either the line is small enough to fit, or 0-length
+						if (line.length < scrollX || line.length == 0){
+							//just write the bgColor
+							display.write(emptyLine, textColor, bgColor);
+						}else{
+							display.write(line[scrollX .. line.length], textColor, bgColor);
+							//write the bgColor
+							display.write(emptyLine[0 .. (emptyLine.length - line.length) + scrollX], textColor, bgColor);
+						}
 					}
 					linesWritten ++;
 					//check if is at end
@@ -462,7 +474,7 @@ public:
 								widgetLines.set(cursorY, widgetLines.read(cursorY)~currentLine);
 							}
 							widgetLines.remove(cursorY+1);
-							cursorX = widgetLines.read(cursorY).length-1;
+							cursorX = widgetLines.read(cursorY).length;
 						}else{
 							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
 							cursorX --;
@@ -520,8 +532,8 @@ public:
 					cursorY --;
 				}
 			}else if (key.key == key.NonCharKey.LeftArrow){
-				needsUpdate = true;
 				if ((cursorY >= 0 && cursorX > 0) || (cursorY > 0 && cursorX == 0)){
+					needsUpdate = true;
 					uinteger x, y;
 					if (cursorX == 0){
 						cursorY --;
@@ -533,7 +545,7 @@ public:
 			}else if (key.key == key.NonCharKey.RightArrow){
 				needsUpdate = true;
 				if (cursorX == widgetLines.read(cursorY).length){
-					if (cursorY < widgetLines.length){
+					if (cursorY < widgetLines.length-1){
 						cursorX = 0;
 						cursorY ++;
 					}
