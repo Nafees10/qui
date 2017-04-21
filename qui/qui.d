@@ -412,7 +412,7 @@ public:
 			foreach(widget; widgetList){
 				if (widget.visible){
 					wDisplay.changeSize(widget.size.width, widget.size.height, emptySpace);
-					wDisplay.setWriteLimits(0, 0, widget.size.width, widget.size.height);//to prevent writing outside limits
+					wDisplay.resetWritePosition();
 					if (widget.update(wDisplay)){
 						display.insert(wDisplay, widget.position.x, widget.position.y);
 						updated = true;
