@@ -306,7 +306,7 @@ private:
 	void reScroll(){
 		//calculate scrollY first
 		if ((scrollY + widgetSize.height < cursorY || scrollY + widgetSize.height >= cursorY) && cursorY != 0){
-			if (cursorY < widgetSize.height/2){
+			if (cursorY <= widgetSize.height/2){
 				scrollY = 0;
 			}else{
 				scrollY = cursorY - (widgetSize.height/2);
@@ -319,8 +319,8 @@ private:
 			cursorX = len;
 		}
 		//now calculate scrollX, if it needs to be increased
-		if (scrollX + widgetSize.width < cursorX){
-			if (cursorX < widgetSize.width/2){
+		if (/*cursorX > widgetSize.width &&*/(scrollX + widgetSize.width < cursorX || scrollX + widgetSize.width >= cursorX)){
+			if (cursorX <= widgetSize.width/2){
 				scrollX = 0;
 			}else{
 				scrollX = cursorX - (widgetSize.width/2);
@@ -386,7 +386,6 @@ public:
 			/*if (count > widgetSize.height){
 				count = 
 			}*/
-			uinteger displayWidth = scrollX+widgetSize.width;
 			char[] emptyLine;
 			emptyLine.length = widgetSize.width;
 			emptyLine[0 .. emptyLine.length] = ' ';
@@ -397,18 +396,19 @@ public:
 					//echo current line
 					line = cast(char[])widgetLines.read(i);
 					//fit the line into screen, i.e check if only a part of it will be displayed
-					if (line.length >= displayWidth+scrollX){
+					//debug{arrayToFile("/tmp/dbg",[to!string(line.length)~" .. "~to!string(emptyLine.length)]);}
+					if (line.length >= widgetSize.width+scrollX){
 						//display only partial line
-						display.write(line[scrollX .. scrollX + displayWidth], textColor, bgColor);
+						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, bgColor);
 					}else{
 						//either the line is small enough to fit, or 0-length
-						if (line.length < scrollX || line.length == 0){
+						if (line.length <= scrollX || line.length == 0){
 							//just write the bgColor
 							display.write(emptyLine, textColor, bgColor);
 						}else{
 							display.write(line[scrollX .. line.length], textColor, bgColor);
 							//write the bgColor
-							display.write(emptyLine[0 .. (emptyLine.length - line.length) + scrollX], textColor, bgColor);
+							display.write(emptyLine[line.length - scrollX .. emptyLine.length], textColor, bgColor);
 						}
 					}
 					linesWritten ++;
@@ -432,27 +432,28 @@ public:
 	}
 
 	void onClick(MouseClick mouse){
+		//calculate mouse position, relative to scroll and widgetPosition
+		mouse.x = (mouse.x - widgetPosition.x) + scrollX;
+		mouse.y = (mouse.y - widgetPosition.y) + scrollY;
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
-			moveCursor(mouse.x - (scrollX + widgetPosition.x), mouse.y - (scrollY - widgetPosition.y));
+			moveCursor(mouse.x, mouse.y);
 
-		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
-			//scroll down, i.e scrollY ++;
-			if (scrollY < widgetLines.length+(widgetSize.height-2)){
+		}/*else if (mouse.mouseButton == mouse.Button.ScrollDown){
+			if (scrollY < widgetLines.length+(widgetSize.height/2)){
 				needsUpdate = true;
-				scrollY += 3;
+				scrollY += 4;
 			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
-			//scroll up, i.e ScrollY --;
 			if (scrollY > 0){
 				needsUpdate = true;
-				if (scrollY < 3){
+				if (scrollY < 4){
 					scrollY = 0;
 				}else{
-					scrollY -= 3;
+					scrollY -= 4;
 				}
 			}
-		}
+		}*/
 
 	}
 
@@ -548,6 +549,8 @@ public:
 					if (cursorY < widgetLines.length-1){
 						cursorX = 0;
 						cursorY ++;
+						scrollX = 0;
+
 					}
 				}else{
 					cursorX ++;
