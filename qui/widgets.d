@@ -458,12 +458,12 @@ public:
 						if (cursorX == 0){
 							cursorY --;
 							//if line's not empty, append it to previous line
+							cursorX = widgetLines.read(cursorY).length;
 							if (currentLine != ""){
 								//else, append this line to previous
 								widgetLines.set(cursorY, widgetLines.read(cursorY)~currentLine);
 							}
 							widgetLines.remove(cursorY+1);
-							cursorX = widgetLines.read(cursorY).length;
 						}else{
 							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
 							cursorX --;
@@ -500,6 +500,10 @@ public:
 					}
 					cursorY ++;
 					cursorX = 0;
+				}else if (key.key == '\t'){
+					//convert it to 4 spaces
+					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,cast(char[])"    ",cursorX));
+					cursorX += 4;
 				}else{
 					//insert that char
 					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,[cast(char)key.key],cursorX));
@@ -508,7 +512,19 @@ public:
 			}
 		}else{
 			if (key.key == key.NonCharKey.Delete){
-				//TODO: implement action for delete button
+				needsUpdate = true;
+				//check if is deleting \n
+				if (cursorX == widgetLines.read(cursorY).length && cursorY < widgetLines.length-1){
+					//merge next line with this one
+					char[] line = cast(char[])widgetLines.read(cursorY)~widgetLines.read(cursorY+1);
+					widgetLines.set(cursorY, cast(string)line);
+					//remove next line
+					widgetLines.remove(cursorY+1);
+				}else if (cursorX < widgetLines.read(cursorY).length){
+					char[] line = cast(char[])widgetLines.read(cursorY);
+					line = line.deleteArray(cursorX);
+					widgetLines.set(cursorY, cast(string)line);
+				}
 			}else if (key.key == key.NonCharKey.DownArrow){
 				if (cursorY < widgetLines.length-1){
 					needsUpdate = true;
