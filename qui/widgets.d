@@ -4,10 +4,6 @@ import qui;
 import misc;
 import lists;
 
-debug{
-	import std.stdio, std.conv : to;
-}
-
 ///name: `text-label`; Displays some text (caption)
 class TextLabelWidget : QWidget{
 private:
@@ -191,10 +187,6 @@ public:
 					if (scrollX + width > inputText.length){
 						display.write(inputText[scrollX .. inputText.length], textColor, bgColor);
 					}else{
-						debug{
-							import std.stdio;
-							writeln("scrollX: ",scrollX,";inputText.length: ",inputText.length,";width: ",width);//readln;
-						}
 						display.write(inputText[scrollX .. scrollX + width], textColor, bgColor);
 					}
 				}
@@ -382,10 +374,6 @@ public:
 			r = true;
 			//check if there's lines to be displayed
 			uinteger count = widgetLines.length, i, linesWritten = 0;
-			//calculate the number of lines that have to be written
-			/*if (count > widgetSize.height){
-				count = 
-			}*/
 			char[] emptyLine;
 			emptyLine.length = widgetSize.width;
 			emptyLine[0 .. emptyLine.length] = ' ';
@@ -396,7 +384,6 @@ public:
 					//echo current line
 					line = cast(char[])widgetLines.read(i);
 					//fit the line into screen, i.e check if only a part of it will be displayed
-					//debug{arrayToFile("/tmp/dbg",[to!string(line.length)~" .. "~to!string(emptyLine.length)]);}
 					if (line.length >= widgetSize.width+scrollX){
 						//display only partial line
 						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, bgColor);
@@ -440,21 +427,22 @@ public:
 			moveCursor(mouse.x, mouse.y);
 
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
-			if (scrollY < widgetLines.length+(widgetSize.height/2)){
+			if (cursorY < widgetLines.length){
 				needsUpdate = true;
-				scrollY += 4;
+				moveCursor(cursorX, cursorY + 4);
+				reScroll();
 			}
 		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
-			if (scrollY > 0){
+			if (cursorY > 0){
 				needsUpdate = true;
-				if (scrollY < 4){
-					scrollY = 0;
+				if (cursorY < 4){
+					moveCursor(cursorX, 0);
 				}else{
-					scrollY -= 4;
+					moveCursor(cursorX, cursorY - 4);
 				}
+				reScroll();
 			}
 		}
-
 	}
 
 	void onKeyPress(KeyPress key){
@@ -518,7 +506,6 @@ public:
 					cursorX ++;
 				}
 			}
-			reScroll();
 		}else{
 			if (key.key == key.NonCharKey.Delete){
 				//TODO: implement action for delete button
@@ -556,8 +543,8 @@ public:
 					cursorX ++;
 				}
 			}
-			reScroll();
 		}
+		reScroll();
 	}
 
 	///returns a list of lines in memo
