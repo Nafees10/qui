@@ -439,7 +439,7 @@ public:
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);
 
-		}/*else if (mouse.mouseButton == mouse.Button.ScrollDown){
+		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
 			if (scrollY < widgetLines.length+(widgetSize.height/2)){
 				needsUpdate = true;
 				scrollY += 4;
@@ -453,7 +453,7 @@ public:
 					scrollY -= 4;
 				}
 			}
-		}*/
+		}
 
 	}
 

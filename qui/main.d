@@ -15,13 +15,17 @@ void main(string[] args){
 	label.caption = "Caption";
 	label.sizeRatio = 1;
 
-
-	pBar = new ProgressbarWidget(200, 0);
+	/*pBar = new ProgressbarWidget(200, 0);
 	pBar.sizeRatio = 1;
-	pBar.caption = "Progress bar!";
+	pBar.caption = "Progress bar!";*/
+	MemoWidget memo = new MemoWidget();
+	memo.lines.add("This is line#1This is line#1This is line#1This is line#1This is line#1This is line#1This is line#1");
+	memo.lines.add("This is line#1");
+	memo.lines.add("This is line#1");
 
-	term.addWidget(pBar);
-	term.addWidget(label);
+	//term.addWidget(pBar);
+	term.addWidget(memo);
+	//term.addWidget(label);
 
 	//spawn(&increment);
 
@@ -42,4 +46,5 @@ void increment(){
 		//term.updateDisplay();
 		Thread.sleep(dur!"msecs"(50));
 	}
-}*/
+}
+*/
