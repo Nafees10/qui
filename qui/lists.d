@@ -191,7 +191,6 @@ class Matrix{
 private:
 	Cell[][] matrix;//read as: matrix[y][x];
 	//used to write by widgets
-	uinteger wX = 0, wY = 0, wXEnd = 0, wYEnd = 0;
 	uinteger xPosition, yPosition;
 
 	//stores whether the terminal needs updating or not
@@ -228,26 +227,24 @@ public:
 		}
 		return r;
 	}
-	//Set write limits, so a widget cannot write outside it's rectangle
-	void setWriteLimits(uinteger startX, uinteger startY, uinteger width, uinteger height){
-		wX = startX;
-		wY = startY;
-		xPosition = wX;
-		yPosition = wY;
-		wXEnd = width-wX;
-		wYEnd = height-wY;
+	///sets write position to (0, 0)
+	void resetWritePosition(){
+		xPosition = 0;
+		yPosition = 0;
 	}
 	///used to write to matrix, call Matrix.setWriteLimits before this
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
-		uinteger i;
-		for (i = 0; xPosition <= wXEnd && yPosition <= wYEnd && i < c.length; xPosition++){
-			if (xPosition >= wXEnd){
+		uinteger i, xEnd, yEnd;
+		xEnd = width;
+		yEnd = height;
+		for (i = 0; i < c.length; xPosition++){
+			if (xPosition == xEnd){
 				//move to next row
 				yPosition++;
-				xPosition = wX;
+				xPosition = 0;
 			}
 			//check if no more space left
-			if (xPosition == wXEnd && yPosition >= wYEnd){
+			if (yPosition >= yEnd){
 				//no more space left
 				break;
 			}
