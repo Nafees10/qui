@@ -26,10 +26,10 @@ public:
 	}
 
 	override bool update(ref Matrix display){
-		if (needsUpdate && widgetShow){
+		if (needsUpdate){
+			needsUpdate = false;
 			//redraw text
 			display.write(cast(char[])widgetCaption, textColor, bgColor);
-			needsUpdate = false;
 			return true;
 		}else{
 			return false;
@@ -73,6 +73,7 @@ public:
 	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
+			needsUpdate = false;
 			r = true;
 			uinteger filled = ratioToRaw(done, max, widgetSize.width);
 			char[] bar;
@@ -96,7 +97,6 @@ public:
 					writeBarLine(display, filled, bar);
 				}
 			}
-			needsUpdate = false;
 		}
 		return r;
 	}
@@ -319,7 +319,7 @@ private:
 		if (cursorPos !is null){
 			//check if cursor is at a position that's possible
 			if (widgetLines.length >= cursorY && widgetLines.read(cursorY).length >= cursorX){
-				cursorPos(cursorX - scrollX, cursorY - scrollY);
+				cursorPos((cursorX - scrollX)+widgetPosition.x, (cursorY - scrollY)+widgetPosition.y);
 			}
 		}
 	}
@@ -585,9 +585,166 @@ public:
 	}
 }
 
-///name: 'log'; Use to display a log (eg: a chat?) that removes older lines, when limit is reached
+///name: 'log'; Use to display a log (eg: a chat?) that removes older lines, when limit is reached.
+///And it's contents cannot be changed by user. And it has no problem with newline-characters, unlike MemoWidget
 class LogWidget : QWidget{
 private:
-	List!string lines;
+	LogList!string logs;
+	uinteger scrollY;
 
+	uinteger logHeight;//sum of height of all logs
+
+	RGBColor bgColor, textColor;
+
+	uinteger stringLineCount(string s){
+		uinteger width = widgetSize.width;
+		uinteger i, widthTaken = 0, count = 0;
+		for (i = 0; i < s.length; i++){
+			widthTaken ++;
+			if (s[i] == '\n' || widthTaken >= width){
+				count ++;
+				widthTaken = 0;
+			}
+			if (widthTaken >= width){
+				count ++;
+			}
+		}
+		return count;
+	}
+	string stripString(string s, uinteger height){
+		char[] r;
+		uinteger width = widgetSize.width;
+		uinteger i, widthTaken = 0, count = 0;
+		for (i = 0; i < s.length; i++){
+			widthTaken ++;
+			if (s[i] == '\n' || widthTaken >= width){
+				count ++;
+				widthTaken = 0;
+			}
+			if (count > height){
+				r.length = i;
+				r[0 .. i] = s[0 .. i];
+				break;
+			}
+		}
+		return cast(string)r;
+	}
+public:
+	this(uinteger maxLen=100){
+		widgetName = "log";
+		logs = new LogList!string(maxLen);
+		scrollY = 0;
+	}
+	~this(){
+		delete logs;
+	}
+
+	override public void updateColors(){
+		needsUpdate = true;
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
+			bgColor = widgetTheme.getColor(name, "background");
+			textColor = widgetTheme.getColor(name, "text");
+		}else{
+			bgColor = hexToColor("404040");
+			textColor = hexToColor("00FF00");
+		}
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+	}
+
+	override public bool update(ref Matrix display){
+		bool r = false;
+		if (needsUpdate){
+			needsUpdate = false;
+			r = true;
+			//get list of messages
+			string[] messages = logs.read(widgetSize.height);
+			uinteger count;//right now, it's used to store number of lines used
+			//set colors
+			display.setColors(textColor, bgColor);
+			//write them
+			for (uinteger i = scrollY; i < messages.length; i++){
+				uinteger thisCount = stringLineCount(messages[i]);
+				if (count < widgetSize.height){
+					if (count + thisCount >= widgetSize.height){
+						//write only a part of it
+						display.write(cast(char[])stripString(messages[i],widgetSize.height - count),textColor, bgColor);
+					}
+				}else{
+					break;
+				}
+			}
+		}
+		return r;
+	}
+
+	override public void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
+		if (key.isChar() == false){
+			if (key.key == key.NonCharKey.DownArrow){
+				if (scrollY + widgetSize.height < logHeight){
+					needsUpdate = true;
+					scrollY += 4;
+				}
+			}else if (key.key == key.NonCharKey.UpArrow){
+				if (scrollY > 0){
+					needsUpdate = true;
+					if (scrollY <= 4){
+						scrollY = 0;
+					}else{
+						scrollY -= 4;
+					}
+				}
+			}
+		}
+	}
+
+	override public void mouseEvent(MouseClick mouse) {
+		super.mouseEvent(mouse);
+		if (mouse.mouseButton == mouse.Button.ScrollDown){
+			if (scrollY + widgetSize.height < logHeight){
+				needsUpdate = true;
+				scrollY += 4;
+			}
+		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
+			if (scrollY > 0){
+				needsUpdate = true;
+				if (scrollY <= 4){
+					scrollY = 0;
+				}else{
+					scrollY -= 4;
+				}
+			}
+		}
+	}
+
+	///adds string to the log, and scrolls down to it
+	void add(string item){
+		//add height
+		logHeight += stringLineCount(item);
+		logs.add(item);
+		//update scrollY
+		if (logHeight > widgetSize.height){
+			if (scrollY < logHeight - widgetSize.height){
+				scrollY = logHeight - widgetSize.height;
+			}
+		}
+		//update
+		needsUpdate = true;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+	}
+	///clears the log
+	void clear(){
+		logs.reset();
+		logHeight = 0;
+		scrollY = 0;
+		//update
+		needsUpdate = true;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+	}
 }
