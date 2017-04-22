@@ -14,7 +14,7 @@ public:
 		widgetCaption = wCaption;
 	}
 
-	void updateColors(){
+	override void updateColors(){
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
 			textColor = widgetTheme.getColor(name, "text");
 			bgColor = widgetTheme.getColor(name, "background");
@@ -25,7 +25,7 @@ public:
 		}
 	}
 
-	bool update(ref Matrix display){
+	override bool update(ref Matrix display){
 		if (needsUpdate && widgetShow){
 			//redraw text
 			display.write(cast(char[])widgetCaption, textColor, bgColor);
@@ -35,15 +35,14 @@ public:
 			return false;
 		}
 	}
-	void onClick(MouseClick mouse){}
-	void onKeyPress(KeyPress key){}
+	override void mouseEvent(MouseClick mouse){}
+	override void keyboardEvent(KeyPress key){}
 }
 
 ///name: `progressbar`; Displays a left-to-right progressbar, with some text inside (optional)
 class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
-	uinteger fillCells;
 	RGBColor bgColor, barColor, textColor;
 	void writeBarLine(ref Matrix display, uinteger filled, char[] bar){
 		display.write(bar[0 .. filled], textColor, barColor);
@@ -55,10 +54,9 @@ public:
 		widgetCaption = null;
 		max = totalAmount;
 		done = complete;
-		fillCells = ratioToRaw(complete, max, widgetSize.width);
 	}
 
-	void updateColors(){
+	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "bar", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
@@ -74,7 +72,7 @@ public:
 		}
 	}
 
-	bool update(ref Matrix display){
+	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			r = true;
@@ -104,15 +102,14 @@ public:
 		}
 		return r;
 	}
-	void onClick(MouseClick mouse){}
-	void onKeyPress(KeyPress key){}
+	override void mouseEvent(MouseClick mouse){}
+	override void keyboardEvent(KeyPress key){}
 
 	@property uinteger total(){
 		return max;
 	}
 	@property uinteger total(uinteger newTotal){
 		needsUpdate = true;
-		fillCells = ratioToRaw(done, newTotal, widgetSize.width);
 		max = newTotal;
 		if (forceUpdate !is null){
 			forceUpdate();
@@ -125,7 +122,6 @@ public:
 	}
 	@property uinteger progress(uinteger newProgress){
 		needsUpdate = true;
-		fillCells = ratioToRaw(newProgress, total, widgetSize.width);
 		done = newProgress;
 		if (forceUpdate !is null){
 			forceUpdate();
@@ -151,7 +147,7 @@ public:
 		widgetSize.minHeight = 1;
 		widgetSize.maxHeight = 1;
 	}
-	void updateColors(){
+	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "caption-text", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
@@ -168,7 +164,7 @@ public:
 			forceUpdate();
 		}
 	}
-	bool update(ref Matrix display){
+	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			needsUpdate = false;
@@ -209,7 +205,7 @@ public:
 		return r;
 	}
 
-	void onClick(MouseClick mouse){
+	override void mouseEvent(MouseClick mouse){
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
 			//move cursor to that pos
@@ -219,7 +215,7 @@ public:
 			}
 		}
 	}
-	void onKeyPress(KeyPress key){
+	override void keyboardEvent(KeyPress key){
 		if (key.isChar){
 			needsUpdate = true;
 			//insert that key
@@ -272,11 +268,11 @@ public:
 			cursorPos(widgetPosition.x + widgetCaption.length + (cursorX - scrollX), widgetPosition.y);
 		}
 	}
-	///returns text that was entered
+	///The text that has been input-ed
 	@property string text(){
 		return cast(string)inputText;
 	}
-	///modify the entered text
+	///The text that has been input-ed
 	@property string text(string newText){
 		inputText = cast(char[])newText;
 		if (forceUpdate !is null){
@@ -353,7 +349,7 @@ public:
 		delete widgetLines;
 	}
 
-	void updateColors(){
+	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
@@ -367,7 +363,7 @@ public:
 		}
 	}
 
-	bool update(ref Matrix display){
+	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			needsUpdate = false;
@@ -418,7 +414,7 @@ public:
 		return r;
 	}
 
-	void onClick(MouseClick mouse){
+	override void mouseEvent(MouseClick mouse){
 		//calculate mouse position, relative to scroll and widgetPosition
 		mouse.x = (mouse.x - widgetPosition.x) + scrollX;
 		mouse.y = (mouse.y - widgetPosition.y) + scrollY;
@@ -445,7 +441,7 @@ public:
 		}
 	}
 
-	void onKeyPress(KeyPress key){
+	override void keyboardEvent(KeyPress key){
 		if (key.isChar){
 			if (!writeProtected){
 				needsUpdate = true;
@@ -588,3 +584,4 @@ public:
 		return writeProtected;
 	}
 }
+

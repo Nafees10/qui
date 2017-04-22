@@ -101,9 +101,9 @@ protected:
 	void delegate(uinteger x, uinteger y) cursorPos;
 public:
 	///called by owner when mouse is clicked with cursor on this widget. do not call forceUpdate, it's not required here
-	abstract void onClick(MouseClick mouse);
+	abstract void mouseEvent(MouseClick mouse);
 	///called by owner when widget is selected and a key is pressed. do not call forceUpdate, it's not required here
-	abstract void onKeyPress(KeyPress key);
+	abstract void keyboardEvent(KeyPress key);
 	///called when the owner is redrawing, return false if no need to redraw. do not call forceUpdate, it's not required here
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 	///called when a theme has been applied, or when widget was added to layout. The widget then must get new colors from the getColor/getColors. 
@@ -344,7 +344,7 @@ public:
 		emptySpace.c = ' ';
 	}
 
-	void updateColors(){
+	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
 			emptySpace.bgColor = widgetTheme.getColor(name, "background");
@@ -369,7 +369,7 @@ public:
 		recalculateWidgetsSize();
 	}
 
-	void onClick(MouseClick mouse){
+	override void mouseEvent(MouseClick mouse){
 		//check on which widget the cursor was on
 		Position p;
 		Size s;
@@ -387,8 +387,8 @@ public:
 				if (mouse.y >= p.y && mouse.y < p.y + s.height){
 					//give access to cursor position
 					widget.onCursorPosition = cursorPos;
-					//call onClick
-					widget.onClick(mouse);
+					//call mouseEvent
+					widget.mouseEvent(mouse);
 					//mark this widget as active
 					activeWidget = widget;
 					break;
@@ -396,13 +396,13 @@ public:
 			}
 		}
 	}
-	void onKeyPress(KeyPress key){
-		//check active widget, call onKeyPress
+	override void keyboardEvent(KeyPress key){
+		//check active widget, call keyboardEvent
 		if (activeWidget){
-			activeWidget.onKeyPress(key);
+			activeWidget.keyboardEvent(key);
 		}
 	}
-	bool update(ref Matrix display){
+	override bool update(ref Matrix display){
 		bool updated = false;
 		//check if already updating, case yes, return false
 		if (!isUpdating){
@@ -464,7 +464,7 @@ public:
 		widget.onForceUpdate = &updateDisplay;
 	}
 
-	override public void onClick(MouseClick mouse) {
+	override public void mouseEvent(MouseClick mouse) {
 		//check on which widget the cursor was on
 		Position p;
 		Size s;
@@ -484,8 +484,8 @@ public:
 				if (mouse.y >= p.y && mouse.y < p.y + s.height){
 					//give access to cursor position
 					widget.onCursorPosition = &setCursorPos;
-					//call onClick
-					widget.onClick(mouse);
+					//call mouseEvent
+					widget.mouseEvent(mouse);
 					//mark this widget as active
 					activeWidget = widget;
 					break;
@@ -499,7 +499,7 @@ public:
 		//termDisplay.clear(emptySpace);
 		bool r = update(termDisplay);
 		if (r){
-			termDisplay.flushToTerminal(&this);
+			termDisplay.flushToTerminal(this);
 		}
 		//set cursor position
 		terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
@@ -519,7 +519,7 @@ public:
 			if (event.type == event.Type.KeyboardEvent){
 				KeyPress kPress;
 				kPress.key = event.get!(event.Type.KeyboardEvent).which;
-				this.onKeyPress(kPress);
+				this.keyboardEvent(kPress);
 				updateDisplay;
 			}else if (event.type == event.Type.MouseEvent){
 				MouseEvent mEvent = event.get!(event.Type.MouseEvent);
@@ -542,7 +542,7 @@ public:
 					default:
 						continue;
 				}
-				this.onClick(mPos);
+				this.mouseEvent(mPos);
 				updateDisplay;
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//change matrix size
