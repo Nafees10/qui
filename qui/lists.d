@@ -156,20 +156,20 @@ public:
 			list.add(dat);
 		}
 	}
-	///Returns array containing items, in last-added-first order
+	///Returns array containing items, in first-added-last order
 	T[] read(uinteger count=0){
 		T[] r;
+		if (count>list.length){
+			count = list.length;
+		}
 		if (count > 0){
 			uinteger i;
 			if (count>list.length){
 				count = list.length;
 			}
 			r.length = count;
-			for (i = count; i >= 0; i--){
-				r[i - count] = list.read((readFrom+i)%count);
-				if (i == 0){
-					break;
-				}
+			for (i = readFrom; i < count; i++){
+				r[i] = list.read((readFrom+i)%count);
 			}
 		}else{
 			r = null;
@@ -180,6 +180,10 @@ public:
 	void reset(){
 		list.clear;
 		readFrom = 0;
+	}
+	///returns the max number of items that can be stored
+	@property uinteger maxCapacity(){
+		return maxLen;
 	}
 }
 
@@ -280,6 +284,14 @@ public:
 	///returns number of columns in matrix
 	@property uinteger width(){
 		return matrix[0].length;
+	}
+	///returns the point ox x-axis where next write will start from
+	@property uinteger writePosX(){
+		return xPosition;
+	}
+	///returns the point ox y-axis where next write will start from
+	@property uinteger writePosY(){
+		return yPosition;
 	}
 	///read a cell from the matrix
 	Cell read(uinteger x, uinteger y){
