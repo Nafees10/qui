@@ -35,8 +35,6 @@ public:
 			return false;
 		}
 	}
-	override void mouseEvent(MouseClick mouse){}
-	override void keyboardEvent(KeyPress key){}
 }
 
 ///name: `progressbar`; Displays a left-to-right progressbar, with some text inside (optional)
@@ -102,8 +100,6 @@ public:
 		}
 		return r;
 	}
-	override void mouseEvent(MouseClick mouse){}
-	override void keyboardEvent(KeyPress key){}
 
 	@property uinteger total(){
 		return max;
@@ -206,6 +202,7 @@ public:
 	}
 
 	override void mouseEvent(MouseClick mouse){
+		super.mouseEvent(mouse);
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
 			//move cursor to that pos
@@ -216,6 +213,7 @@ public:
 		}
 	}
 	override void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
 		if (key.isChar){
 			needsUpdate = true;
 			//insert that key
@@ -415,6 +413,7 @@ public:
 	}
 
 	override void mouseEvent(MouseClick mouse){
+		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll and widgetPosition
 		mouse.x = (mouse.x - widgetPosition.x) + scrollX;
 		mouse.y = (mouse.y - widgetPosition.y) + scrollY;
@@ -442,6 +441,7 @@ public:
 	}
 
 	override void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
 		if (key.isChar){
 			if (!writeProtected){
 				needsUpdate = true;
@@ -585,3 +585,9 @@ public:
 	}
 }
 
+///name: 'log'; Use to display a log (eg: a chat?) that removes older lines, when limit is reached
+class LogWidget : QWidget{
+private:
+	List!string lines;
+
+}

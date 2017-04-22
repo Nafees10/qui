@@ -73,6 +73,11 @@ struct Cell{
 	RGBColor bgColor;
 }
 
+///mouseEvent function
+alias MouseEventFuction = void delegate(MouseClick);
+///keyboardEvent function
+alias KeyboardEventFunction = void delegate(KeyPress);
+
 
 ///base class for all widgets, including layouts and QTerminal
 abstract class QWidget{
@@ -99,16 +104,40 @@ protected:
 	bool delegate() forceUpdate;
 	///Called by keyboard-input-taking widget (currently active) to position the cursor. For non-active widgets, this is null.
 	void delegate(uinteger x, uinteger y) cursorPos;
+
+	///custom mouse event, if not null, this function is called before calling the widget's own mouseEvent
+	MouseEventFuction customMouseEvent;
+	///custom keyboard event, if not null, this function is called before calling the widget's own keyboardEvent
+	KeyboardEventFunction customKeyboardEvent;
 public:
 	///called by owner when mouse is clicked with cursor on this widget. do not call forceUpdate, it's not required here
-	abstract void mouseEvent(MouseClick mouse);
+	void mouseEvent(MouseClick mouse){
+		if (customMouseEvent !is null){
+			customMouseEvent(mouse);
+		}
+	}
 	///called by owner when widget is selected and a key is pressed. do not call forceUpdate, it's not required here
-	abstract void keyboardEvent(KeyPress key);
+	void keyboardEvent(KeyPress key){
+		if (customKeyboardEvent !is null){
+			customKeyboardEvent(key);
+		}
+	}
 	///called when the owner is redrawing, return false if no need to redraw. do not call forceUpdate, it's not required here
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 	///called when a theme has been applied, or when widget was added to layout. The widget then must get new colors from the getColor/getColors. 
 	///Do not call forceUpdate in this function, call it separately.
 	abstract void updateColors();
+
+	//event properties
+	///custom mouse event. called before widget's function for mouse event
+	@property MouseEventFuction onMouseEvent(MouseEventFuction func){
+		return customMouseEvent = func;
+	}
+	///custom keyboard event. called before widget's function for keyboard event
+	@property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
+		return customKeyboardEvent = func;
+	}
+
 
 	//properties:
 	@property string name(){
@@ -370,13 +399,16 @@ public:
 	}
 
 	override void mouseEvent(MouseClick mouse){
+		super.mouseEvent(mouse);
 		//check on which widget the cursor was on
 		Position p;
 		Size s;
 		uinteger i;
 		QWidget widget;
 		//remove access to cursor from previous active widget
-		activeWidget.onCursorPosition = null;
+		if (activeWidget !is null){
+			activeWidget.onCursorPosition = null;
+		}
 		for (i = 0; i < widgetList.length; i++){
 			widget = widgetList[i];
 			p = widget.position;
@@ -397,6 +429,7 @@ public:
 		}
 	}
 	override void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
 		//check active widget, call keyboardEvent
 		if (activeWidget){
 			activeWidget.keyboardEvent(key);
@@ -465,6 +498,7 @@ public:
 	}
 
 	override public void mouseEvent(MouseClick mouse) {
+		super.mouseEvent(mouse);
 		//check on which widget the cursor was on
 		Position p;
 		Size s;
