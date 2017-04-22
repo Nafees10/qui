@@ -590,15 +590,12 @@ public:
 class LogWidget : QWidget{
 private:
 	LogList!string logs;
-	uinteger scrollY;
-
-	uinteger logHeight;//sum of height of all logs
 
 	RGBColor bgColor, textColor;
 
 	uinteger stringLineCount(string s){
 		uinteger width = widgetSize.width;
-		uinteger i, widthTaken = 0, count = 0;
+		uinteger i, widthTaken = 0, count = 1;
 		for (i = 0; i < s.length; i++){
 			widthTaken ++;
 			if (s[i] == '\n' || widthTaken >= width){
@@ -614,7 +611,7 @@ private:
 	string stripString(string s, uinteger height){
 		char[] r;
 		uinteger width = widgetSize.width;
-		uinteger i, widthTaken = 0, count = 0;
+		uinteger i, widthTaken = 0, count = 1;
 		for (i = 0; i < s.length; i++){
 			widthTaken ++;
 			if (s[i] == '\n' || widthTaken >= width){
@@ -633,7 +630,6 @@ public:
 	this(uinteger maxLen=100){
 		widgetName = "log";
 		logs = new LogList!string(maxLen);
-		scrollY = 0;
 	}
 	~this(){
 		delete logs;
@@ -659,77 +655,44 @@ public:
 			needsUpdate = false;
 			r = true;
 			//get list of messages
-			string[] messages = logs.read(widgetSize.height);
-			uinteger count;//right now, it's used to store number of lines used
+			string[] messages = logs.read(logs.maxCapacity);
 			//set colors
 			display.setColors(textColor, bgColor);
-			//write them
-			for (uinteger i = scrollY; i < messages.length; i++){
-				uinteger thisCount = stringLineCount(messages[i]);
-				if (count < widgetSize.height){
-					if (count + thisCount >= widgetSize.height){
-						//write only a part of it
-						display.write(cast(char[])stripString(messages[i],widgetSize.height - count),textColor, bgColor);
+			//determine how many of them will be displayed
+			uinteger count;//right now, it's used to store number of lines used
+			uinteger i;
+			if (messages.length>0){
+				for (i=messages.length-1; i>=0; i--){
+					count += stringLineCount(messages[i]);
+					if (count > widgetSize.height){
+						messages = messages[i+1 .. messages.length];
+						//try to insert part of the last message
+						uinteger thisCount = stringLineCount(messages[i]);
+						count -= thisCount;
+						if (count < widgetSize.height){
+							messages ~= [stripString(messages[i], widgetSize.height - count)];
+						}
+						break;
 					}
-				}else{
-					break;
+					if (i==0){
+						break;
+					}
 				}
+			}
+			//write them
+			for (i = 0; i < messages.length; i++){
+				display.write(cast(char[])messages[i], textColor, bgColor);
+				//add newline
+				display.moveTo(0, display.writePosY+1);
 			}
 		}
 		return r;
 	}
 
-	override public void keyboardEvent(KeyPress key){
-		super.keyboardEvent(key);
-		if (key.isChar() == false){
-			if (key.key == key.NonCharKey.DownArrow){
-				if (scrollY + widgetSize.height < logHeight){
-					needsUpdate = true;
-					scrollY += 4;
-				}
-			}else if (key.key == key.NonCharKey.UpArrow){
-				if (scrollY > 0){
-					needsUpdate = true;
-					if (scrollY <= 4){
-						scrollY = 0;
-					}else{
-						scrollY -= 4;
-					}
-				}
-			}
-		}
-	}
-
-	override public void mouseEvent(MouseClick mouse) {
-		super.mouseEvent(mouse);
-		if (mouse.mouseButton == mouse.Button.ScrollDown){
-			if (scrollY + widgetSize.height < logHeight){
-				needsUpdate = true;
-				scrollY += 4;
-			}
-		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
-			if (scrollY > 0){
-				needsUpdate = true;
-				if (scrollY <= 4){
-					scrollY = 0;
-				}else{
-					scrollY -= 4;
-				}
-			}
-		}
-	}
-
 	///adds string to the log, and scrolls down to it
 	void add(string item){
 		//add height
-		logHeight += stringLineCount(item);
 		logs.add(item);
-		//update scrollY
-		if (logHeight > widgetSize.height){
-			if (scrollY < logHeight - widgetSize.height){
-				scrollY = logHeight - widgetSize.height;
-			}
-		}
 		//update
 		needsUpdate = true;
 		if (forceUpdate !is null){
@@ -739,8 +702,6 @@ public:
 	///clears the log
 	void clear(){
 		logs.reset();
-		logHeight = 0;
-		scrollY = 0;
 		//update
 		needsUpdate = true;
 		if (forceUpdate !is null){
