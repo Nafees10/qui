@@ -133,7 +133,7 @@ public:
 	}
 }
 
-///Used in logging widgets. Holds upto certain number, after which older 
+///Used in logging widgets. Holds upto certain number, after which older items are removed
 class LogList(T){
 private:
 	List!T list;
@@ -147,6 +147,7 @@ public:
 	~this(){
 		delete list;
 	}
+	///adds an item to the log
 	void add(T dat){
 		if (list.length>=maxLen){
 			list.set(readFrom,dat);
@@ -155,31 +156,27 @@ public:
 			list.add(dat);
 		}
 	}
-	//count = 0 == read all
+	///Returns array containing items, in last-added-first order
 	T[] read(uinteger count=0){
 		T[] r;
-		if (count == 0){
-			uinteger i;
-			count = list.length;
-			r.length = count;
-			for (i = readFrom; i < count; i++){
-				r[i] = list.read((readFrom+i)%count);
-			}
-		}else{
+		if (count > 0){
 			uinteger i;
 			if (count>list.length){
 				count = list.length;
 			}
 			r.length = count;
-			for (i = readFrom; i < count; i++){
-				r[i] = list.read((readFrom+i)%count);
+			for (i = count; i >= 0; i--){
+				r[i - count] = list.read((readFrom+i)%count);
+				if (i == 0){
+					break;
+				}
 			}
+		}else{
+			r = null;
 		}
 		return r;
 	}
-	T read(uinteger index){
-		return list.read((index+readFrom)%list.length);
-	}
+	///resets and clears the log
 	void reset(){
 		list.clear;
 		readFrom = 0;
@@ -254,6 +251,15 @@ public:
 			i++;
 		}
 		updateNeeded = true;
+	}
+	///changes colors for whole matrix
+	void setColors(RGBColor textColor, RGBColor bgColor){
+		for (uinteger i = 0; i < matrix.length; i++){
+			for(uinteger j = 0; j < matrix[i].length; j++){
+				matrix[i][j].textColor = textColor;
+				matrix[i][j].bgColor = bgColor;
+			}
+		}
 	}
 	///move to a different position to write
 	bool moveTo(uinteger x, uinteger y){
