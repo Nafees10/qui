@@ -319,7 +319,7 @@ public:
 		}
 	}*/
 	///Write contents of matrix to a QTerminal
-	void flushToTerminal(QTerminal* terminal){
+	void flushToTerminal(QTerminal terminal){
 		if (updateNeeded){
 			//first clear everything:
 			terminal.clear;
