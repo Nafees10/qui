@@ -1,0 +1,9 @@
+{
+	"name": "qui",
+	"description": "A Text User Interface library.",
+	"copyright": "Copyright © 2017, nafees",
+	"authors": ["nafees"],
+	"license":"MIT",
+	"dependencies": {
+	}
+}
