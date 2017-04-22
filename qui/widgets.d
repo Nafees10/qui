@@ -709,3 +709,46 @@ public:
 		}
 	}
 }
+
+///name: 'button'; The name says it all. Use the `onMouseEvent` to set an event. Caption is the text inside button
+class ButtonWidget : QWidget{
+private:
+	RGBColor bgColor, textColor;
+public:
+	this(){
+		widgetName = "button";
+	}
+	override public void updateColors(){
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
+			bgColor = widgetTheme.getColor(name, "background");
+			textColor = widgetTheme.getColor(name, "text");
+		}else{
+			bgColor = hexToColor("00FF00");
+			textColor = hexToColor("000000");
+		}
+	}
+
+	override public bool update(ref Matrix display) {
+		bool r = false;
+		if (needsUpdate){
+			r = true;
+			needsUpdate = false;
+			char[] row;
+			row.length = widgetSize.width;
+			row[0 .. row.length] = ' ';
+			//write the caption too!
+			uinteger middle = widgetSize.height/2;
+			for (uinteger i = 0; i < widgetSize.height; i++){
+				if (i == middle && widgetCaption != ""){
+					row = centerAlignText(cast(char[])caption, widgetSize.width);
+					display.write(row, textColor, bgColor);
+					row[0 .. row.length] = ' ';
+					continue;
+				}else{
+					display.write(row, textColor, bgColor);
+				}
+			}
+		}
+		return r;
+	}
+}
