@@ -290,37 +290,107 @@ private:
 	//used to write by widgets
 	uinteger xPosition, yPosition;
 
-	//stores whether the terminal needs updating or not
-	bool updateNeeded = false;
+	//stores which part was updated
+	struct UpdateLocation{
+		uinteger x, y;
+		uinteger length;
+	}
+	LinkedList!UpdateLocation updateAt;
+
+	void updateChars(QTerminal terminal, uinteger x, uinteger y, uinteger length){
+		uinteger row = y, col = x, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
+		uinteger writeFrom = 0;
+		RGBColor prevBgColor, prevTextColor;
+		//set initial colors
+		prevBgColor = matrix[row][col].bgColor;
+		prevTextColor = matrix[row][col].textColor;
+		char[] toWrite;
+		toWrite.length = width;
+		terminal.setColors(prevTextColor, prevBgColor);
+		//copy first row's chars
+		for (uinteger i = 0; i < width; i++){
+			toWrite[i] = matrix[row][i].c;
+		}
+		uinteger i = 0;
+		if (length > 0){
+			length --;
+		}
+		//move to that position
+		terminal.moveTo(cast(int)x, cast(int)y);
+		for (; row <= rowEnd && col <= colEnd && i != length; col++){
+			//check if has to move to next row
+			i ++;
+			//check if colors have changed, if yes, write chars
+			if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
+				//write previous chars
+				if (writeFrom < col){
+					terminal.writeChars(toWrite[writeFrom .. col]);
+				}
+				writeFrom = col;
+				//update colors
+				prevBgColor = matrix[row][col].bgColor;
+				prevTextColor = matrix[row][col].textColor;
+				terminal.setColors(prevTextColor, prevBgColor);
+			}
+			//check if is at end, then write remaining chars
+			if (i == length){
+				//set colors, could be different
+				if (writeFrom < col){
+					terminal.writeChars(toWrite[writeFrom .. col]);
+				}
+				terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
+				terminal.writeChars(matrix[row][col].c);
+			}
+		}
+	}
 public:
-	this(uinteger width, uinteger height, Cell fill){
+	this(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
 		//set matrix size
-		matrix.length = height;
+		matrix.length = matrixHeight;
 		//set width:
 		for (uinteger i = 0; i < matrix.length; i++){
-			matrix[i].length = width;
-			matrix[i][0 .. width] = fill;
+			matrix[i].length = matrixWidth;
+			matrix[i][0 .. matrixWidth] = fill;
 		}
+		updateAt = new LinkedList!UpdateLocation;
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
+	}
+	~this(){
+		delete updateAt;
 	}
 	///Clear the matrix, and put fill in every cell
 	void clear(Cell fill){
 		for (uinteger row = 0; row < matrix.length; row++){
 			matrix[row][0 .. matrix[row].length] = fill;
 		}
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
 	}
 	///Change size of the matrix, width and height
-	bool changeSize(uinteger width, uinteger height, Cell fill){
+	bool changeSize(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
 		//make sure width & size are at least 1
 		bool r = true;
-		if (width == 0 || height == 0){
+		if (matrixWidth == 0 || matrixHeight == 0){
 			r = false;
 		}
 		if (r){
-			matrix.length = height;
+			matrix.length = matrixHeight;
 			for (uinteger i = 0; i < matrix.length; i++){
-				matrix[i].length = width;
-				matrix[i][0 .. width] = fill;
+				matrix[i].length = matrixWidth;
+				matrix[i][0 .. matrixWidth] = fill;
 			}
+			//set updateAt to whole Matrix
+			UpdateLocation loc;
+			loc.x, loc.y = 0;
+			loc.length = width*height;
+			updateAt.append(loc);
 		}
 		return r;
 	}
@@ -334,6 +404,12 @@ public:
 		uinteger i, xEnd, yEnd;
 		xEnd = width;
 		yEnd = height;
+		//add it to updateAt
+		UpdateLocation loc;
+		loc.x = xPosition;
+		loc.y = yPosition;
+		loc.length = c.length;
+		updateAt.append(loc);
 		for (i = 0; i < c.length; xPosition++){
 			if (xPosition == xEnd){
 				//move to next row
@@ -350,7 +426,6 @@ public:
 			matrix[yPosition][xPosition].textColor = textColor;
 			i++;
 		}
-		updateNeeded = true;
 	}
 	///changes colors for whole matrix
 	void setColors(RGBColor textColor, RGBColor bgColor){
@@ -360,6 +435,11 @@ public:
 				matrix[i][j].bgColor = bgColor;
 			}
 		}
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
 	}
 	///move to a different position to write
 	bool moveTo(uinteger x, uinteger y){
@@ -397,25 +477,26 @@ public:
 	Cell[] readRow(uinteger y){
 		return matrix[y][];
 	}
-	///returns whether terminal needs to be updated
-	@property bool hasChanged(){
-		return updateNeeded;
-	}
 	///insert a matrix into this one at a position
 	bool insert(Matrix toInsert, uinteger x, uinteger y){
-		uinteger width, height;
-		height = toInsert.height;
-		width = toInsert.width;
+		uinteger matrixWidth, matrixHeight;
+		matrixHeight = toInsert.height;
+		matrixWidth = toInsert.width;
 		bool r = true;
-		if (height + y > this.height || width + x > this.width){
+		if (matrixHeight + y > this.height || matrixWidth + x > this.width){
 			r = false;
 		}else{
 			uinteger row = 0;
-			uinteger endAtRow = height;
+			uinteger endAtRow = matrixHeight;
 			for (;row<endAtRow; row++){
-				matrix[y + row][x .. x+width] = toInsert.readRow(row);
+				matrix[y + row][x .. x+matrixWidth] = toInsert.readRow(row);
+				//add this row to updateAt
+				UpdateLocation loc;
+				loc.x = x;
+				loc.y = y+row;
+				loc.length = matrixWidth;
+				updateAt.append(loc);
 			}
-			updateNeeded = true;
 		}
 		//debug{toFile("/home/nafees/Desktop/a");}
 		return r;
@@ -434,66 +515,23 @@ public:
 	}*/
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal terminal){
-		if (updateNeeded){
-			//first clear everything:
-			terminal.clear;
-			uinteger row = 0, col = 0, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
-			uinteger writeFrom = 0;
-			RGBColor prevBgColor, prevTextColor;
-			//set initial colors
-			prevBgColor = matrix[row][col].bgColor;
-			prevTextColor = matrix[row][col].textColor;
-			char[] toWrite;
-			toWrite.length = width;
-			terminal.setColors(prevTextColor, prevBgColor);
-			//copy first row's chars
-			for (uinteger i = 0; i < width; i++){
-				toWrite[i] = matrix[row][i].c;
+		//make sure that there was some change that needs to be flushed
+		if (updateAt.count > 0){
+			//start going through all update-needy
+			uinteger i, count;
+			count = updateAt.count();
+			UpdateLocation* ptr;
+			for (i = 0; i < count; i++){
+				ptr = updateAt.read();
+				if (ptr is null){
+					break;
+				}
+				if ((*ptr).length > 0){
+					updateChars(terminal, (*ptr).x, (*ptr).y, (*ptr).length);
+				}
+				updateAt.removeFirst();
 			}
-			for (; row <= rowEnd && col <= colEnd; col++){
-				//check if has to move to next row
-				if (col >= colEnd){
-					//write remaining row to terminal
-					if (writeFrom < col){
-						terminal.writeChars(toWrite[writeFrom .. col+1]);
-					}
-					//move to next row
-					writeFrom = 0;
-					col = 0;
-					row++;
-					if (row > rowEnd){
-						break;
-					}
-					//copy row's chars
-					for (uinteger i = 0; i < width; i++){
-						toWrite[i] = matrix[row][i].c;
-					}
-					terminal.moveTo(cast(int)col, cast(int)row);
-				}
-				//check if colors have changed, if yes, write chars
-				if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
-					//write previous chars
-					if (writeFrom < col){
-						terminal.writeChars(toWrite[writeFrom .. col]);
-					}
-					writeFrom = col;
-					//update colors
-					prevBgColor = matrix[row][col].bgColor;
-					prevTextColor = matrix[row][col].textColor;
-					terminal.setColors(prevTextColor, prevBgColor);
-				}
-				//check if is at end, then write remaining chars
-				if (row == rowEnd && col == colEnd){
-					//set colors, could be different
-					if (writeFrom < col){
-						terminal.writeChars(toWrite[writeFrom .. col]);
-					}
-					terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
-					terminal.writeChars(matrix[row][col].c);
-				}
-			}
-			updateNeeded = false;
-			terminal.flush;
+			terminal.flush();
 		}
 	}
 }
