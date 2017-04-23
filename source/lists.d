@@ -297,49 +297,50 @@ private:
 	}
 	LinkedList!UpdateLocation updateAt;
 
+	Cell readAsStream(uinteger pos){
+		return matrix[pos/width][pos%width];
+	}
+
+	char[] cellToChar(Cell[] c){
+		char[] r;
+		r.length = c.length;
+		for (uinteger i = 0; i < c.length; i++){
+			r[i] = c[i].c;
+		}
+		return r;
+	}
+
 	void updateChars(QTerminal terminal, uinteger x, uinteger y, uinteger length){
-		uinteger row = y, col = x, rowEnd = matrix.length-1, colEnd = matrix[0].length-1;
-		uinteger writeFrom = 0;
-		RGBColor prevBgColor, prevTextColor;
-		//set initial colors
-		prevBgColor = matrix[row][col].bgColor;
-		prevTextColor = matrix[row][col].textColor;
-		char[] toWrite;
-		toWrite.length = width;
-		terminal.setColors(prevTextColor, prevBgColor);
-		//copy first row's chars
-		for (uinteger i = 0; i < width; i++){
-			toWrite[i] = matrix[row][i].c;
+		uinteger readPos = (y*width)+x, i;
+		Cell[] line;
+		line.length = length;
+		//read all content into line
+		for (i = 0; i < length; i++){
+			line[i] = readAsStream(readPos);
+			readPos ++;
 		}
-		uinteger i = 0;
-		if (length > 0){
-			length --;
-		}
-		//move to that position
+		//start writing it to terminal
 		terminal.moveTo(cast(int)x, cast(int)y);
-		for (; row <= rowEnd && col <= colEnd && i != length; col++){
-			//check if has to move to next row
-			i ++;
-			//check if colors have changed, if yes, write chars
-			if (matrix[row][col].bgColor != prevBgColor || matrix[row][col].textColor != prevTextColor){
-				//write previous chars
-				if (writeFrom < col){
-					terminal.writeChars(toWrite[writeFrom .. col]);
+		//set origin colors
+		RGBColor originBgColor, originTextColor;
+		originBgColor = line[0].bgColor;
+		originTextColor = line[0].textColor;
+		terminal.setColors(originTextColor, originBgColor);
+
+		length --;
+		uinteger writeFrom = 0;
+		for (i = 0; i <= length; i++){
+			//check if colors have changed, or is it end
+			if (line[i].bgColor != originBgColor || line[i].textColor != originTextColor || i == length){
+				if (writeFrom < i){
+					terminal.setColors(originTextColor, originBgColor);
+					terminal.writeChars(cellToChar(line[writeFrom .. i]));
 				}
-				writeFrom = col;
-				//update colors
-				prevBgColor = matrix[row][col].bgColor;
-				prevTextColor = matrix[row][col].textColor;
-				terminal.setColors(prevTextColor, prevBgColor);
-			}
-			//check if is at end, then write remaining chars
-			if (i == length){
-				//set colors, could be different
-				if (writeFrom < col){
-					terminal.writeChars(toWrite[writeFrom .. col]);
+				//if is at end, write the 'last-encountered' char too
+				if (i == length){
+					terminal.setColors(line[i].textColor, line[i].bgColor);
+					terminal.writeChars(line[i].c);
 				}
-				terminal.setColors(matrix[row][col].textColor, matrix[row][col].bgColor);
-				terminal.writeChars(matrix[row][col].c);
 			}
 		}
 	}
@@ -386,11 +387,6 @@ public:
 				matrix[i].length = matrixWidth;
 				matrix[i][0 .. matrixWidth] = fill;
 			}
-			//set updateAt to whole Matrix
-			UpdateLocation loc;
-			loc.x, loc.y = 0;
-			loc.length = width*height;
-			updateAt.append(loc);
 		}
 		return r;
 	}
