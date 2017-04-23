@@ -160,10 +160,10 @@ public:
 	void clear(){
 		//make sure that the list is populated
 		if (firstItemPtr !is null){
-			LinkedList!(T)* nextPtr;
+			LinkedItem!(T)* nextPtr;
 			for (nextReadPtr = firstItemPtr; nextReadPtr !is null; nextReadPtr = nextPtr){
 				nextPtr = (*nextReadPtr).next;
-				delete *nextReadPtr;
+				destroy(*nextReadPtr);
 			}
 			//reset all variables
 			firstItemPtr = null;
@@ -174,7 +174,7 @@ public:
 	}
 	///adds a new item at the end of the list
 	void append(T item){
-		LinkedItem!(T)* ptr = new LinkedItem(T);
+		LinkedItem!(T)* ptr = new LinkedItem!(T);
 		(*ptr).data = item;
 		(*ptr).next = null;
 		//add it to the list
@@ -198,7 +198,7 @@ public:
 			//mark the second item as first, if there isn't a second item, it'll automatically be marked null
 			firstItemPtr = (*firstItemPtr).next;
 			//free memory occupied by first
-			delete *first;
+			destroy(*first);
 			//decrease count
 			itemCount --;
 		}
