@@ -1,7 +1,7 @@
-module lists;
+module qui.lists;
 
-import qui;//used for Position & Cell in Matrix
-import misc;
+import qui.qui;//used for Position & Cell in Matrix
+import qui.misc;
 import std.file;
 import std.stdio;
 
@@ -130,6 +130,98 @@ public:
 			i=-1;
 		}
 		return i;
+	}
+}
+///represents an item in a linked list. contains the item, and pointer to the next item's container
+private struct LinkedItem(T){
+	T data;
+	LinkedItem!(T)* next = null;//mark it null to show the list has ended
+}
+///a linked list, used where only reading in the forward direction is required
+class LinkedList(T){
+private:
+	LinkedItem!(T)* firstItemPtr;
+	LinkedItem!(T)* lastItemPtr;//the pointer of the last item, used for appending new items
+	LinkedItem!(T)* nextReadPtr;//the pointer of the next item to be read
+
+	uinteger itemCount;//stores the total number of items
+public:
+	this(){
+		firstItemPtr = null;
+		lastItemPtr = null;
+		nextReadPtr = null;
+		itemCount = 0;
+	}
+	~this(){
+		//free all the memory occupied
+		clear();
+	}
+	///clears/resets the list. Frees all the occupied memory, & removes all items
+	void clear(){
+		//make sure that the list is populated
+		if (firstItemPtr !is null){
+			LinkedList!(T)* nextPtr;
+			for (nextReadPtr = firstItemPtr; nextReadPtr !is null; nextReadPtr = nextPtr){
+				nextPtr = (*nextReadPtr).next;
+				delete *nextReadPtr;
+			}
+			//reset all variables
+			firstItemPtr = null;
+			lastItemPtr = null;
+			nextReadPtr = null;
+			itemCount = 0;
+		}
+	}
+	///adds a new item at the end of the list
+	void append(T item){
+		LinkedItem!(T)* ptr = new LinkedItem(T);
+		(*ptr).data = item;
+		(*ptr).next = null;
+		//add it to the list
+		if (firstItemPtr is null){
+			firstItemPtr = ptr;
+			nextReadPtr = ptr;
+		}else{
+			(*lastItemPtr).next = ptr;
+		}
+		//mark this item as last
+		lastItemPtr = ptr;
+		//increase item count
+		itemCount ++;
+	}
+	///removes the first item in list
+	void removeFirst(){
+		//make sure list is populated
+		if (firstItemPtr !is null){
+			LinkedItem!(T)* first;
+			first = firstItemPtr;
+			//mark the second item as first, if there isn't a second item, it'll automatically be marked null
+			firstItemPtr = (*firstItemPtr).next;
+			//free memory occupied by first
+			delete *first;
+			//decrease count
+			itemCount --;
+		}
+	}
+	///number of items that the list is holding
+	@property uinteger count(){
+		return itemCount;
+	}
+	///resets the read position, i.e: set reading position to first item
+	void resetRead(){
+		nextReadPtr = firstItemPtr;
+	}
+	///returns pointer of next item to be read, null if there are no more items
+	T* read(){
+		T* r;
+		if (nextReadPtr !is null){
+			r = &((*nextReadPtr).data);
+			//move read position
+			nextReadPtr = (*nextReadPtr).next;
+		}else{
+			r = null;
+		}
+		return r;
 	}
 }
 
