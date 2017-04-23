@@ -1,6 +1,6 @@
-module misc;
+module qui.misc;
 
-import qui;
+import qui.qui;
 import std.stdio;
 
 ///These names are easier to understand

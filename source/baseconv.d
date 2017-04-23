@@ -1,7 +1,7 @@
-﻿module baseconv;
+﻿module qui.baseconv;
 
 import std.math;
-import misc;
+import qui.misc;
 
 private uinteger toDenary(ushort fromBase, ubyte[] dat){
 	uinteger r = 0, i = 0;

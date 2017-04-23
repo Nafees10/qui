@@ -1,8 +1,8 @@
-﻿module qui;
+﻿module qui.qui;
 
-import misc;
-import lists;
-import baseconv;//used for hexadecimal colors
+import qui.misc;
+import qui.lists;
+import qui.baseconv;//used for hexadecimal colors
 import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
 

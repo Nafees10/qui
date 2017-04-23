@@ -1,8 +1,8 @@
-﻿module widgets;
+﻿module qui.widgets;
 
-import qui;
-import misc;
-import lists;
+import qui.qui;
+import qui.misc;
+import qui.lists;
 
 ///name: `text-label`; Displays some text (caption)
 class TextLabelWidget : QWidget{
