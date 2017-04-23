@@ -180,7 +180,7 @@ public:
 		//add it to the list
 		if (firstItemPtr is null){
 			firstItemPtr = ptr;
-			nextReadPtr = ptr;
+			nextReadPtr = firstItemPtr;
 		}else{
 			(*lastItemPtr).next = ptr;
 		}
@@ -197,6 +197,10 @@ public:
 			first = firstItemPtr;
 			//mark the second item as first, if there isn't a second item, it'll automatically be marked null
 			firstItemPtr = (*firstItemPtr).next;
+			//if nextReadPtr is firstItemPtr, move it to next as well
+			if (nextReadPtr is first){
+				nextReadPtr = firstItemPtr;
+			}
 			//free memory occupied by first
 			destroy(*first);
 			//decrease count
