@@ -1,4 +1,10 @@
-﻿module qui.qui;
+﻿/++
+	This module contains most of the functions you'll need
+	All the 'base' classes, like QWidget are defined in this.
+	There are some classes, like List, that are defined in 
+	other modules.
++/
+module qui.qui;
 
 import qui.misc;
 import qui.lists;
@@ -7,25 +13,37 @@ import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
 
 ///Mouse Click, or Ms Wheel scroll event
+///
+///The mouseEvent function is called with this.
 struct MouseClick{
+	///Types of buttons
 	enum Button{
-		Left,
-		ScrollUp,
-		ScrollDown,
-		Right,
+		Left,/// Left mouse button
+		ScrollUp,/// MS wheel was scrolled up
+		ScrollDown,/// MS wheel was scrolled down
+		Right,/// Right mouse button was pressed
 	}
+	///Stores which button was pressed
 	Button mouseButton;
+	/// the x-axis of mouse cursor, 0 means left-most
 	uinteger x;
+	/// the y-axis of mouse cursor, 0 means top-most
 	uinteger y;
 }
 
-///Key press event, somewhat similar to arsd.terminal.KeyPress
-///A note: backspace is not included in NonCharKey, it's the '\b' char
+///Key press event, keyboardEvent function is called with this
+///
+///A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
 struct KeyPress{
-	dchar key;
+	dchar key;/// stores which key was pressed
+
+	/// Returns true if the key was a character.
+	/// 
+	/// A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
 	bool isChar(){
 		return !(key >= NonCharKey.min && key <= NonCharKey.max);
 	}
+	/// Types of non-character keys
 	enum NonCharKey{
 		escape = 0x1b + 0xF0000,
 		F1 = 0x70 + 0xF0000,
@@ -53,100 +71,155 @@ struct KeyPress{
 	}
 }
 
-///A 24 bit, RGB, color
+/// A 24 bit, RGB, color
+/// 
+/// `r` represents amount of red, `g` is green, and `b` is blue.
+/// the `a` is ignored
 alias RGBColor = RGB;
 
-///To store position for widgets
+/// Used to store position for widgets
 struct Position{
 	uinteger x, y;
 }
-///To store size for widgets, use 0 on min/max to specify no-limit
+
+/// To store size for widgets
+/// 
+/// zero in min/max means no limit
 struct Size{
 	uinteger width, height;
 	uinteger minHeight = 0, minWidth = 0;
 	uinteger maxHeight = 0, maxWidth = 0;
 }
-///Cell, character in terminal is a Cell, that has it's own background color, and foreground color
+
+/// The whole terminal is divided into cells, total number of cells = length * height of terminal
+/// 
+/// Each cell has it's own character, foreground color, and background color
 struct Cell{
 	char c;
 	RGBColor textColor;
 	RGBColor bgColor;
 }
 
-///mouseEvent function
+/// mouseEvent function
 alias MouseEventFuction = void delegate(MouseClick);
 ///keyboardEvent function
 alias KeyboardEventFunction = void delegate(KeyPress);
 
 
-///base class for all widgets, including layouts and QTerminal
+/// Base class for all widgets, including layouts and QTerminal
+///
+/// Use this as parent-class for new widgets
 abstract class QWidget{
 protected:
 	///specifies position of this widget
 	Position widgetPosition;
 	///size of this widget
 	Size widgetSize;
-	///caption of this widget, it's up to the widget how to use this, ProgressbarWidget shows this inside the bar...
+	///caption of this widget, it's up to the widget how to use this, progressbarWidget shows this inside the bar...
 	string widgetCaption;
 	///whether this widget should be drawn or not
 	bool widgetShow = true;
-	///to specify if this widget needs to be updated or not, use this to save CPU
+	///to specify if this widget needs to be updated or not, mark this as true when the widget has changed
 	bool needsUpdate = true;
 	///specifies name of this widget. must be unique, as it is used to identify widgets in theme
 	string widgetName = null;
-	///specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
-	///The ratio of all widgets is added up and height/width for each widget is then calculated using this
+	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
+	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
 	uinteger widgetSizeRatio = 1;
 
 	///The theme that is currently used
+	///
+	///The widget is free to modify the theme
 	QTheme widgetTheme;
-	///Called by widget when a redraw is needed, but no redraw is scheduled (e.g when the caption of text-label is changed, a force update is called)
+
+	/// Called by widget when a redraw is needed, but no redraw is scheduled
+	/// 
+	/// In other words: call this function using:
+	/// ```
+	/// if (forceUpdate !is null){
+	/// 	forceUpdate();
+	/// }
+	/// ```
+	/// when an update is needed, but it's not sure if an update will be called.
+	/// Update is automatically called after mouseEvent and keyboardEvent
 	bool delegate() forceUpdate;
-	///Called by keyboard-input-taking widget (currently active) to position the cursor. For non-active widgets, this is null.
+
+	/// Called by widgets (usually keyboard-input-taking) to position the cursor
+	/// 
+	/// It can only be called if the widget is active (i.e selected), in non-active widgets, it's null;
 	void delegate(uinteger x, uinteger y) cursorPos;
 
-	///custom mouse event, if not null, this function is called before calling the widget's own mouseEvent
+	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
+	/// 
+	/// Like:
+	/// ```
+	/// override void mouseEvent(MouseClick mouse){
+	/// 	super.mouseEvent(mouse);
+	/// 	// rest of the code here
+	/// }
+	/// ```
 	MouseEventFuction customMouseEvent;
-	///custom keyboard event, if not null, this function is called before calling the widget's own keyboardEvent
+
+	/// custom keyboard event, if not null, it should be called before doing anything else in keyboardEvent.
+	/// 
+	/// Like:
+	/// ```
+	/// override void keyboardEvent(KeyPress key){
+	/// 	super.keyboardEvent(key);
+	/// 	// rest of the code here
+	/// }
+	/// ```
 	KeyboardEventFunction customKeyboardEvent;
 public:
-	///called by owner when mouse is clicked with cursor on this widget. do not call forceUpdate, it's not required here
+	/// Called by owner when mouse is clicked with cursor on this widget.
+	/// 
+	/// `forceUpdate` is not required after this
 	void mouseEvent(MouseClick mouse){
 		if (customMouseEvent !is null){
 			customMouseEvent(mouse);
 		}
 	}
-	///called by owner when widget is selected and a key is pressed. do not call forceUpdate, it's not required here
+
+	/// Called by owner when key is pressed and this widget is active.
+	/// 
+	/// `forceUpdate` is not required after this
 	void keyboardEvent(KeyPress key){
 		if (customKeyboardEvent !is null){
 			customKeyboardEvent(key);
 		}
 	}
-	///called when the owner is redrawing, return false if no need to redraw. do not call forceUpdate, it's not required here
+
+	/// Called by owner to update.
+	/// 
+	/// Return false if no need to update, and true if an update is required, and the new display in `display` Matrix
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
-	///called when a theme has been applied, or when widget was added to layout. The widget then must get new colors from the getColor/getColors. 
-	///Do not call forceUpdate in this function, call it separately.
+
+	/// Called by owner to indicate that widget has to 're-fetch' colors from the theme.
 	abstract void updateColors();
 
 	//event properties
-	///custom mouse event. called before widget's function for mouse event
+	/// use to change the custom mouse event
 	@property MouseEventFuction onMouseEvent(MouseEventFuction func){
 		return customMouseEvent = func;
 	}
-	///custom keyboard event. called before widget's function for keyboard event
+	/// use to change the custom keyboard event
 	@property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
 		return customKeyboardEvent = func;
 	}
 
 
 	//properties:
+
+	/// The name of the widget. Read-only, cannot be modified
 	@property string name(){
 		return widgetName;
 	}
 
+	/// caption of the widget. setter
 	@property string caption(){
 		return widgetCaption;
 	}
+	/// caption of the widget. getter
 	@property string caption(string newCaption){
 		needsUpdate = true;
 		widgetCaption = newCaption;
@@ -156,9 +229,11 @@ public:
 		return widgetCaption;
 	}
 
+	/// position of the widget. getter
 	@property Position position(){
 		return widgetPosition;
 	}
+	/// position of the widget. setter
 	@property Position position(Position newPosition){
 		widgetPosition = newPosition;
 		if (forceUpdate !is null){
@@ -167,9 +242,11 @@ public:
 		return widgetPosition;
 	}
 
+	/// size (width/height) of the widget. getter
 	@property uinteger sizeRatio(){
 		return widgetSizeRatio;
 	}
+	/// size (width/height) of the widget. setter
 	@property uinteger sizeRatio(uinteger newRatio){
 		needsUpdate = true;
 		widgetSizeRatio = newRatio;
@@ -179,9 +256,11 @@ public:
 		return widgetSizeRatio;
 	}
 
+	/// visibility of the widget. getter
 	@property bool visible(){
 		return widgetShow;
 	}
+	/// visibility of the widget. setter
 	@property bool visible(bool visibility){
 		needsUpdate = true;
 		widgetShow = visibility;
@@ -191,10 +270,11 @@ public:
 		return widgetShow;
 	}
 
+	/// theme of the widget. getter
 	@property QTheme theme(){
 		return widgetTheme;
 	}
-
+	/// theme of the widget. setter
 	@property QTheme theme(QTheme newTheme){
 		needsUpdate = true;
 		widgetTheme = newTheme;
@@ -204,17 +284,19 @@ public:
 		return widgetTheme;
 	}
 
+	/// called by owner to set the `forceUpdate` function, which is used to force an update immediately.
 	@property bool delegate() onForceUpdate(bool delegate() newOnForceUpdate){
 		return forceUpdate = newOnForceUpdate;
 	}
-
+	/// called by the owner to set the `cursorPos` function, which is used to position the cursor on the terminal.
 	@property void delegate(uinteger, uinteger) onCursorPosition(void delegate(uinteger, uinteger) newOnCursorPos){
 		return cursorPos = newOnCursorPos;
 	}
-
+	/// size of the widget. getter
 	@property Size size(){
 		return widgetSize;
 	}
+	/// size of the widget. setter
 	@property Size size(Size newSize){
 		//check if height or width < min
 		if (newSize.minWidth > 0 && newSize.width < newSize.minWidth){
@@ -239,21 +321,22 @@ public:
 ///name: `layout`; Used to contain widgets
 class QLayout : QWidget{
 private:
+	/// array of all the widgets that have been added to this layout
 	QWidget[] widgetList;
+	/// contains reference to the active widget, null if no active widget
 	QWidget activeWidget;
+	/// stores the layout type, horizontal or vertical
 	LayoutDisplayType layoutType;
 
+	/// background color
 	RGBColor backColor;
+	/// foreground color
 	RGBColor foreColor;
 	Cell emptySpace;
+	/// stores whether an update is in progress
 	bool isUpdating = false;
-	/* Just a note: Layouts do not use these variables inherited from QWidget:
-	 * widgetCaption
-	 * needsUpdate
-	 * 
-	 * They have no caption, and needsUpdate is determined by child widgets, when update is called
-	*/
 
+	/// recalculates the size and position of every widget inside layout
 	void recalculateWidgetsSize(){
 		uinteger ratioTotal = 0;
 		Size newSize;
@@ -362,6 +445,7 @@ private:
 	}
 
 public:
+	/// Layout type
 	enum LayoutDisplayType{
 		Vertical,
 		Horizontal,
@@ -387,6 +471,7 @@ public:
 		}
 	}
 
+	/// adds (appends) a widget to the widgetList, and makes space for it
 	void addWidget(QWidget widget){
 		widget.theme = widgetTheme;
 		widget.updateColors();
@@ -528,7 +613,7 @@ public:
 		}
 	}
 
-	///Use this to update teriminal, returns true if at least 1 widget was updated, don't call update directly on terminal
+	/// Use this instead of `update` to forcefully update the terminal
 	bool updateDisplay(){
 		//termDisplay.clear(emptySpace);
 		bool r = update(termDisplay);
@@ -541,6 +626,7 @@ public:
 		return r;
 	}
 
+	/// starts the UI loop
 	void run(){
 		InputEvent event;
 		isRunning = true;
@@ -599,6 +685,7 @@ public:
 		isRunning = false;
 	}
 
+	/// terminates the UI loop
 	void terminate(){
 		isRunning = false;
 	}
@@ -611,7 +698,7 @@ public:
 	override @property Position position(Position newPosition){
 		return widgetPosition;
 	}
-	//to change cursor position
+	/// Called by active-widget(s?) to position the cursor
 	void setCursorPos(uinteger x, uinteger y){
 		cursorPos.x = x;
 		cursorPos.y = y;
@@ -623,27 +710,27 @@ public:
 	}
 
 	//functions below are used by Matrix.flushToTerminal
-	///flush changes to terminal
+	///flush changes to terminal, called by Matrix
 	void flush(){
 		terminal.flush;
 	}
-	///clear terminal, called before writing
+	///clear terminal, called before writing, called by Matrix
 	void clear(){
 		terminal.clear;
 	}
-	///change colors
+	///change colors, called by Matrix
 	void setColors(RGBColor textColor, RGBColor bgColor){
 		terminal.setTrueColor(textColor, bgColor);
 	}
-	///move cursor to a position
+	///move write-cursor to a position, called by Matrix
 	void moveTo(int x, int y){
 		terminal.moveTo(x, y);
 	}
-	///write chars to terminal
+	///write chars to terminal, called by Matrix
 	void writeChars(char[] c){
 		terminal.write(c);
 	}
-	///write char to terminal
+	///write char to terminal, called by Matrix
 	void writeChars(char c){
 		terminal.write(c);
 	}
@@ -660,7 +747,8 @@ public:
 			loadTheme(themeFile);
 		}
 	}
-	///gets color, provided the widgetName, and which-color (like textColor).
+	///returns color, provided the widgetName, and which-color (like textColor).
+	///
 	///if not found, returns a default color provided by theme. If that color
 	///is also not found, throws exception
 	RGBColor getColor(string widgetName, string which){
@@ -674,7 +762,9 @@ public:
 			}
 		}
 	}
-	///gets all colors for a  widget. does not return default-colors for theme
+	///gets all colors for a widget.
+	///
+	///Throws exception if that widget has no colors defined in theme
 	RGBColor[string] getColors(string widgetName){
 		if (widgetName in colors){
 			return colors[widgetName];
@@ -682,11 +772,13 @@ public:
 			throw new Exception("Widget "~widgetName~" not defined");
 		}
 	}
-	///sets color for a widget
+	/// sets a  color for a widget
 	void setColor(string widgetName, string which, RGBColor color){
 		colors[widgetName][which] = color;
 	}
-	///sets a color for widgets that are not defined
+	///sets a default value for a color
+	///
+	///i.e a color that is used when the color for widget is not found
 	void setColor(string which, RGBColor color){
 		globalColors[which] = color;
 	}
@@ -694,7 +786,7 @@ public:
 	void setColors(string widgetName, RGBColor[string] widgetColors){
 		colors[widgetName] = widgetColors;
 	}
-	///Saves current theme to a file, returns false on error
+	///Saves current theme to a file, throws exception if failed
 	bool saveTheme(string filename){
 		bool r = true;
 		try{
@@ -709,11 +801,11 @@ public:
 			}
 			f.close;
 		}catch(Exception e){
-			r = false;
+			throw e;
 		}
 		return r;
 	}
-	///Loads a theme from file, returns false on error
+	///Loads a theme from file, throws exception if failed
 	bool loadTheme(string filename){
 		bool r = true;
 		try{
@@ -750,12 +842,12 @@ public:
 				}
 			}
 		}catch(Exception e){
-			r = false;
+			throw e;
 		}
 		return r;
 	}
 
-	///checks if theme has colors for a widget
+	///checks if theme has any color(s) for a widget
 	bool hasWidget(string widgetName){
 		if (widgetName in colors){
 			return true;
@@ -763,7 +855,7 @@ public:
 			return false;
 		}
 	}
-	///checks if theme has a color for a widget
+	///checks if theme has a specific color for a specific widget
 	bool hasColor(string widgetName, string colorName){
 		if (widgetName in colors){
 			if (colorName in colors[widgetName]){
@@ -775,7 +867,7 @@ public:
 			return false;
 		}
 	}
-	///checks if theme has colors for a widget
+	///checks if theme has specific colors for a specific widget
 	bool hasColors(string widgetName, string[] colorNames){
 		bool r = true;
 		foreach(color; colorNames){
@@ -786,14 +878,14 @@ public:
 		}
 		return r;
 	}
-	///checks if theme has a color
+	///checks if theme has a default color
 	bool hasColor(string colorName){
 		if (colorName in globalColors){
 			return true;
 		}else{
 			return false;
 		}
-	}///checks if theme has colors
+	}///checks if theme has default colors
 	bool hasColors(string[] colorNames){
 		bool r = true;
 		foreach(color; colorNames){
@@ -807,7 +899,7 @@ public:
 }
 
 //misc functions:
-///Center-aligns text, returns that in an char[] with width as length
+///Center-aligns text, returns that in an char[] with width as length. The empty part filled with ' '
 char[] centerAlignText(char[] text, uinteger width, char fill = ' '){
 	char[] r;
 	if (text.length < width){
@@ -822,7 +914,7 @@ char[] centerAlignText(char[] text, uinteger width, char fill = ' '){
 	return r;
 }
 
-///Can be used to calculate percentage->raw
+///used to calculate height/width using sizeRation
 uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
 	uinteger r;
 	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
