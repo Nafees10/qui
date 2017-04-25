@@ -1,10 +1,19 @@
-﻿module qui.widgets;
+﻿/++
+	Some widgets that are included in the package.
+	
+	
++/
+module qui.widgets;
 
 import qui.qui;
 import qui.misc;
 import qui.lists;
 
-///name: `text-label`; Displays some text (caption)
+///Displays some text
+///
+///And it can't handle new-line characters
+///
+///Name in theme: 'text-label';
 class TextLabelWidget : QWidget{
 private:
 	RGBColor textColor, bgColor;
@@ -37,7 +46,11 @@ public:
 	}
 }
 
-///name: `progressbar`; Displays a left-to-right progressbar, with some text inside (optional)
+/// Displays a left-to-right progress bar.
+/// 
+/// If caption is set, it is displayed in the middle of the widget
+/// 
+/// Name in theme: 'progressbar';
 class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
@@ -100,10 +113,11 @@ public:
 		}
 		return r;
 	}
-
+	/// The 'total', or the max-progress. getter
 	@property uinteger total(){
 		return max;
 	}
+	/// The 'total' or the max-progress. setter
 	@property uinteger total(uinteger newTotal){
 		needsUpdate = true;
 		max = newTotal;
@@ -112,10 +126,11 @@ public:
 		}
 		return max;
 	}
-
+	/// the amount of progress. getter
 	@property uinteger progress(){
 		return done;
 	}
+	/// the amount of progress. setter
 	@property uinteger progress(uinteger newProgress){
 		needsUpdate = true;
 		done = newProgress;
@@ -126,7 +141,9 @@ public:
 	}
 }
 
-///name: 'editLine'; To take single-line input
+/// To get single-line input from keyboard
+/// 
+/// Name in theme: 'editline';
 class EditLineWidget : QWidget{
 private:
 	char[] inputText;
@@ -266,11 +283,11 @@ public:
 			cursorPos(widgetPosition.x + widgetCaption.length + (cursorX - scrollX), widgetPosition.y);
 		}
 	}
-	///The text that has been input-ed
+	///The text that has been input-ed.
 	@property string text(){
 		return cast(string)inputText;
 	}
-	///The text that has been input-ed
+	///The text that has been input-ed.
 	@property string text(string newText){
 		inputText = cast(char[])newText;
 		if (forceUpdate !is null){
@@ -280,7 +297,9 @@ public:
 	}
 }
 
-///name: 'memo'; Use to display/edit 1+ lines, something like a simple text editor
+/// Can be used as a simple text editor, or to just display text
+/// 
+/// Name in theme: 'memo';
 class MemoWidget : QWidget{
 private:
 	List!string widgetLines;
@@ -288,7 +307,7 @@ private:
 	uinteger cursorX, cursorY;
 	RGBColor bgColor, textColor;
 	bool writeProtected = false;
-
+	// used by widget itseld to recalculate scrolling
 	void reScroll(){
 		//calculate scrollY first
 		if ((scrollY + widgetSize.height < cursorY || scrollY + widgetSize.height >= cursorY) && cursorY != 0){
@@ -313,7 +332,7 @@ private:
 			}
 		}
 	}
-	
+	// used by widget itself to set cursor
 	void setCursor(){
 		//put the cursor at correct position, if possible
 		if (cursorPos !is null){
@@ -323,7 +342,7 @@ private:
 			}
 		}
 	}
-
+	// used by widget itself to move cursor
 	void moveCursor(uinteger x, uinteger y){
 		cursorX = x;
 		cursorY = y;
@@ -560,22 +579,18 @@ public:
 	}
 
 	///returns a list of lines in memo
+	///
+	///To modify the content, just modify it in the returned list
+	///
+	///class `List` is defined in `qui.lists.d`
 	@property List!string lines(){
-		return widgetLines;
-	}
-	///modify the lines in memo, be sure to delete the previous lines, or memory-leak... And be sure to not to put \n in a line
-	@property List!string lines(List!string newLines){
-		widgetLines = newLines;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
 		return widgetLines;
 	}
 	///Returns true if memo's contents cannot be modified, by user
 	@property bool readOnly(){
 		return writeProtected;
 	}
-	///modify whether to allow modifying of contents or not
+	///sets whether to allow modifying of contents (false) or not (true)
 	@property bool readOnly(bool newPermission){
 		writeProtected = newPermission;
 		if (forceUpdate !is null){
@@ -585,8 +600,11 @@ public:
 	}
 }
 
-///name: 'log'; Use to display a log (eg: a chat?) that removes older lines, when limit is reached.
-///And it's contents cannot be changed by user. And it has no problem with newline-characters, unlike MemoWidget
+/// Displays an un-scrollable log, that removes older lines
+/// 
+/// It's content cannot be modified by user.
+/// 
+/// Name in theme: 'log';
 class LogWidget : QWidget{
 private:
 	LogList!string logs;
@@ -710,7 +728,11 @@ public:
 	}
 }
 
-///name: 'button'; The name says it all. Use the `onMouseEvent` to set an event. Caption is the text inside button
+/// A button
+/// 
+/// the caption is displayed inside the button
+/// 
+/// To receive input, set the `onMouseEvent` to set a custom mouse event
 class ButtonWidget : QWidget{
 private:
 	RGBColor bgColor, textColor;
