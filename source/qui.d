@@ -1,5 +1,5 @@
 ﻿/++
-	This module contains most of the functions you'll need
+	This module contains most of the functions you'll need.
 	All the 'base' classes, like QWidget are defined in this.
 	There are some classes, like List, that are defined in 
 	other modules.
@@ -139,8 +139,8 @@ protected:
 	/// if (forceUpdate !is null){
 	/// 	forceUpdate();
 	/// }
-	/// ```
-	/// when an update is needed, but it's not sure if an update will be called.
+	/// ``` 
+	///  when an update is needed, but it's not sure if an update will be called.
 	/// Update is automatically called after mouseEvent and keyboardEvent
 	bool delegate() forceUpdate;
 
@@ -318,25 +318,29 @@ public:
 	}
 }
 
-///name: `layout`; Used to contain widgets
+///Used to place widgets in an order (i.e vertical or horizontal)
+///
+///The QTerminal is also a layout, basically.
+///
+///Name in theme: 'layout';
 class QLayout : QWidget{
 private:
-	/// array of all the widgets that have been added to this layout
+	// array of all the widgets that have been added to this layout
 	QWidget[] widgetList;
-	/// contains reference to the active widget, null if no active widget
+	// contains reference to the active widget, null if no active widget
 	QWidget activeWidget;
-	/// stores the layout type, horizontal or vertical
+	// stores the layout type, horizontal or vertical
 	LayoutDisplayType layoutType;
 
-	/// background color
+	// background color
 	RGBColor backColor;
-	/// foreground color
+	// foreground color
 	RGBColor foreColor;
 	Cell emptySpace;
-	/// stores whether an update is in progress
+	// stores whether an update is in progress
 	bool isUpdating = false;
 
-	/// recalculates the size and position of every widget inside layout
+	// recalculates the size and position of every widget inside layout
 	void recalculateWidgetsSize(){
 		uinteger ratioTotal = 0;
 		Size newSize;
@@ -545,6 +549,11 @@ public:
 	}
 }
 
+/// A terminal (as the name says).
+/// 
+/// All widgets, receives events, runs UI loop...
+/// 
+/// Name in theme: 'terminal';
 class QTerminal : QLayout{
 private:
 	Terminal terminal;
@@ -557,6 +566,7 @@ private:
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
 		super(displayType);
+		widgetName = "terminal";
 		//create terminal & input
 		terminal = Terminal(ConsoleOutputType.cellular);
 		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
@@ -739,8 +749,8 @@ public:
 ///Theme class
 class QTheme{
 private:
-	RGBColor[string][string] colors;//ind0 = widgetName, ind1 = color; if ind0 == null, ind0 = forAllWidgets
-	RGBColor[string] globalColors;//contains colors for widgets without color
+	RGBColor[string][string] colors;
+	RGBColor[string] globalColors;//i.e default colors
 public:
 	this(string themeFile = null){
 		if (themeFile != null){
