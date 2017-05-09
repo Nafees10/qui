@@ -1,3 +1,6 @@
+/++
+	This module contains contains some misc. functions. (The name says that)
++/
 module qui.misc;
 
 import qui.qui;

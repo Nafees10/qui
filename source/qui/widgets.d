@@ -750,7 +750,7 @@ public:
 		}
 	}
 
-	override public bool update(ref Matrix display) {
+	override public bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			r = true;

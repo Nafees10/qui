@@ -1,4 +1,8 @@
-﻿module qui.baseconv;
+﻿/++
+	This module contains functions for converting between different number bases.  
+	Like converting to/from hex...
++/
+module qui.baseconv;
 
 import std.math;
 import qui.misc;
