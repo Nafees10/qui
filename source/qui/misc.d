@@ -7,41 +7,50 @@ import std.stdio;
 alias integer = ptrdiff_t;
 alias uinteger = size_t;
 
-
+///Reads a file into an array of string
+///Throws exception on failure
 string[] fileToArray(string fname){
-	File f = File(fname,"r");
-	string[] r;
-	string line;
-	integer i=0;
-	r.length=0;
-	while (!f.eof()){
-		if (i+1>=r.length){
-			r.length+=5;
+	try{
+		File f = File(fname,"r");
+		string[] r;
+		string line;
+		integer i=0;
+		r.length=0;
+		while (!f.eof()){
+			if (i+1>=r.length){
+				r.length+=5;
+			}
+			line=f.readln;
+			if (line.length>0 && line[line.length-1]=='\n'){
+				line.length--;
+			}
+			r[i]=line;
+			i++;
 		}
-		line=f.readln;
-		if (line.length>0 && line[line.length-1]=='\n'){
-			line.length--;
-		}
-		r[i]=line;
-		i++;
+		f.close;
+		r.length = i;
+		return r;
+	}catch (Exception e){
+		throw e;
 	}
-	f.close;
-	r.length = i;
-	return r;
 }
 
-bool arrayToFile(string fname,string[] array){
-	bool r = true;
-	import std.stdio;
-	File f = File(fname,"w");
-	uinteger i;
-	for (i=0;i<array.length;i++){
-		f.write(array[i],'\n');
+/// Writes an srray of string to a file
+/// Throws exception on failure
+void arrayToFile(string fname,string[] array){
+	try{
+		File f = File(fname,"w");
+		uinteger i;
+		for (i=0;i<array.length;i++){
+			f.write(array[i],'\n');
+		}
+		f.close;
+	}catch (Exception e){
+		throw e;
 	}
-	f.close;
-	return r;
 }
 
+/// Removes element(s) from an array, and returns the modified array;
 T[] deleteArray(T)(T[] dat, uinteger pos, uinteger count=1){
 	T[] ar1, ar2;
 	ar1 = dat[0..pos];
@@ -49,6 +58,7 @@ T[] deleteArray(T)(T[] dat, uinteger pos, uinteger count=1){
 	return ar1~ar2;
 }
 
+/// Inserts an array into another array, returns the result;
 T[] insertArray(T)(T[] dat, T[] ins, uinteger pos){
 	T[] ar1, ar2;
 	ar1 = dat[0..pos];

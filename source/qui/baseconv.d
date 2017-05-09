@@ -57,20 +57,24 @@ private uinteger strSearch(string s, char ss){
 	return i;
 }
 //exported functions:
+/// To 'encode' an unsigned integer into a 'stream of char'
 char[] denToChar(uinteger den){
 	return cast(char[])fromDenary(256,den);
 }
 
+/// To decode 'stream of char' into unsigned integer.
 uinteger charToDen(char[] ch){
 	return toDenary(256,cast(ubyte[])ch);
 }
 
+/// Converts a hex from string into unsigned integer
 uinteger hexToDen(string hex){
 	ubyte[] buffer;
 	buffer = fromFormat(hex,cast(char[])"0123456789ABCDEF");
 	return toDenary(16,buffer);
 }
 
+/// Converts unsigned integer into denary
 string denToHex(uinteger den){
 	ubyte[] buffer;
 	return toFormat(fromDenary(16,den),cast(char[])"0123456789ABCDEF");
