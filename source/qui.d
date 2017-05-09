@@ -134,13 +134,13 @@ protected:
 
 	/// Called by widget when a redraw is needed, but no redraw is scheduled
 	/// 
-	/// In other words: call this function using:
+	/// In other words: call this function using (or it'll cause a segfault):
 	/// ```
 	/// if (forceUpdate !is null){
 	/// 	forceUpdate();
 	/// }
 	/// ``` 
-	///  when an update is needed, but it's not sure if an update will be called.
+	/// when an update is needed, but it's not sure if an update will be called.
 	/// Update is automatically called after mouseEvent and keyboardEvent
 	bool delegate() forceUpdate;
 
