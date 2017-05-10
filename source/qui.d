@@ -934,23 +934,27 @@ uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total)
 ///Converts hex color code to RGBColor
 RGBColor hexToColor(string hex){
 	RGBColor r;
-	r.r = cast(ubyte)hexToDen(hex[0..2]);
-	r.g = cast(ubyte)hexToDen(hex[2..4]);
-	r.b = cast(ubyte)hexToDen(hex[4..6]);
+	uinteger den = hexToDen(hex);
+	//min val for red in denary = 65536
+	//min val for green in denary = 256
+	//the remaining value is blue
+	if (den >= 65536){
+		r.r = cast(ubyte)((den / 65536));
+		den -= r.r*65536;
+	}
+	if (den >= 256){
+		r.g = cast(ubyte)((den / 256));
+		den -= r.g*256;
+	}
+	r.b = cast(ubyte)den;
 	return r;
 }
 
 ///Converts RGBColor to hex color code
 string colorToHex(RGBColor col){
-	char[] r;
-	char[] code;
-	r.length = 6;
-	r[0 .. 6] = '0';
-	code = cast(char[])denToHex(col.r);
-	r[2 - code.length .. 2] = code;
-	code = cast(char[])denToHex(col.g);
-	r[4 - code.length .. 4] = code;
-	code = cast(char[])denToHex(col.b);
-	r[6 - code.length .. 6] = code;
-	return cast(string)r;
+	uinteger den;
+	den = col.b;
+	den += col.g*256;
+	den += col.r*65536;
+	return denToHex(den);
 }
