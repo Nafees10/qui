@@ -345,106 +345,73 @@ private:
 		uinteger ratioTotal = 0;
 		Size newSize;
 		//calculate total ratio
-		foreach (currentWidget; widgetList){
-			ratioTotal += currentWidget.sizeRatio;
+		foreach (widget; widgetList){
+			if (widget.visible){
+				ratioTotal += widget.sizeRatio;
+			}
 		}
 		Position newPosition;
-		uinteger newWidth = 0, newHeight = 0;
-		uinteger availableWidth = widgetSize.width;
-		uinteger availableHeight = widgetSize.height;
-		
-		if (layoutType == LayoutDisplayType.Vertical){
-			//make space for new widget
-			foreach(w; widgetList){
-				//if a widget is not visible, skip it
-				if (w.visible){
-					//recalculate position
-					newPosition.x = widgetPosition.x;//x axis is always same, cause this is a vertical (not horizontal) layout
-					if (newHeight > 0){
-						newPosition.y += newHeight;//add previous widget's height to get new y axis position
+
+		//newSpace in Horizontal is read as 'newWidth' else 'newHeight'
+		uinteger newSpace = 0;
+		//same as above rule applies to this var's name too
+		uinteger availableSpace;
+		if (layoutType == LayoutDisplayType.Horizontal){
+			availableSpace = widgetSize.width;
+		}else{
+			availableSpace = widgetSize.height;
+		}
+
+		foreach(widget; widgetList){
+			if (widget.visible){
+				//calculate position
+				if (layoutType == LayoutDisplayType.Vertical){
+					// x-axis is same for all widgets in Vertical Layouts
+					newPosition.x = widgetPosition.x;
+					// add previous widget's height to get this widget's y position
+					newPosition.y += newSpace;
+				}else if (layoutType == LayoutDisplayType.Horizontal){
+					// y-axis is same for all widgets in Horizontal
+					newPosition.y = widgetPosition.y;
+					// add previous widget's width to get this widget's x position
+					newPosition.x += newSpace;
+				}
+				//apply position
+				widget.position = newPosition;
+
+				// calculate width or height
+				newSpace = ratioToRaw(widget.sizeRatio, ratioTotal, availableSpace);
+				//check if new height/width is within specified limits
+				if (layoutType == LayoutDisplayType.Horizontal){
+					if (widget.size.maxWidth > 0 && newSpace > widget.size.maxWidth){
+						newSpace = widget.size.maxWidth;
+					}else if (widget.size.minWidth > 0 && newSpace < widget.size.minWidth){
+						newSpace = widget.size.minWidth;
+					}
+				}else{
+					if (widget.size.maxHeight > 0 && newSpace > widget.size.maxHeight){
+						newSpace = widget.size.maxHeight;
+					}else if (widget.size.minHeight > 0 && newSpace < widget.size.minHeight){
+						newSpace = widget.size.minHeight;
+					}
+				}
+				// check if there's enough space to contain that widget
+				if (newSpace > availableSpace){
+					newSpace = 0;
+					widget.visible = false;
+				}else{
+					// apply new size
+					if (layoutType == LayoutDisplayType.Horizontal){
+						newSize.width = newSpace;
+						newSize.height = widgetSize.height;
 					}else{
-						newPosition.y = 0;
+						newSize.height = newSpace;
+						newSize.width = widgetSize.width;
 					}
-					w.position = newPosition;
-					//recalculate height
-					newHeight = ratioToRaw(w.sizeRatio, ratioTotal, availableHeight);
-					if (w.size.minHeight > 0 && newHeight < w.size.minHeight){
-						newHeight = w.size.minHeight;
-					}else if (w.size.maxHeight > 0 && newHeight > w.size.maxHeight){
-						newHeight = w.size.maxHeight;
-					}
-					//recalculate width
-					newWidth = widgetSize.width;//default is max
-					//compare with min & max
-					if (w.size.minWidth > 0 && newWidth < w.size.minWidth){
-						//although there isn't that much width, still assign it, that will be dealt with later
-						newWidth = w.size.minWidth;
-					}else if (w.size.maxWidth > 0 && newWidth > w.size.maxWidth){
-						newWidth = w.size.maxWidth;
-					}
-					//check if there's not enough space available, then make it invisible
-					if (newWidth > availableWidth || newHeight > availableHeight){
-						newWidth = 0;
-						newHeight = 0;
-						w.visible = false;
-						continue;
-					}
-					//apply new size
-					newSize = w.size;//to get min and max values
-					newSize.height = newHeight;
-					newSize.width = newWidth;
-					w.size = newSize;
-					//now the new size has been assigned, calculate amount of space & ratios left
-					availableHeight -= newHeight;
-					ratioTotal -= w.sizeRatio;
+					widget.size = newSize;
 				}
 			}
-		}else if (layoutType == LayoutDisplayType.Horizontal){
-			//make space for new widget
-			foreach(w; widgetList){
-				//if a widget is not visible, skip it
-				if (w.visible){
-					//recalculate position
-					newPosition.y = widgetPosition.y;//x axis is always same, cause this is a vertical (not horizontal) layout
-					if (newWidth > 0){
-						newPosition.x += newWidth;//add previous widget's height to get new y axis position
-					}else{
-						newPosition.x = 0;
-					}
-					w.position = newPosition;
-					//recalculate width
-					newWidth = ratioToRaw(w.sizeRatio, ratioTotal, availableWidth);
-					if (w.size.minWidth > 0 && newWidth < w.size.minWidth){
-						newWidth = w.size.minWidth;
-					}else if (w.size.maxWidth > 0 && newWidth > w.size.maxWidth){
-						newWidth = w.size.maxWidth;
-					}
-					//recalculate height
-					newHeight = widgetSize.height;//default is max
-					//compare with min & max
-					if (w.size.minHeight > 0 && newHeight < w.size.minHeight){
-						//although there isn't that much width, still assign it, that will be dealt with later
-						newHeight = w.size.minHeight;
-					}else if (w.size.maxHeight > 0 && newHeight > w.size.maxHeight){
-						newHeight = w.size.maxHeight;
-					}
-					//check if there's not enough space available, then make it invisible
-					if (newWidth > availableWidth || newHeight > availableHeight){
-						newWidth = 0;
-						newHeight = 0;
-						w.visible = false;
-						continue;
-					}
-					//apply new size
-					newSize = w.size;//to get min and max values
-					newSize.height = newHeight;
-					newSize.width = newWidth;
-					w.size = newSize;
-					//now the new size has been assigned, calculate amount of space & ratios left
-					availableWidth -= newWidth;
-					ratioTotal -= w.sizeRatio;
-				}
-			}
+
 		}
 	}
 
