@@ -3,11 +3,12 @@
 +/
 module qui.misc;
 
-import qui.qui;
 import std.stdio;
 
-///These names are easier to understand
+//These names are easier to understand
+///`integer is a `long` on 64 bit systems, and `int` on 32 bit systems
 alias integer = ptrdiff_t;
+///`uinteger` is a `ulong` on 64 bit systems, and `uint` on 32 bit systems
 alias uinteger = size_t;
 
 ///Reads a file into an array of string
@@ -38,7 +39,7 @@ string[] fileToArray(string fname){
 	}
 }
 
-/// Writes an srray of string to a file
+/// Writes an array of string to a file
 /// Throws exception on failure
 void arrayToFile(string fname,string[] array){
 	try{

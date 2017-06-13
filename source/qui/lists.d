@@ -8,7 +8,7 @@ import qui.misc;
 import std.file;
 import std.stdio;
 
-/// Use to manage dynamicc arrays that frequently change lengths
+/// Use to manage dynamic arrays that frequently change lengths
 /// 
 /// Provides more functionality for arrays, like searching in arrays, removing elements...
 class List(T){
@@ -149,7 +149,7 @@ public:
 	/// 
 	/// `dat` is the element to search for
 	/// `i` is the index from where to start, default is 0
-	/// `forward` if true, search starts from first element, else from last element
+	/// `forward` if true, searches in a forward direction, from lower index to higher
 	integer indexOf(T dat, integer i=0, bool forward=true){
 		if (forward){
 			for (;i<taken;i++){
