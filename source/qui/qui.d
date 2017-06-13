@@ -875,6 +875,255 @@ public:
 	}
 }
 
+///Used to store the widget's/terminal's display in a matrix
+class Matrix{
+private:
+	Cell[][] matrix;//read as: matrix[y][x];
+	//used to write by widgets
+	uinteger xPosition, yPosition;
+	
+	//stores which part was updated
+	struct UpdateLocation{
+		uinteger x, y;
+		uinteger length;
+	}
+	LinkedList!UpdateLocation updateAt;
+	
+	Cell readAsStream(uinteger pos){
+		return matrix[pos/width][pos%width];
+	}
+	
+	char[] cellToChar(Cell[] c){
+		char[] r;
+		r.length = c.length;
+		for (uinteger i = 0; i < c.length; i++){
+			r[i] = c[i].c;
+		}
+		return r;
+	}
+	
+	void updateChars(QTerminal terminal, uinteger x, uinteger y, uinteger length){
+		uinteger readPos = (y*width)+x, i;
+		Cell[] line;
+		line.length = length;
+		//read all content into line
+		for (i = 0; i < length; i++){
+			line[i] = readAsStream(readPos);
+			readPos ++;
+		}
+		//start writing it to terminal
+		terminal.moveTo(cast(int)x, cast(int)y);
+		//set origin colors
+		RGBColor originBgColor, originTextColor;
+		originBgColor = line[0].bgColor;
+		originTextColor = line[0].textColor;
+		terminal.setColors(originTextColor, originBgColor);
+		
+		length --;
+		uinteger writeFrom = 0;
+		for (i = 0; i <= length; i++){
+			//check if colors have changed, or is it end
+			if (line[i].bgColor != originBgColor || line[i].textColor != originTextColor || i == length){
+				if (writeFrom < i){
+					terminal.setColors(originTextColor, originBgColor);
+					terminal.writeChars(cellToChar(line[writeFrom .. i]));
+				}
+				//if is at end, write the 'last-encountered' char too
+				if (i == length){
+					terminal.setColors(line[i].textColor, line[i].bgColor);
+					terminal.writeChars(line[i].c);
+				}
+			}
+		}
+	}
+public:
+	this(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
+		//set matrix size
+		matrix.length = matrixHeight;
+		//set width:
+		for (uinteger i = 0; i < matrix.length; i++){
+			matrix[i].length = matrixWidth;
+			matrix[i][0 .. matrixWidth] = fill;
+		}
+		updateAt = new LinkedList!UpdateLocation;
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
+	}
+	~this(){
+		delete updateAt;
+	}
+	///Clear the matrix, and put fill in every cell
+	void clear(Cell fill){
+		for (uinteger row = 0; row < matrix.length; row++){
+			matrix[row][0 .. matrix[row].length] = fill;
+		}
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
+	}
+	///Change size of the matrix, width and height
+	bool changeSize(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
+		//make sure width & size are at least 1
+		bool r = true;
+		if (matrixWidth == 0 || matrixHeight == 0){
+			r = false;
+		}
+		if (r){
+			matrix.length = matrixHeight;
+			for (uinteger i = 0; i < matrix.length; i++){
+				matrix[i].length = matrixWidth;
+				matrix[i][0 .. matrixWidth] = fill;
+			}
+		}
+		return r;
+	}
+	///sets write position to (0, 0)
+	void resetWritePosition(){
+		xPosition = 0;
+		yPosition = 0;
+	}
+	///used to write to matrix, call Matrix.setWriteLimits before this
+	void write(char[] c, RGBColor textColor, RGBColor bgColor){
+		uinteger i, xEnd, yEnd;
+		xEnd = width;
+		yEnd = height;
+		//add it to updateAt
+		UpdateLocation loc;
+		loc.x = xPosition;
+		loc.y = yPosition;
+		loc.length = c.length;
+		updateAt.append(loc);
+		for (i = 0; i < c.length; xPosition++){
+			if (xPosition == xEnd){
+				//move to next row
+				yPosition++;
+				xPosition = 0;
+			}
+			//check if no more space left
+			if (yPosition >= yEnd){
+				//no more space left
+				break;
+			}
+			matrix[yPosition][xPosition].c = c[i];
+			matrix[yPosition][xPosition].bgColor = bgColor;
+			matrix[yPosition][xPosition].textColor = textColor;
+			i++;
+		}
+	}
+	///changes colors for whole matrix
+	void setColors(RGBColor textColor, RGBColor bgColor){
+		for (uinteger i = 0; i < matrix.length; i++){
+			for(uinteger j = 0; j < matrix[i].length; j++){
+				matrix[i][j].textColor = textColor;
+				matrix[i][j].bgColor = bgColor;
+			}
+		}
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
+	}
+	///move to a different position to write
+	bool moveTo(uinteger x, uinteger y){
+		bool r = true;
+		if (x > matrix[0].length-1 || y > matrix.length-1){
+			r = false;
+		}
+		if (r){
+			xPosition = x;
+			yPosition = y;
+		}
+		return r;
+	}
+	///returns number of rows/lines in matrix
+	@property uinteger height(){
+		return matrix.length;
+	}
+	///returns number of columns in matrix
+	@property uinteger width(){
+		return matrix[0].length;
+	}
+	///returns the point ox x-axis where next write will start from
+	@property uinteger writePosX(){
+		return xPosition;
+	}
+	///returns the point ox y-axis where next write will start from
+	@property uinteger writePosY(){
+		return yPosition;
+	}
+	///read a cell from the matrix
+	Cell read(uinteger x, uinteger y){
+		return matrix[y][x];
+	}
+	///read a complete row from matrix
+	Cell[] readRow(uinteger y){
+		return matrix[y][];
+	}
+	///insert a matrix into this one at a position
+	bool insert(Matrix toInsert, uinteger x, uinteger y){
+		uinteger matrixWidth, matrixHeight;
+		matrixHeight = toInsert.height;
+		matrixWidth = toInsert.width;
+		bool r = true;
+		if (matrixHeight + y > this.height || matrixWidth + x > this.width){
+			r = false;
+		}else{
+			uinteger row = 0;
+			uinteger endAtRow = matrixHeight;
+			for (;row<endAtRow; row++){
+				matrix[y + row][x .. x+matrixWidth] = toInsert.readRow(row);
+				//add this row to updateAt
+				UpdateLocation loc;
+				loc.x = x;
+				loc.y = y+row;
+				loc.length = matrixWidth;
+				updateAt.append(loc);
+			}
+		}
+		//debug{toFile("/home/nafees/Desktop/a");}
+		return r;
+	}
+	/*debug{
+		void toFile(string fname){
+			File f = File(fname, "w");
+			for (uinteger i = 0; i < matrix.length; i++){
+				for (uinteger j = 0; j < matrix[i].length; j++){
+					f.write(matrix[i][j].c);
+				}
+				f.write('|','\n');
+			}
+			f.close;
+		}
+	}*/
+	///Write contents of matrix to a QTerminal
+	void flushToTerminal(QTerminal terminal){
+		//make sure that there was some change that needs to be flushed
+		if (updateAt.count > 0){
+			//start going through all update-needy
+			uinteger i, count;
+			count = updateAt.count();
+			UpdateLocation* ptr;
+			for (i = 0; i < count; i++){
+				ptr = updateAt.read();
+				if (ptr is null){
+					break;
+				}
+				if ((*ptr).length > 0){
+					updateChars(terminal, (*ptr).x, (*ptr).y, (*ptr).length);
+				}
+				updateAt.removeFirst();
+			}
+			terminal.flush();
+		}
+	}
+}
+
 //misc functions:
 ///Center-aligns text, returns that in an char[] with width as length. The empty part filled with ' '
 char[] centerAlignText(char[] text, uinteger width, char fill = ' '){
