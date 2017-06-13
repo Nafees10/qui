@@ -607,7 +607,9 @@ public:
 /// Name in theme: 'log';
 class LogWidget : QWidget{
 private:
-	LogList!string logs;
+	LinkedList!string logs;
+
+	uinteger max;
 
 	RGBColor bgColor, textColor;
 
@@ -647,10 +649,12 @@ private:
 public:
 	this(uinteger maxLen=100){
 		widgetName = "log";
-		logs = new LogList!string(maxLen);
+
+		max = maxLen;
+		logs = new LinkedList!string;
 	}
 	~this(){
-		delete logs;
+		logs.destroy;
 	}
 
 	override public void updateColors(){
@@ -673,7 +677,8 @@ public:
 			needsUpdate = false;
 			r = true;
 			//get list of messages
-			string[] messages = logs.read(logs.maxCapacity);
+			string[] messages = logs.toArray;
+			//messages = messages.arrayReverse;
 			//set colors
 			display.setColors(textColor, bgColor);
 			//determine how many of them will be displayed
@@ -710,7 +715,11 @@ public:
 	///adds string to the log, and scrolls down to it
 	void add(string item){
 		//add height
-		logs.add(item);
+		logs.append(item);
+		//check if needs to remove older items
+		if (logs.count > max){
+			logs.removeFirst();
+		}
 		//update
 		needsUpdate = true;
 		if (forceUpdate !is null){
@@ -719,7 +728,7 @@ public:
 	}
 	///clears the log
 	void clear(){
-		logs.reset();
+		logs.clear;
 		//update
 		needsUpdate = true;
 		if (forceUpdate !is null){
