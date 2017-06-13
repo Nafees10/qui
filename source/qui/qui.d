@@ -6,9 +6,9 @@
 +/
 module qui.qui;
 
-import qui.misc;
-import qui.lists;
-import qui.baseconv;//used for hexadecimal colors
+import utils.misc;
+import utils.lists;
+import utils.baseconv;//used for hexadecimal colors
 import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
 
@@ -1150,7 +1150,7 @@ uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total)
 ///Converts hex color code to RGBColor
 RGBColor hexToColor(string hex){
 	RGBColor r;
-	uinteger den = hexToDen(hex);
+	uinteger den = hexToDenary(hex);
 	//min val for red in denary = 65536
 	//min val for green in denary = 256
 	//the remaining value is blue
@@ -1172,5 +1172,5 @@ string colorToHex(RGBColor col){
 	den = col.b;
 	den += col.g*256;
 	den += col.r*65536;
-	return denToHex(den);
+	return denaryToHex(den);
 }

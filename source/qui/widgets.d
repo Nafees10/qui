@@ -6,8 +6,8 @@
 module qui.widgets;
 
 import qui.qui;
-import qui.misc;
-import qui.lists;
+import utils.misc;
+import utils.lists;
 
 ///Displays some text
 ///
@@ -239,7 +239,7 @@ public:
 					//insert at end
 					inputText ~= cast(char)key.key;
 				}else{
-					inputText = inputText.insertArray([cast(char)key.key], cursorX);
+					inputText = inputText.insertElement([cast(char)key.key], cursorX);
 				}
 				cursorX ++;
 			}else if (key.key == '\b'){
@@ -248,7 +248,7 @@ public:
 					if (cursorX == inputText.length){
 						inputText.length --;
 					}else{
-						inputText = inputText.deleteArray(cursorX-1);
+						inputText = inputText.deleteElement(cursorX-1);
 					}
 					cursorX --;
 				}
@@ -480,11 +480,11 @@ public:
 							}
 							widgetLines.remove(cursorY+1);
 						}else{
-							widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
+							widgetLines.set(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
 							cursorX --;
 						}
 					}else if (cursorX > 0){
-						widgetLines.set(cursorY, cast(string)deleteArray(cast(char[])currentLine,cursorX-1));
+						widgetLines.set(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
 						cursorX --;
 					}
 
@@ -517,11 +517,11 @@ public:
 					cursorX = 0;
 				}else if (key.key == '\t'){
 					//convert it to 4 spaces
-					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,cast(char[])"    ",cursorX));
+					widgetLines.set(cursorY, cast(string)insertElement(cast(char[])currentLine,cast(char[])"    ",cursorX));
 					cursorX += 4;
 				}else{
 					//insert that char
-					widgetLines.set(cursorY, cast(string)insertArray(cast(char[])currentLine,[cast(char)key.key],cursorX));
+					widgetLines.set(cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.key],cursorX));
 					cursorX ++;
 				}
 			}
@@ -537,7 +537,7 @@ public:
 					widgetLines.remove(cursorY+1);
 				}else if (cursorX < widgetLines.read(cursorY).length){
 					char[] line = cast(char[])widgetLines.read(cursorY);
-					line = line.deleteArray(cursorX);
+					line = line.deleteElement(cursorX);
 					widgetLines.set(cursorY, cast(string)line);
 				}
 			}else if (key.key == key.NonCharKey.DownArrow){
