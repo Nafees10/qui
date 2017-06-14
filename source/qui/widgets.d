@@ -22,7 +22,7 @@ public:
 		widgetName = "text-label";
 		widgetCaption = wCaption;
 	}
-
+	
 	override void updateColors(){
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
 			textColor = widgetTheme.getColor(name, "text");
@@ -33,7 +33,7 @@ public:
 			bgColor = hexToColor("000000");
 		}
 	}
-
+	
 	override bool update(ref Matrix display){
 		if (needsUpdate){
 			needsUpdate = false;
@@ -66,7 +66,7 @@ public:
 		max = totalAmount;
 		done = complete;
 	}
-
+	
 	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "bar", "text"])){
@@ -82,7 +82,7 @@ public:
 			forceUpdate();
 		}
 	}
-
+	
 	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
@@ -217,7 +217,7 @@ public:
 		}
 		return r;
 	}
-
+	
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
 		if (mouse.mouseButton == mouse.Button.Left){
@@ -365,7 +365,7 @@ public:
 	~this(){
 		delete widgetLines;
 	}
-
+	
 	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
@@ -379,7 +379,7 @@ public:
 			forceUpdate();
 		}
 	}
-
+	
 	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
@@ -430,7 +430,7 @@ public:
 		}
 		return r;
 	}
-
+	
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll and widgetPosition
@@ -439,7 +439,7 @@ public:
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);
-
+			
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
 			if (cursorY < widgetLines.length){
 				needsUpdate = true;
@@ -458,7 +458,7 @@ public:
 			}
 		}
 	}
-
+	
 	override void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
 		if (key.isChar){
@@ -487,7 +487,7 @@ public:
 						widgetLines.set(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
 						cursorX --;
 					}
-
+					
 				}else if (key.key == '\n'){
 					//insert a newline
 					//if is at end, just add it
@@ -568,7 +568,7 @@ public:
 						cursorX = 0;
 						cursorY ++;
 						scrollX = 0;
-
+						
 					}
 				}else{
 					cursorX ++;
@@ -577,7 +577,7 @@ public:
 		}
 		reScroll();
 	}
-
+	
 	///returns a list of lines in memo
 	///
 	///To modify the content, just modify it in the returned list
@@ -608,11 +608,11 @@ public:
 class LogWidget : QWidget{
 private:
 	LinkedList!string logs;
-
+	
 	uinteger max;
-
+	
 	RGBColor bgColor, textColor;
-
+	
 	uinteger stringLineCount(string s){
 		uinteger width = widgetSize.width;
 		uinteger i, widthTaken = 0, count = 1;
@@ -649,14 +649,14 @@ private:
 public:
 	this(uinteger maxLen=100){
 		widgetName = "log";
-
+		
 		max = maxLen;
 		logs = new LinkedList!string;
 	}
 	~this(){
 		logs.destroy;
 	}
-
+	
 	override public void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
@@ -670,7 +670,7 @@ public:
 			forceUpdate();
 		}
 	}
-
+	
 	override public bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
@@ -711,7 +711,7 @@ public:
 		}
 		return r;
 	}
-
+	
 	///adds string to the log, and scrolls down to it
 	void add(string item){
 		//add height
@@ -758,7 +758,7 @@ public:
 			textColor = hexToColor("000000");
 		}
 	}
-
+	
 	override public bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){

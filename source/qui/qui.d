@@ -36,7 +36,7 @@ struct MouseClick{
 ///A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
 struct KeyPress{
 	dchar key;/// stores which key was pressed
-
+	
 	/// Returns true if the key was a character.
 	/// 
 	/// A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
@@ -126,12 +126,12 @@ protected:
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
 	uinteger widgetSizeRatio = 1;
-
+	
 	///The theme that is currently used
 	///
 	///The widget is free to modify the theme
 	QTheme widgetTheme;
-
+	
 	/// Called by widget when a redraw is needed, but no redraw is scheduled
 	/// 
 	/// In other words: call this function using (or it'll cause a segfault):
@@ -143,12 +143,12 @@ protected:
 	/// when an update is needed, but it's not sure if an update will be called.
 	/// Update is automatically called after mouseEvent and keyboardEvent
 	bool delegate() forceUpdate;
-
+	
 	/// Called by widgets (usually keyboard-input-taking) to position the cursor
 	/// 
 	/// It can only be called if the widget is active (i.e selected), in non-active widgets, it's null;
 	void delegate(uinteger x, uinteger y) cursorPos;
-
+	
 	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
 	/// 
 	/// Like:
@@ -159,7 +159,7 @@ protected:
 	/// }
 	/// ```
 	MouseEventFuction customMouseEvent;
-
+	
 	/// custom keyboard event, if not null, it should be called before doing anything else in keyboardEvent.
 	/// 
 	/// Like:
@@ -179,7 +179,7 @@ public:
 			customMouseEvent(mouse);
 		}
 	}
-
+	
 	/// Called by owner when key is pressed and this widget is active.
 	/// 
 	/// `forceUpdate` is not required after this
@@ -188,15 +188,15 @@ public:
 			customKeyboardEvent(key);
 		}
 	}
-
+	
 	/// Called by owner to update.
 	/// 
 	/// Return false if no need to update, and true if an update is required, and the new display in `display` Matrix
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
-
+	
 	/// Called by owner to indicate that widget has to 're-fetch' colors from the theme.
 	abstract void updateColors();
-
+	
 	//event properties
 	/// use to change the custom mouse event
 	@property MouseEventFuction onMouseEvent(MouseEventFuction func){
@@ -206,15 +206,15 @@ public:
 	@property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
 		return customKeyboardEvent = func;
 	}
-
-
+	
+	
 	//properties:
-
+	
 	/// The name of the widget. Read-only, cannot be modified
 	@property string name(){
 		return widgetName;
 	}
-
+	
 	/// caption of the widget. setter
 	@property string caption(){
 		return widgetCaption;
@@ -228,7 +228,7 @@ public:
 		}
 		return widgetCaption;
 	}
-
+	
 	/// position of the widget. getter
 	@property Position position(){
 		return widgetPosition;
@@ -241,7 +241,7 @@ public:
 		}
 		return widgetPosition;
 	}
-
+	
 	/// size (width/height) of the widget. getter
 	@property uinteger sizeRatio(){
 		return widgetSizeRatio;
@@ -255,7 +255,7 @@ public:
 		}
 		return widgetSizeRatio;
 	}
-
+	
 	/// visibility of the widget. getter
 	@property bool visible(){
 		return widgetShow;
@@ -269,7 +269,7 @@ public:
 		}
 		return widgetShow;
 	}
-
+	
 	/// theme of the widget. getter
 	@property QTheme theme(){
 		return widgetTheme;
@@ -283,7 +283,7 @@ public:
 		}
 		return widgetTheme;
 	}
-
+	
 	/// called by owner to set the `forceUpdate` function, which is used to force an update immediately.
 	@property bool delegate() onForceUpdate(bool delegate() newOnForceUpdate){
 		return forceUpdate = newOnForceUpdate;
@@ -331,7 +331,7 @@ private:
 	QWidget activeWidget;
 	// stores the layout type, horizontal or vertical
 	LayoutDisplayType layoutType;
-
+	
 	// background color
 	RGBColor backColor;
 	// foreground color
@@ -339,7 +339,7 @@ private:
 	Cell emptySpace;
 	// stores whether an update is in progress
 	bool isUpdating = false;
-
+	
 	// recalculates the size and position of every widget inside layout
 	void recalculateWidgetsSize(){
 		uinteger ratioTotal = 0;
@@ -351,7 +351,7 @@ private:
 			}
 		}
 		Position newPosition;
-
+		
 		//newSpace in Horizontal is read as 'newWidth' else 'newHeight'
 		uinteger newSpace = 0;
 		//same as above rule applies to this var's name too
@@ -361,7 +361,7 @@ private:
 		}else{
 			availableSpace = widgetSize.height;
 		}
-
+		
 		foreach(widget; widgetList){
 			if (widget.visible){
 				//calculate position
@@ -378,7 +378,7 @@ private:
 				}
 				//apply position
 				widget.position = newPosition;
-
+				
 				// calculate width or height
 				newSpace = ratioToRaw(widget.sizeRatio, ratioTotal, availableSpace);
 				//check if new height/width is within specified limits
@@ -411,10 +411,10 @@ private:
 					widget.size = newSize;
 				}
 			}
-
+			
 		}
 	}
-
+	
 public:
 	/// Layout type
 	enum LayoutDisplayType{
@@ -427,7 +427,7 @@ public:
 		activeWidget = null;
 		emptySpace.c = ' ';
 	}
-
+	
 	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
@@ -441,7 +441,7 @@ public:
 			forceUpdate();
 		}
 	}
-
+	
 	/// adds (appends) a widget to the widgetList, and makes space for it
 	void addWidget(QWidget widget){
 		widget.theme = widgetTheme;
@@ -453,7 +453,7 @@ public:
 		//recalculate all widget's size to adjust
 		recalculateWidgetsSize();
 	}
-
+	
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
 		//check on which widget the cursor was on
@@ -497,10 +497,13 @@ public:
 		if (!isUpdating){
 			isUpdating = true;
 			//go through all widgets, check if they need update, update them
+			Matrix wDisplay = new Matrix(1,1,emptySpace);
 			foreach(widget; widgetList){
 				if (widget.visible){
-					display.lockMatrix(widget.position, widget.size.width, widget.size.height);
-					if (widget.update(display)){
+					wDisplay.changeSize(widget.size.width, widget.size.height, emptySpace);
+					wDisplay.resetWritePosition();
+					if (widget.update(wDisplay)){
+						display.insert(wDisplay, widget.position.x, widget.position.y);
 						updated = true;
 					}
 				}
@@ -523,9 +526,9 @@ private:
 	Terminal terminal;
 	RealTimeConsoleInput input;
 	Matrix termDisplay;
-
+	
 	Position cursorPos;
-
+	
 	bool isRunning = false;
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
@@ -542,7 +545,7 @@ public:
 		//set caption
 		terminal.setTitle(widgetCaption);
 		//create display matrix
-		termDisplay = new Matrix(terminal.width, terminal.height);
+		termDisplay = new Matrix(widgetSize.width, widgetSize.height, emptySpace);
 		//create theme
 		widgetTheme = new QTheme;
 	}
@@ -550,12 +553,12 @@ public:
 		terminal.clear;
 		delete termDisplay;
 	}
-
+	
 	override public void addWidget(QWidget widget) {
 		super.addWidget(widget);
 		widget.onForceUpdate = &updateDisplay;
 	}
-
+	
 	override public void mouseEvent(MouseClick mouse) {
 		super.mouseEvent(mouse);
 		//check on which widget the cursor was on
@@ -586,7 +589,7 @@ public:
 			}
 		}
 	}
-
+	
 	/// Use this instead of `update` to forcefully update the terminal
 	bool updateDisplay(){
 		//termDisplay.clear(emptySpace);
@@ -600,7 +603,7 @@ public:
 		terminal.showCursor();
 		return r;
 	}
-
+	
 	/// starts the UI loop
 	void run(){
 		InputEvent event;
@@ -641,8 +644,7 @@ public:
 				updateDisplay;
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//change matrix size
-				termDisplay.rows = terminal.height;
-				termDisplay.cols = terminal.width;
+				termDisplay.changeSize(cast(uinteger)terminal.width, cast(uinteger)terminal.height, emptySpace);
 				//update self size
 				terminal.updateSize;
 				widgetSize.height = terminal.height;
@@ -660,12 +662,12 @@ public:
 		//in case an exception prevents it from being set to false before
 		isRunning = false;
 	}
-
+	
 	/// terminates the UI loop
 	void terminate(){
 		isRunning = false;
 	}
-
+	
 	//override write properties
 	override @property Size size(Size newSize){
 		//don't let anything modify the size
@@ -679,12 +681,12 @@ public:
 		cursorPos.x = x;
 		cursorPos.y = y;
 	}
-
+	
 	///returns true if UI loop is running
 	@property bool running(){
 		return isRunning;
 	}
-
+	
 	//functions below are used by Matrix.flushToTerminal
 	///flush changes to terminal, called by Matrix
 	void flush(){
@@ -822,7 +824,7 @@ public:
 		}
 		return r;
 	}
-
+	
 	///checks if theme has any color(s) for a widget
 	bool hasWidget(string widgetName){
 		if (widgetName in colors){
@@ -874,177 +876,253 @@ public:
 	}
 }
 
-///emulates a matrix to store display cells
+///Used to store the widget's/terminal's display in a matrix
 class Matrix{
 private:
-	struct Display{
-		uinteger x, y; /// X and Y position
-		RGBColor bgColor, textColor; /// background and foreground color
-		char[] content; /// content
-	}
-	LinkedList!Display toUpdate;
-
-	uinteger matrixHeight, matrixWidth; /// Height and width of the matrix to emulate
-	uinteger writePosition; /// Position at which next item will be written on the emulated matrix. Calculated like: `y*width + x`
-
-	bool isLocked;
-	uinteger lockedHeight, lockedWidth; /// The height and width of the area that can be read/written to
-	uinteger lockX, lockY; /// The X and Y position of the area that can be read/written to
-
-	/// Returns X and Y coordinates calculated from `writePosition`
-	Position getWritePosition(){
-		/// get X and Y co-ordinates from `writePosition`
-		Position r;
-		uinteger width = matrixWidth;
-		if (isLocked){
-			width = lockedWidth;
-		}
-		r.y = writePosition / width;
-		r.x = writePosition % width;
-		return r;
-	}
-	/// Gets number of free cells
-	uinteger getFreeSpace(){
+	Cell[][] matrix;//read as: matrix[y][x];
+	//used to write by widgets
+	uinteger xPosition, yPosition;
+	
+	//stores which part was updated
+	struct UpdateLocation{
 		uinteger x, y;
-		uinteger width, height;
-		{
-			Position pos = getWritePosition;
-			x = pos.x;
-			y = pos.y;
+		uinteger length;
+	}
+	LinkedList!UpdateLocation updateAt;
+	
+	Cell readAsStream(uinteger pos){
+		return matrix[pos/width][pos%width];
+	}
+	
+	char[] cellToChar(Cell[] c){
+		char[] r;
+		r.length = c.length;
+		for (uinteger i = 0; i < c.length; i++){
+			r[i] = c[i].c;
 		}
-		if (isLocked){
-			x -= lockX;
-			y -= lockY;
-			width = lockedWidth;
-			height = lockedHeight;
-		}else{
-			width = matrixWidth;
-			height = matrixHeight;
-		}
-		// The X and Y are now relative to width and height
-		uinteger r;
-		r = (height - y)*width;//get number of cells available from next row till last
-		r += width - x;//add number of cells available in current row
 		return r;
 	}
-
+	
+	void updateChars(QTerminal terminal, uinteger x, uinteger y, uinteger length){
+		uinteger readPos = (y*width)+x, i;
+		Cell[] line;
+		line.length = length;
+		//read all content into line
+		for (i = 0; i < length; i++){
+			line[i] = readAsStream(readPos);
+			readPos ++;
+		}
+		//start writing it to terminal
+		terminal.moveTo(cast(int)x, cast(int)y);
+		//set origin colors
+		RGBColor originBgColor, originTextColor;
+		originBgColor = line[0].bgColor;
+		originTextColor = line[0].textColor;
+		terminal.setColors(originTextColor, originBgColor);
+		
+		length --;
+		uinteger writeFrom = 0;
+		for (i = 0; i <= length; i++){
+			//check if colors have changed, or is it end
+			if (line[i].bgColor != originBgColor || line[i].textColor != originTextColor || i == length){
+				if (writeFrom < i){
+					terminal.setColors(originTextColor, originBgColor);
+					terminal.writeChars(cellToChar(line[writeFrom .. i]));
+				}
+				//if is at end, write the 'last-encountered' char too
+				if (i == length){
+					terminal.setColors(line[i].textColor, line[i].bgColor);
+					terminal.writeChars(line[i].c);
+				}
+			}
+		}
+	}
 public:
-	this(uinteger width, uinteger height){
-		matrixHeight = height;
-		matrixWidth = width;
-
-		writePosition = 0;
-
-		isLocked = false;
-
-		toUpdate = new LinkedList!Display;
+	this(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
+		//set matrix size
+		matrix.length = matrixHeight;
+		//set width:
+		for (uinteger i = 0; i < matrix.length; i++){
+			matrix[i].length = matrixWidth;
+			matrix[i][0 .. matrixWidth] = fill;
+		}
+		updateAt = new LinkedList!UpdateLocation;
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
 	}
 	~this(){
-		toUpdate.destroy;
+		delete updateAt;
 	}
-	/// Limits reading and writing to a certain area, and matrix appears to be of the new size
-	/// and sets writing position to top-left corner of the area
-	void lockMatrix(Position pos, uinteger width, uinteger height){
-		isLocked = true;
-		lockX = pos.x;
-		lockY = pos.y;
-		lockedWidth = width;
-		lockedHeight = height;
-
-		writePosition = 0;
+	///Clear the matrix, and put fill in every cell
+	void clear(Cell fill){
+		for (uinteger row = 0; row < matrix.length; row++){
+			matrix[row][0 .. matrix[row].length] = fill;
+		}
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
 	}
-	/// removes read/write area limit applied by `lockMatrix`
-	void unlockMatrix(uinteger key){
-		writePosition = 0;
-		isLocked = false;
+	///Change size of the matrix, width and height
+	bool changeSize(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
+		//make sure width & size are at least 1
+		bool r = true;
+		if (matrixWidth == 0 || matrixHeight == 0){
+			r = false;
+		}
+		if (r){
+			matrix.length = matrixHeight;
+			for (uinteger i = 0; i < matrix.length; i++){
+				matrix[i].length = matrixWidth;
+				matrix[i][0 .. matrixWidth] = fill;
+			}
+		}
+		return r;
 	}
-	/// writes some characters to the emulated matrix
+	///sets write position to (0, 0)
+	void resetWritePosition(){
+		xPosition = 0;
+		yPosition = 0;
+	}
+	///used to write to matrix, call Matrix.setWriteLimits before this
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
-		// check if content is too long to fit in
-		{
-			uinteger freeSpace = getFreeSpace();
-			if (c.length > freeSpace){
-				c.length = freeSpace;
-			}
-		}
+		uinteger i, xEnd, yEnd;
+		xEnd = width;
+		yEnd = height;
+		//add it to updateAt
 		if (c.length > 0){
-			Display disp;
-			disp.content = c;
-			disp.textColor = textColor;
-			disp.bgColor = bgColor;
-			// X and Y are determined by writePosition
-			Position pos = getWritePosition;
-			disp.x = pos.x;// this position is not relative to the lockPosition
-			disp.y = pos.y;
-			if (!isLocked){
-				toUpdate.append(disp);
-			}else{
-				//add each line separately
-				uinteger endAt, i;
-				endAt = c.length / lockedWidth;
-				//append them usin loop
-				for (i = 0; i < endAt; i ++){
-					disp.content = c[lockedWidth*i .. (lockedWidth*i) + lockedWidth];
-					toUpdate.append(disp);
-					disp.x ++;
+			UpdateLocation loc;
+			loc.x = xPosition;
+			loc.y = yPosition;
+			loc.length = c.length;
+			updateAt.append(loc);
+			for (i = 0; i < c.length; xPosition++){
+				if (xPosition == xEnd){
+					//move to next row
+					yPosition++;
+					xPosition = 0;
 				}
-				//check if a partial line is left
-				if (c.length % lockedWidth > 0){
-					disp.content = c[c.length - (c.length % lockedWidth) .. c.length];
-					toUpdate.append(disp);
+				//check if no more space left
+				if (yPosition >= yEnd){
+					//no more space left
+					break;
 				}
+				matrix[yPosition][xPosition].c = c[i];
+				matrix[yPosition][xPosition].bgColor = bgColor;
+				matrix[yPosition][xPosition].textColor = textColor;
+				i++;
 			}
-
 		}
 	}
-	/// Height (number of rows) of the matrix
-	@property uinteger rows(){
-		if (isLocked){
-			return lockedHeight;
+	///changes colors for whole matrix
+	void setColors(RGBColor textColor, RGBColor bgColor){
+		for (uinteger i = 0; i < matrix.length; i++){
+			for(uinteger j = 0; j < matrix[i].length; j++){
+				matrix[i][j].textColor = textColor;
+				matrix[i][j].bgColor = bgColor;
+			}
+		}
+		//set updateAt to whole Matrix
+		UpdateLocation loc;
+		loc.x, loc.y = 0;
+		loc.length = width*height;
+		updateAt.append(loc);
+	}
+	///move to a different position to write
+	bool moveTo(uinteger x, uinteger y){
+		bool r = true;
+		if (x > matrix[0].length-1 || y > matrix.length-1){
+			r = false;
+		}
+		if (r){
+			xPosition = x;
+			yPosition = y;
+		}
+		return r;
+	}
+	///returns number of rows/lines in matrix
+	@property uinteger height(){
+		return matrix.length;
+	}
+	///returns number of columns in matrix
+	@property uinteger width(){
+		return matrix[0].length;
+	}
+	///returns the point ox x-axis where next write will start from
+	@property uinteger writePosX(){
+		return xPosition;
+	}
+	///returns the point ox y-axis where next write will start from
+	@property uinteger writePosY(){
+		return yPosition;
+	}
+	///read a cell from the matrix
+	Cell read(uinteger x, uinteger y){
+		return matrix[y][x];
+	}
+	///read a complete row from matrix
+	Cell[] readRow(uinteger y){
+		return matrix[y][];
+	}
+	///insert a matrix into this one at a position
+	bool insert(Matrix toInsert, uinteger x, uinteger y){
+		uinteger matrixWidth, matrixHeight;
+		matrixHeight = toInsert.height;
+		matrixWidth = toInsert.width;
+		bool r = true;
+		if (matrixHeight + y > this.height || matrixWidth + x > this.width){
+			r = false;
 		}else{
-			return matrixHeight;
+			uinteger row = 0;
+			uinteger endAtRow = matrixHeight;
+			for (;row<endAtRow; row++){
+				matrix[y + row][x .. x+matrixWidth] = toInsert.readRow(row);
+				//add this row to updateAt
+				UpdateLocation loc;
+				loc.x = x;
+				loc.y = y+row;
+				loc.length = matrixWidth;
+				updateAt.append(loc);
+			}
 		}
+		//debug{toFile("/home/nafees/Desktop/a");}
+		return r;
 	}
-	/// Height (number of rows) of the matrix
-	@property uinteger rows(uinteger newHeight){
-		if (isLocked){
-			return lockedHeight;
-		}else{
-			writePosition = 0;
-			return matrixHeight = newHeight;
+	/*debug{
+		void toFile(string fname){
+			File f = File(fname, "w");
+			for (uinteger i = 0; i < matrix.length; i++){
+				for (uinteger j = 0; j < matrix[i].length; j++){
+					f.write(matrix[i][j].c);
+				}
+				f.write('|','\n');
+			}
+			f.close;
 		}
-	}
-	/// Width (number of columns) of the matrix
-	@property uinteger cols(){
-		if (isLocked){
-			return lockedWidth;
-		}else{
-			return matrixWidth;
-		}
-	}
-	/// Width (number of columns) of the matrix
-	@property uinteger cols(uinteger newWidth){
-		if (isLocked){
-			return lockedWidth;
-		}else{
-			writePosition = 0;
-			return matrixWidth = newWidth;
-		}
-	}
-	/// Writes content of matrix to a `QTerminal`
-	void flushToTerminal(QTerminal term){
-		// just keep writing `toUpdate`'s content to term
-		toUpdate.resetRead;
-		if (toUpdate.count > 0){
-			Display* disp = toUpdate.read();
-			do{
-				term.moveTo(cast(int)(*disp).x, cast(int)(*disp).y);
-				term.setColors((*disp).textColor, (*disp).bgColor);
-				term.writeChars((*disp).content);
-				disp = toUpdate.read();
-			}while(disp !is null);
-			term.flush;
-			toUpdate.clear;
+	}*/
+	///Write contents of matrix to a QTerminal
+	void flushToTerminal(QTerminal terminal){
+		//make sure that there was some change that needs to be flushed
+		if (updateAt.count > 0){
+			//start going through all update-needy
+			uinteger i, count;
+			count = updateAt.count();
+			UpdateLocation* ptr;
+			for (i = 0; i < count; i++){
+				ptr = updateAt.read();
+				if (ptr is null){
+					break;
+				}
+				if ((*ptr).length > 0){
+					updateChars(terminal, (*ptr).x, (*ptr).y, (*ptr).length);
+				}
+				updateAt.removeFirst();
+			}
+			terminal.flush();
 		}
 	}
 }
