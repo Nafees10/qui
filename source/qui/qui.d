@@ -497,10 +497,11 @@ public:
 		if (!isUpdating){
 			isUpdating = true;
 			//go through all widgets, check if they need update, update them
-			Matrix wDisplay = new Matrix(1,1,emptySpace);
+			Matrix wDisplay = new Matrix(1,1);
 			foreach(widget; widgetList){
 				if (widget.visible){
-					wDisplay.changeSize(widget.size.width, widget.size.height, emptySpace);
+					wDisplay.changeSize(widget.size.width, widget.size.height);
+					wDisplay.setColors(emptySpace.textColor, emptySpace.bgColor);
 					wDisplay.resetWritePosition();
 					if (widget.update(wDisplay)){
 						display.insert(wDisplay, widget.position.x, widget.position.y);
@@ -545,7 +546,8 @@ public:
 		//set caption
 		terminal.setTitle(widgetCaption);
 		//create display matrix
-		termDisplay = new Matrix(widgetSize.width, widgetSize.height, emptySpace);
+		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
+		termDisplay.setColors(emptySpace.textColor, emptySpace.bgColor);
 		//create theme
 		widgetTheme = new QTheme;
 	}
@@ -644,7 +646,8 @@ public:
 				updateDisplay;
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//change matrix size
-				termDisplay.changeSize(cast(uinteger)terminal.width, cast(uinteger)terminal.height, emptySpace);
+				termDisplay.changeSize(cast(uinteger)terminal.width, cast(uinteger)terminal.height);
+				termDisplay.setColors(emptySpace.textColor, emptySpace.bgColor);
 				//update self size
 				terminal.updateSize;
 				widgetSize.height = terminal.height;
@@ -960,6 +963,22 @@ public:
 		}
 
 	}
+	/// Changes the matrix's colors. Must be called before any writing has taken place
+	void setColors(RGBColor textColor, RGBColor bgColor){
+		toUpdate.clear;// because it's contents are going to be overwritten, so why bother waste time writing them?
+		Display disp;
+		disp.bgColor = bgColor;
+		disp.textColor = textColor;
+		disp.x = 0;
+		disp.y = 0;
+		disp.content.length = matrixWidth;
+		disp.content[] = ' ';
+		// loop and set colors
+		for (uinteger i = 0; i < matrixHeight; i ++){
+			toUpdate.append(disp);
+			disp.y ++;
+		}
+	}
 	///move to a different position to write
 	void moveTo(uinteger x, uinteger y){
 		if (x < matrixHeight && y < matrixHeight){
@@ -982,13 +1001,37 @@ public:
 		r.y = yPosition;
 		return r;
 	}
+	/// Returns in an array, list of all changes that have to be drawn on terminal. Used by `Matrix.insert` to copy contents
+	Display[] toArray(){
+		return toUpdate.toArray;
+	}
 	///insert a matrix into this one at a position
 	void insert(Matrix toInsert, uinteger x, uinteger y){
+		Display[] newMatrix = toInsert.toArray;
+		// go through the new Displays and increae their x and y, and append them
+		for (uinteger i = 0; i < newMatrix.length; i ++){
+			newMatrix[i].y += y;
+			newMatrix[i].x += x;
 
+			toUpdate.append(newMatrix[i]);
+		}
 	}
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal terminal){
+		if (toUpdate.count > 0){
+			toUpdate.resetRead;
+			Display* disp = toUpdate.read;
+			do{
+				terminal.moveTo(cast(int)(*disp).x, cast(int)(*disp).y);
+				terminal.setColors((*disp).textColor, (*disp).bgColor);
+				terminal.writeChars((*disp).content);
 
+				disp = toUpdate.read;
+			}while (disp !is null);
+			terminal.flush();
+
+			toUpdate.clear;
+		}
 	}
 }
 
