@@ -879,251 +879,116 @@ public:
 ///Used to store the widget's/terminal's display in a matrix
 class Matrix{
 private:
-	Cell[][] matrix;//read as: matrix[y][x];
-	//used to write by widgets
-	uinteger xPosition, yPosition;
-	
-	//stores which part was updated
-	struct UpdateLocation{
+	struct Display{
 		uinteger x, y;
-		uinteger length;
+		RGBColor bgColor, textColor;
+		char[] content;
 	}
-	LinkedList!UpdateLocation updateAt;
-	
-	Cell readAsStream(uinteger pos){
-		return matrix[pos/width][pos%width];
-	}
-	
-	char[] cellToChar(Cell[] c){
-		char[] r;
-		r.length = c.length;
-		for (uinteger i = 0; i < c.length; i++){
-			r[i] = c[i].c;
-		}
-		return r;
-	}
-	
-	void updateChars(QTerminal terminal, uinteger x, uinteger y, uinteger length){
-		uinteger readPos = (y*width)+x, i;
-		Cell[] line;
-		line.length = length;
-		//read all content into line
-		for (i = 0; i < length; i++){
-			line[i] = readAsStream(readPos);
-			readPos ++;
-		}
-		//start writing it to terminal
-		terminal.moveTo(cast(int)x, cast(int)y);
-		//set origin colors
-		RGBColor originBgColor, originTextColor;
-		originBgColor = line[0].bgColor;
-		originTextColor = line[0].textColor;
-		terminal.setColors(originTextColor, originBgColor);
-		
-		length --;
-		uinteger writeFrom = 0;
-		for (i = 0; i <= length; i++){
-			//check if colors have changed, or is it end
-			if (line[i].bgColor != originBgColor || line[i].textColor != originTextColor || i == length){
-				if (writeFrom < i){
-					terminal.setColors(originTextColor, originBgColor);
-					terminal.writeChars(cellToChar(line[writeFrom .. i]));
-				}
-				//if is at end, write the 'last-encountered' char too
-				if (i == length){
-					terminal.setColors(line[i].textColor, line[i].bgColor);
-					terminal.writeChars(line[i].c);
-				}
-			}
-		}
-	}
+	//matrix size
+	uinteger matrixHeight, matrixWidth;
+	//next write position
+	uinteger xPosition, yPosition;
+
+	LinkedList!Display toUpdate;
+
 public:
-	this(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
-		//set matrix size
-		matrix.length = matrixHeight;
-		//set width:
-		for (uinteger i = 0; i < matrix.length; i++){
-			matrix[i].length = matrixWidth;
-			matrix[i][0 .. matrixWidth] = fill;
+	this(uinteger width, uinteger height){
+		toUpdate = new LinkedList!Display;
+		//set size
+		matrixHeight = 1;
+		matrixWidth = 1;
+		if (width > 1){
+			matrixWidth = width;
 		}
-		updateAt = new LinkedList!UpdateLocation;
-		//set updateAt to whole Matrix
-		UpdateLocation loc;
-		loc.x, loc.y = 0;
-		loc.length = width*height;
-		updateAt.append(loc);
+		if (height > 1){
+			matrixHeight = height;
+		}
+		//set write positions
+		xPosition = 0;
+		yPosition = 0;
 	}
 	~this(){
-		delete updateAt;
+		toUpdate.destroy;
 	}
-	///Clear the matrix, and put fill in every cell
-	void clear(Cell fill){
-		for (uinteger row = 0; row < matrix.length; row++){
-			matrix[row][0 .. matrix[row].length] = fill;
-		}
-		//set updateAt to whole Matrix
-		UpdateLocation loc;
-		loc.x, loc.y = 0;
-		loc.length = width*height;
-		updateAt.append(loc);
+	///Clear the matrix, resets write position
+	void clear(){
+		toUpdate.clear;
+		resetWritePosition();
 	}
-	///Change size of the matrix, width and height
-	bool changeSize(uinteger matrixWidth, uinteger matrixHeight, Cell fill){
-		//make sure width & size are at least 1
-		bool r = true;
-		if (matrixWidth == 0 || matrixHeight == 0){
-			r = false;
+	/// clears the matrix, resets write position, and changes matrix size
+	void changeSize(uinteger width, uinteger height){
+		clear;
+		matrixWidth = width;
+		matrixHeight = height;
+		if (matrixWidth == 0){
+			matrixWidth = 1;
 		}
-		if (r){
-			matrix.length = matrixHeight;
-			for (uinteger i = 0; i < matrix.length; i++){
-				matrix[i].length = matrixWidth;
-				matrix[i][0 .. matrixWidth] = fill;
-			}
+		if (matrixHeight == 0){
+			matrixHeight = 1;
 		}
-		return r;
 	}
 	///sets write position to (0, 0)
 	void resetWritePosition(){
 		xPosition = 0;
 		yPosition = 0;
 	}
-	///used to write to matrix, call Matrix.setWriteLimits before this
+	/// To write to terminal
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
-		uinteger i, xEnd, yEnd;
-		xEnd = width;
-		yEnd = height;
-		//add it to updateAt
+		//get available cells
+		uinteger cells = (matrixHeight - yPosition) + (matrixWidth - xPosition);
+		if (c.length > cells){
+			c.length = cells;
+		}
+		uinteger i, end;
+		end = c.length / matrixWidth;
 		if (c.length > 0){
-			UpdateLocation loc;
-			loc.x = xPosition;
-			loc.y = yPosition;
-			loc.length = c.length;
-			updateAt.append(loc);
-			for (i = 0; i < c.length; xPosition++){
-				if (xPosition == xEnd){
-					//move to next row
-					yPosition++;
-					xPosition = 0;
-				}
-				//check if no more space left
-				if (yPosition >= yEnd){
-					//no more space left
-					break;
-				}
-				matrix[yPosition][xPosition].c = c[i];
-				matrix[yPosition][xPosition].bgColor = bgColor;
-				matrix[yPosition][xPosition].textColor = textColor;
-				i++;
+			Display disp;
+			disp.y = yPosition;
+			disp.x = xPosition;
+			disp.bgColor = bgColor;
+			disp.textColor = textColor;
+			for (i = 0; i < end; i ++){
+				disp.content = c[i * matrixWidth .. (i * matrixWidth) + matrixWidth];
+				toUpdate.append(disp);
+				disp.y ++;
+			}
+			// check if there was a partial line at end that needs to be appended
+			if (c.length % matrixWidth > 0){
+				disp.content = c[c.length - ( (c.length % matrixWidth) - 1 ) .. c.length];
+				toUpdate.append(disp);
 			}
 		}
-	}
-	///changes colors for whole matrix
-	void setColors(RGBColor textColor, RGBColor bgColor){
-		for (uinteger i = 0; i < matrix.length; i++){
-			for(uinteger j = 0; j < matrix[i].length; j++){
-				matrix[i][j].textColor = textColor;
-				matrix[i][j].bgColor = bgColor;
-			}
-		}
-		//set updateAt to whole Matrix
-		UpdateLocation loc;
-		loc.x, loc.y = 0;
-		loc.length = width*height;
-		updateAt.append(loc);
+
 	}
 	///move to a different position to write
-	bool moveTo(uinteger x, uinteger y){
-		bool r = true;
-		if (x > matrix[0].length-1 || y > matrix.length-1){
-			r = false;
-		}
-		if (r){
+	void moveTo(uinteger x, uinteger y){
+		if (x < matrixHeight && y < matrixHeight){
 			xPosition = x;
 			yPosition = y;
 		}
-		return r;
 	}
 	///returns number of rows/lines in matrix
-	@property uinteger height(){
-		return matrix.length;
+	@property uinteger rowCount(){
+		return matrixHeight;
 	}
 	///returns number of columns in matrix
-	@property uinteger width(){
-		return matrix[0].length;
+	@property uinteger colCount(){
+		return matrixWidth;
 	}
 	///returns the point ox x-axis where next write will start from
-	@property uinteger writePosX(){
-		return xPosition;
-	}
-	///returns the point ox y-axis where next write will start from
-	@property uinteger writePosY(){
-		return yPosition;
-	}
-	///read a cell from the matrix
-	Cell read(uinteger x, uinteger y){
-		return matrix[y][x];
-	}
-	///read a complete row from matrix
-	Cell[] readRow(uinteger y){
-		return matrix[y][];
-	}
-	///insert a matrix into this one at a position
-	bool insert(Matrix toInsert, uinteger x, uinteger y){
-		uinteger matrixWidth, matrixHeight;
-		matrixHeight = toInsert.height;
-		matrixWidth = toInsert.width;
-		bool r = true;
-		if (matrixHeight + y > this.height || matrixWidth + x > this.width){
-			r = false;
-		}else{
-			uinteger row = 0;
-			uinteger endAtRow = matrixHeight;
-			for (;row<endAtRow; row++){
-				matrix[y + row][x .. x+matrixWidth] = toInsert.readRow(row);
-				//add this row to updateAt
-				UpdateLocation loc;
-				loc.x = x;
-				loc.y = y+row;
-				loc.length = matrixWidth;
-				updateAt.append(loc);
-			}
-		}
-		//debug{toFile("/home/nafees/Desktop/a");}
+	@property Position writePos(){
+		Position r;
+		r.x = xPosition;
+		r.y = yPosition;
 		return r;
 	}
-	/*debug{
-		void toFile(string fname){
-			File f = File(fname, "w");
-			for (uinteger i = 0; i < matrix.length; i++){
-				for (uinteger j = 0; j < matrix[i].length; j++){
-					f.write(matrix[i][j].c);
-				}
-				f.write('|','\n');
-			}
-			f.close;
-		}
-	}*/
+	///insert a matrix into this one at a position
+	void insert(Matrix toInsert, uinteger x, uinteger y){
+
+	}
 	///Write contents of matrix to a QTerminal
 	void flushToTerminal(QTerminal terminal){
-		//make sure that there was some change that needs to be flushed
-		if (updateAt.count > 0){
-			//start going through all update-needy
-			uinteger i, count;
-			count = updateAt.count();
-			UpdateLocation* ptr;
-			for (i = 0; i < count; i++){
-				ptr = updateAt.read();
-				if (ptr is null){
-					break;
-				}
-				if ((*ptr).length > 0){
-					updateChars(terminal, (*ptr).x, (*ptr).y, (*ptr).length);
-				}
-				updateAt.removeFirst();
-			}
-			terminal.flush();
-		}
+
 	}
 }
 
