@@ -943,22 +943,44 @@ public:
 			c.length = cells;
 		}
 		uinteger i, end;
-		end = c.length / matrixWidth;
 		if (c.length > 0){
 			Display disp;
 			disp.y = yPosition;
 			disp.x = xPosition;
 			disp.bgColor = bgColor;
 			disp.textColor = textColor;
+			//check if xPosition > 0, then fill that row before continuing
+			if (disp.x > 0){
+				if (c.length > matrixWidth-disp.x){
+					disp.content = c[0 .. matrixWidth-disp.x];
+					//remove first few elements from c
+					c = c[matrixWidth-disp.x .. c.length];
+
+					yPosition ++;
+				}else{
+					disp.content = c;
+
+					xPosition += c.length;
+					//empty `c`
+					c.length = 0;
+				}
+				toUpdate.append(disp);
+			}
+
+			end = c.length / matrixWidth;
 			for (i = 0; i < end; i ++){
 				disp.content = c[i * matrixWidth .. (i * matrixWidth) + matrixWidth];
 				toUpdate.append(disp);
 				disp.y ++;
 			}
+			//update xPosition and yPosition
+			xPosition = 0;
+			yPosition = disp.y;
 			// check if there was a partial line at end that needs to be appended
 			if (c.length % matrixWidth > 0){
-				disp.content = c[c.length - ( (c.length % matrixWidth) - 1 ) .. c.length];
+				disp.content = c[c.length - ( (c.length % matrixWidth) ) .. c.length];
 				toUpdate.append(disp);
+				xPosition = disp.content.length;
 			}
 		}
 
