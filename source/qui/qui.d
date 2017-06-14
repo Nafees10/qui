@@ -595,6 +595,7 @@ public:
 		//termDisplay.clear(emptySpace);
 		bool r = update(termDisplay);
 		if (r){
+			terminal.moveTo(0, 0);
 			termDisplay.flushToTerminal(this);
 		}
 		//set cursor position
@@ -993,26 +994,28 @@ public:
 		xEnd = width;
 		yEnd = height;
 		//add it to updateAt
-		UpdateLocation loc;
-		loc.x = xPosition;
-		loc.y = yPosition;
-		loc.length = c.length;
-		updateAt.append(loc);
-		for (i = 0; i < c.length; xPosition++){
-			if (xPosition == xEnd){
-				//move to next row
-				yPosition++;
-				xPosition = 0;
+		if (c.length > 0){
+			UpdateLocation loc;
+			loc.x = xPosition;
+			loc.y = yPosition;
+			loc.length = c.length;
+			updateAt.append(loc);
+			for (i = 0; i < c.length; xPosition++){
+				if (xPosition == xEnd){
+					//move to next row
+					yPosition++;
+					xPosition = 0;
+				}
+				//check if no more space left
+				if (yPosition >= yEnd){
+					//no more space left
+					break;
+				}
+				matrix[yPosition][xPosition].c = c[i];
+				matrix[yPosition][xPosition].bgColor = bgColor;
+				matrix[yPosition][xPosition].textColor = textColor;
+				i++;
 			}
-			//check if no more space left
-			if (yPosition >= yEnd){
-				//no more space left
-				break;
-			}
-			matrix[yPosition][xPosition].c = c[i];
-			matrix[yPosition][xPosition].bgColor = bgColor;
-			matrix[yPosition][xPosition].textColor = textColor;
-			i++;
 		}
 	}
 	///changes colors for whole matrix

@@ -152,7 +152,7 @@ private:
 	RGBColor bgColor, textColor, captionTextColor, captionBgColor;
 public:
 	this(string wCaption = "", string inputTxt = ""){
-		widgetName = "editLine";
+		widgetName = "edit-line";
 		inputText = cast(char[])inputTxt;
 		widgetCaption = wCaption;
 		//specify min/max
@@ -165,8 +165,8 @@ public:
 		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "caption-text", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
 			textColor = widgetTheme.getColor(name, "text");
-			captionTextColor = widgetTheme.getColor(name, "captionText");
-			captionBgColor = widgetTheme.getColor(name, "captionBackground");
+			captionTextColor = widgetTheme.getColor(name, "caption-text");
+			captionBgColor = bgColor;
 		}else{
 			bgColor = hexToColor("404040");
 			textColor = hexToColor("00FF00");
