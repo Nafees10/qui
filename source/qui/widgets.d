@@ -183,11 +183,11 @@ public:
 			needsUpdate = false;
 			r = true;
 			//make sure there's enough space
-			if (display.width > widgetCaption.length){
+			if (widgetSize.width > widgetCaption.length){
 				//draw the caption
 				display.write(cast(char[])widgetCaption, captionTextColor, captionBgColor);
 				//draw the inputText
-				uinteger width = display.width - widgetCaption.length;
+				uinteger width = widgetSize.width - widgetCaption.length;
 				if (width >= inputText.length){
 					//draw it as it is
 					display.write(inputText, textColor, bgColor);
@@ -706,7 +706,7 @@ public:
 			for (i = 0; i < messages.length; i++){
 				display.write(cast(char[])messages[i], textColor, bgColor);
 				//add newline
-				display.moveTo(0, display.writePosY+1);
+				display.moveTo(0, display.writePos.y+1);
 			}
 		}
 		return r;
