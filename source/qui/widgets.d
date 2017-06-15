@@ -150,11 +150,44 @@ private:
 	uinteger cursorX;
 	uinteger scrollX = 0;//amount of chars that won't be displayed because of not enough space
 	RGBColor bgColor, textColor, captionTextColor, captionBgColor;
+	
+	void reScroll(){
+		//check if is within length of line
+		if (cursorX > inputText.length){
+			cursorX = inputText.length;
+		}
+		uinteger w = widgetSize.width - widgetCaption.length;
+		//now calculate scrollX, if it needs to be increased
+		if ((scrollX + w < cursorX || scrollX + w >= cursorX)){
+			if (cursorX <= w){
+				scrollX = 0;
+			}else{
+				scrollX = cursorX - (w/2);
+			}
+		}
+	}
+	/// used by widget itself to set cursor
+	void setCursor(){
+		//put the cursor at correct position, if possible
+		if (cursorPos !is null){
+			//check if cursor is at a position that's possible
+			if (inputText.length >= cursorX){
+				cursorPos((cursorX - scrollX)+widgetPosition.x+widgetCaption.length, widgetPosition.y);
+			}
+		}
+	}
+	///shortens caption if too long
+	void shortenCaption(){
+		if (widgetSize.width - widgetCaption.length < 4){
+			widgetCaption.length = widgetSize.width - 4;
+		}
+	}
 public:
 	this(string wCaption = "", string inputTxt = ""){
 		widgetName = "edit-line";
 		inputText = cast(char[])inputTxt;
 		widgetCaption = wCaption;
+		shortenCaption;
 		//specify min/max
 		widgetSize.minWidth = 1;
 		widgetSize.minHeight = 1;
@@ -162,11 +195,11 @@ public:
 	}
 	override void updateColors(){
 		needsUpdate = true;
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "caption-text", "text"])){
+		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "caption-text", "caption-background", "text"])){
 			bgColor = widgetTheme.getColor(name, "background");
 			textColor = widgetTheme.getColor(name, "text");
 			captionTextColor = widgetTheme.getColor(name, "caption-text");
-			captionBgColor = bgColor;
+			captionBgColor = widgetTheme.getColor(name, "caption-background");
 		}else{
 			bgColor = hexToColor("404040");
 			textColor = hexToColor("00FF00");
@@ -188,32 +221,30 @@ public:
 				display.write(cast(char[])widgetCaption, captionTextColor, captionBgColor);
 				//draw the inputText
 				uinteger width = widgetSize.width - widgetCaption.length;
-				if (width >= inputText.length){
-					//draw it as it is
-					display.write(inputText, textColor, bgColor);
+				//fit the line into screen, i.e check if only a part of it will be displayed
+				if (inputText.length >= width+scrollX){
+					//display only partial line
+					display.write(inputText[scrollX .. scrollX + width], textColor, bgColor);
 				}else{
-					//draw scrolled
-					if (scrollX + width > inputText.length){
-						display.write(inputText[scrollX .. inputText.length], textColor, bgColor);
+					char[] emptyLine;
+					emptyLine.length = width;
+					emptyLine[] = ' ';
+					//either the line is small enough to fit, or 0-length
+					if (inputText.length <= scrollX || inputText.length == 0){
+						//just write the bgColor
+						display.write(emptyLine, textColor, bgColor);
 					}else{
-						display.write(inputText[scrollX .. scrollX + width], textColor, bgColor);
+						display.write(inputText[scrollX .. inputText.length], textColor, bgColor);
+						//write the bgColor
+						display.write(emptyLine[inputText.length - scrollX .. emptyLine.length], textColor, bgColor);
 					}
 				}
-				//fill the left with bgColor
-				if (widgetCaption.length + inputText.length < widgetSize.width){
-					char[] tmp;
-					tmp.length = widgetSize.width - (inputText.length + widgetCaption.length);
-					tmp[0 .. tmp.length] = ' ';
-					display.write(tmp, textColor, bgColor);
-				}
-				//set cursor pos, if can
-				if (cursorPos !is null){
-					cursorPos(widgetPosition.x + widgetCaption.length + (cursorX - scrollX), widgetPosition.y);
-				}
-			}else{
-				widgetShow = false;
-				r = false;
 			}
+			//set cursor pos, if can
+			setCursor();
+		}else{
+			/*widgetShow = false;
+			r = false;*/
 		}
 		return r;
 	}
@@ -228,6 +259,7 @@ public:
 				cursorX = mouse.x - (widgetPosition.x + widgetCaption.length + scrollX);
 			}
 		}
+		reScroll;
 	}
 	override void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
@@ -253,35 +285,18 @@ public:
 					cursorX --;
 				}
 			}
-			//check if has to modify scrollX
-			if (widgetSize.width < widgetCaption.length + inputText.length){
-				scrollX = (widgetCaption.length + inputText.length) - widgetSize.width;
-			}else if (scrollX > 0){
-				scrollX = 0;
-			}
 		}else{
-			if (key.key == key.NonCharKey.LeftArrow || key.key == key.NonCharKey.UpArrow){
-				if (cursorX > 0){
-					needsUpdate = true;
-					cursorX --;
-					if (scrollX > cursorX){
-						scrollX = cursorX;
-					}
-				}
-			}else if (key.key == key.NonCharKey.RightArrow || key.key == key.NonCharKey.DownArrow){
-				if (cursorX < inputText.length){
-					needsUpdate = true;
-					cursorX ++;
-					if (cursorX == widgetSize.width - widgetCaption.length && inputText.length > cursorX){
-						scrollX = inputText.length - (widgetSize.width - widgetCaption.length);
-					}
-				}
+			if (key.key == key.NonCharKey.LeftArrow && cursorX > 0){
+				needsUpdate = true;
+				cursorX --;
+			}else if (key.key == key.NonCharKey.RightArrow && cursorX < inputText.length){
+				needsUpdate = true;
+				cursorX ++;
+			}else if (key.key == key.NonCharKey.Delete && cursorX < inputText.length){
+				inputText = inputText.deleteElement(cursorX);
 			}
 		}
-		//set cursor pos, if can
-		if (cursorPos !is null){
-			cursorPos(widgetPosition.x + widgetCaption.length + (cursorX - scrollX), widgetPosition.y);
-		}
+		reScroll;
 	}
 	///The text that has been input-ed.
 	@property string text(){
@@ -294,6 +309,16 @@ public:
 			forceUpdate();
 		}
 		return cast(string)inputText;
+	}
+	/// caption of the widget. setter
+	override @property string caption(string newCaption){
+		needsUpdate = true;
+		widgetCaption = newCaption;
+		shortenCaption;
+		if (forceUpdate !is null){
+			forceUpdate();
+		}
+		return widgetCaption;
 	}
 }
 
