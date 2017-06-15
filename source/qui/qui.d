@@ -507,6 +507,7 @@ public:
 						display.insert(wDisplay, widget.position.x, widget.position.y);
 						updated = true;
 					}
+					wDisplay.clear();
 				}
 			}
 			isUpdating = false;
@@ -938,7 +939,9 @@ public:
 	/// To write to terminal
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
 		//get available cells
-		uinteger cells = (matrixHeight - yPosition) + (matrixWidth - xPosition);
+		uinteger cells = matrixWidth * matrixHeight;// first get the whole area
+		cells -= xPosition;//subtract partial-lines
+		cells -= yPosition*matrixWidth;//subtract lines taken by yPosition
 		if (c.length > cells){
 			c.length = cells;
 		}
