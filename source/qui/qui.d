@@ -91,15 +91,6 @@ struct Size{
 	uinteger maxHeight = 0, maxWidth = 0;
 }
 
-/// The whole terminal is divided into cells, total number of cells = length * height of terminal
-/// 
-/// Each cell has it's own character, foreground color, and background color
-struct Cell{
-	char c;
-	RGBColor textColor;
-	RGBColor bgColor;
-}
-
 /// mouseEvent function
 alias MouseEventFuction = void delegate(MouseClick);
 ///keyboardEvent function
@@ -336,7 +327,6 @@ private:
 	RGBColor backColor;
 	// foreground color
 	RGBColor foreColor;
-	Cell emptySpace;
 	// stores whether an update is in progress
 	bool isUpdating = false;
 	
