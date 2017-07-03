@@ -1069,6 +1069,10 @@ char[] centerAlignText(char[] text, uinteger width, char fill = ' '){
 	}
 	return r;
 }
+///
+unittest{
+	assert((cast(char[])"qwr").centerAlignText(7) == "  qwr  ");
+}
 
 ///used to calculate height/width using sizeRation
 uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
@@ -1095,6 +1099,14 @@ RGBColor hexToColor(string hex){
 	r.b = cast(ubyte)den;
 	return r;
 }
+///
+unittest{
+	RGBColor c;
+	c.r = 10;
+	c.g = 15;
+	c.b = 0;
+	assert("0A0F00".hexToColor == c);
+}
 
 ///Converts RGBColor to hex color code
 string colorToHex(RGBColor col){
@@ -1103,4 +1115,12 @@ string colorToHex(RGBColor col){
 	den += col.g*256;
 	den += col.r*65536;
 	return denaryToHex(den);
+}
+///
+unittest{
+	RGBColor c;
+	c.r = 10;
+	c.g = 8;
+	c.b = 12;
+	assert(c.colorToHex == "A080C");
 }
