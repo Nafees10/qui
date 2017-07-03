@@ -288,7 +288,7 @@ public:
 		return widgetSize;
 	}
 	/// size of the widget. setter
-	@property Size size(Size newSize){
+	@property  Size size(Size newSize){
 		//check if height or width < min
 		if (newSize.minWidth > 0 && newSize.width < newSize.minWidth){
 			return widgetSize;
@@ -324,9 +324,9 @@ private:
 	LayoutDisplayType layoutType;
 	
 	// background color
-	RGBColor backColor;
+	RGBColor bgColor;
 	// foreground color
-	RGBColor foreColor;
+	RGBColor textColor;
 	// stores whether an update is in progress
 	bool isUpdating = false;
 	
@@ -415,17 +415,16 @@ public:
 		widgetName = "layout";
 		layoutType = type;
 		activeWidget = null;
-		emptySpace.c = ' ';
 	}
 	
 	override void updateColors(){
 		needsUpdate = true;
 		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
-			emptySpace.bgColor = widgetTheme.getColor(name, "background");
-			emptySpace.textColor = widgetTheme.getColor(name, "text");
+			bgColor = widgetTheme.getColor(name, "background");
+			textColor = widgetTheme.getColor(name, "text");
 		}else{
-			emptySpace.bgColor = hexToColor("000000");
-			emptySpace.textColor = hexToColor("00FF00");
+			bgColor = hexToColor("000000");
+			textColor = hexToColor("00FF00");
 		}
 		if (forceUpdate !is null){
 			forceUpdate();
@@ -491,7 +490,7 @@ public:
 			foreach(widget; widgetList){
 				if (widget.visible){
 					wDisplay.changeSize(widget.size.width, widget.size.height);
-					wDisplay.setColors(emptySpace.textColor, emptySpace.bgColor);
+					wDisplay.setColors(textColor, bgColor);
 					wDisplay.resetWritePosition();
 					if (widget.update(wDisplay)){
 						display.insert(wDisplay, widget.position.x, widget.position.y);
@@ -538,7 +537,7 @@ public:
 		terminal.setTitle(widgetCaption);
 		//create display matrix
 		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
-		termDisplay.setColors(emptySpace.textColor, emptySpace.bgColor);
+		termDisplay.setColors(textColor, bgColor);
 		//create theme
 		widgetTheme = new QTheme;
 	}
@@ -638,7 +637,7 @@ public:
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//change matrix size
 				termDisplay.changeSize(cast(uinteger)terminal.width, cast(uinteger)terminal.height);
-				termDisplay.setColors(emptySpace.textColor, emptySpace.bgColor);
+				termDisplay.setColors(textColor, bgColor);
 				//update self size
 				terminal.updateSize;
 				widgetSize.height = terminal.height;
