@@ -368,8 +368,6 @@ private:
 					// add previous widget's width to get this widget's x position
 					newPosition.x += newSpace;
 				}
-				//apply position
-				widget.position = newPosition;
 
 				// check if there's enough space to contain that widget
 				if (newSpace > totalSpace){
@@ -385,6 +383,8 @@ private:
 						newSize.width = widgetSize.width;
 					}
 					widget.size = newSize;
+					//apply position
+					widget.position = newPosition;
 				}
 			}
 			
@@ -597,7 +597,7 @@ public:
 		terminal.showCursor();
 		return r;
 	}
-	
+
 	/// starts the UI loop
 	void run(){
 		InputEvent event;
@@ -857,7 +857,8 @@ public:
 		}else{
 			return false;
 		}
-	}///checks if theme has default colors
+	}
+	///checks if theme has default colors
 	bool hasColors(string[] colorNames){
 		bool r = true;
 		foreach(color; colorNames){
@@ -870,7 +871,7 @@ public:
 	}
 }
 
-///Used to store the widget's/terminal's display in a matrix
+/// Used to manage the characters on the terminal
 class Matrix{
 private:
 	struct Display{
