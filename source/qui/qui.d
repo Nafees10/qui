@@ -333,7 +333,6 @@ private:
 	// recalculates the size and position of every widget inside layout
 	void recalculateWidgetsSize(){
 		uinteger ratioTotal = 0;
-		Size newSize;
 		//calculate total ratio
 		foreach (widget; widgetList){
 			if (widget.visible){
@@ -341,50 +340,47 @@ private:
 			}
 		}
 		Position newPosition;
+		Size newSize;
+		uinteger totalSpace;
+		// if Horizontal, the y position will be same for all widgets, else, x position will be same
+		if (layoutType == LayoutDisplayType.Horizontal){
+			newPosition.y = widgetPosition.y;
+			newSize.height = widgetSize.height;
+			totalSpace = widgetSize.width;
+		}else{
+			newPosition.x = widgetPosition.x;
+			newSize.width = widgetSize.width;
+			totalSpace = widgetSize.height;
+		}
 		
 		//newSpace in Horizontal is read as 'newWidth' else 'newHeight'
 		uinteger newSpace = 0;
-		//same as above rule applies to this var's name too
-		uinteger availableSpace;
-		if (layoutType == LayoutDisplayType.Horizontal){
-			availableSpace = widgetSize.width;
-		}else{
-			availableSpace = widgetSize.height;
-		}
 		
 		foreach(widget; widgetList){
 			if (widget.visible){
-				//calculate position
-				if (layoutType == LayoutDisplayType.Vertical){
-					// x-axis is same for all widgets in Vertical Layouts
-					newPosition.x = widgetPosition.x;
-					// add previous widget's height to get this widget's y position
-					newPosition.y += newSpace;
-				}else if (layoutType == LayoutDisplayType.Horizontal){
-					// y-axis is same for all widgets in Horizontal
-					newPosition.y = widgetPosition.y;
-					// add previous widget's width to get this widget's x position
-					newPosition.x += newSpace;
-				}
-				//apply position
-				widget.position = newPosition;
-				
 				// calculate width or height
 				newSpace = ratioToRaw(widget.sizeRatio, ratioTotal, availableSpace);
-				//check if new height/width is within specified limits
-				if (layoutType == LayoutDisplayType.Horizontal){
+				//calculate position, and check if size is too much or too less
+				if (layoutType == LayoutDisplayType.Vertical){
 					if (widget.size.maxWidth > 0 && newSpace > widget.size.maxWidth){
 						newSpace = widget.size.maxWidth;
 					}else if (widget.size.minWidth > 0 && newSpace < widget.size.minWidth){
 						newSpace = widget.size.minWidth;
 					}
+					// add previous widget's height to get this widget's y position
+					newPosition.y += newSpace;
 				}else{
 					if (widget.size.maxHeight > 0 && newSpace > widget.size.maxHeight){
 						newSpace = widget.size.maxHeight;
 					}else if (widget.size.minHeight > 0 && newSpace < widget.size.minHeight){
 						newSpace = widget.size.minHeight;
 					}
+					// add previous widget's width to get this widget's x position
+					newPosition.x += newSpace;
 				}
+				//apply position
+				widget.position = newPosition;
+
 				// check if there's enough space to contain that widget
 				if (newSpace > availableSpace){
 					newSpace = 0;
