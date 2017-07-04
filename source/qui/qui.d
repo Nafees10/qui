@@ -331,26 +331,16 @@ private:
 	bool isUpdating = false;
 	
 	// recalculates the size and position of every widget inside layout
-	void recalculateWidgetsSize(){
-		uinteger ratioTotal = 0;
-		//calculate total ratio
-		foreach (widget; widgetList){
-			if (widget.visible){
-				ratioTotal += widget.sizeRatio;
-			}
-		}
+	void recalculateWidgetsSize(QWidget[] widgets, uinteger totalSpace, uinteger totalRatio){
 		Position newPosition;
 		Size newSize;
-		uinteger totalSpace;
 		// if Horizontal, the y position will be same for all widgets, else, x position will be same
 		if (layoutType == LayoutDisplayType.Horizontal){
 			newPosition.y = widgetPosition.y;
 			newSize.height = widgetSize.height;
-			totalSpace = widgetSize.width;
 		}else{
 			newPosition.x = widgetPosition.x;
 			newSize.width = widgetSize.width;
-			totalSpace = widgetSize.height;
 		}
 		
 		//newSpace in Horizontal is read as 'newWidth' else 'newHeight'
@@ -359,7 +349,7 @@ private:
 		foreach(widget; widgetList){
 			if (widget.visible){
 				// calculate width or height
-				newSpace = ratioToRaw(widget.sizeRatio, ratioTotal, availableSpace);
+				newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
 				//calculate position, and check if size is too much or too less
 				if (layoutType == LayoutDisplayType.Vertical){
 					if (widget.size.maxWidth > 0 && newSpace > widget.size.maxWidth){
@@ -382,7 +372,7 @@ private:
 				widget.position = newPosition;
 
 				// check if there's enough space to contain that widget
-				if (newSpace > availableSpace){
+				if (newSpace > totalSpace){
 					newSpace = 0;
 					widget.visible = false;
 				}else{
@@ -436,7 +426,23 @@ public:
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
 		//recalculate all widget's size to adjust
-		recalculateWidgetsSize();
+		resize();
+	}
+
+	/// Recalculates size and position for all visible widgets
+	/// If a widget is too large to fit in, it's visibility is marked false
+	void resize(){
+		uinteger ratioTotal;
+		foreach(w; widgetList){
+			if (w.visible()){
+				ratioTotal += w.sizeRatio;
+			}
+		}
+		if (layoutType == LayoutDisplayType.Horizontal){
+			recalculateWidgetsSize(widgetList, widgetSize.width, ratioTotal);
+		}else{
+			recalculateWidgetsSize(widgetList, widgetSize.height, ratioTotal);
+		}
 	}
 	
 	override void mouseEvent(MouseClick mouse){
@@ -597,7 +603,6 @@ public:
 		InputEvent event;
 		isRunning = true;
 		//draw the whole thing
-		recalculateWidgetsSize;
 		updateDisplay();
 		while (isRunning){
 			event = input.nextEvent;
@@ -639,7 +644,7 @@ public:
 				widgetSize.height = terminal.height;
 				widgetSize.width = terminal.width;
 				//call size change on all widgets
-				recalculateWidgetsSize;
+				resize;
 				updateDisplay;
 			}else if (event.type == event.Type.UserInterruptionEvent){
 				//die here
