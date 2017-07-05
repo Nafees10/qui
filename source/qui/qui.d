@@ -345,6 +345,7 @@ private:
 		
 		//newSpace in Horizontal is read as 'newWidth' else 'newHeight'
 		uinteger newSpace = 0;
+		uinteger previousSpace = 0;
 		
 		foreach(widget; widgetList){
 			if (widget.visible){
@@ -366,7 +367,7 @@ private:
 						newSpace = widget.size.minHeight;
 					}
 					// add previous widget's width to get this widget's x position
-					newPosition.x += newSpace;
+					newPosition.x += previousSpace;
 				}
 
 				// check if there's enough space to contain that widget
@@ -385,6 +386,8 @@ private:
 					widget.size = newSize;
 					//apply position
 					widget.position = newPosition;
+
+					previousSpace = newSpace;
 				}
 			}
 			
