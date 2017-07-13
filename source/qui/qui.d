@@ -1,8 +1,6 @@
-﻿/++
+/++
 	This module contains most of the functions you'll need.
 	All the 'base' classes, like QWidget are defined in this.
-	There are some classes, like List, that are defined in 
-	other modules.
 +/
 module qui.qui;
 
@@ -309,6 +307,12 @@ public:
 	}
 }
 
+/// Layout type
+enum LayoutDisplayType{
+	Vertical,
+	Horizontal,
+}
+
 ///Used to place widgets in an order (i.e vertical or horizontal)
 ///
 ///The QTerminal is also a layout, basically.
@@ -331,75 +335,82 @@ private:
 	bool isUpdating = false;
 	
 	// recalculates the size and position of every widget inside layout
-	void recalculateWidgetsSize(QWidget[] widgets, uinteger totalSpace, uinteger totalRatio){
+	void recalculateWidgetsSize(LayoutDisplayType T)(QWidget[] widgets, uinteger totalSpace, uinteger totalRatio){
+		static if (T != LayoutDisplayType.Horizontal && T != LayoutDisplayType.Vertical){
+			assert(false);
+		}
+		/// gets min heigth/width for a widget
+		uinteger getMinSpace(QWidget widget){
+			static if (T == LayoutDisplayType.Horizontal){
+				return widget.size.minWidth;
+			}else{
+				return widget.size.minHeight;
+			}
+		}
+		/// gets max height/width for a widget
+		uinteger getMaxSpace(QWidget widget){
+			static if (T == LayoutDisplayType.Horizontal){
+				return widget.size.maxWidth;
+			}else{
+				return widget.size.maxHeight;
+			}
+		}
+		
 		Position newPosition;
+		newPosition.x, newPosition.y = 0;
 		Size newSize;
 		// if Horizontal, the y position will be same for all widgets, else, x position will be same
-		if (layoutType == LayoutDisplayType.Horizontal){
-			newPosition.y = widgetPosition.y;
+		static if (T == LayoutDisplayType.Horizontal){
 			newSize.height = widgetSize.height;
 		}else{
-			newPosition.x = widgetPosition.x;
 			newSize.width = widgetSize.width;
 		}
 		
-		//newSpace in Horizontal is read as 'newWidth' else 'newHeight'
-		uinteger newSpace = 0;
-		uinteger previousSpace = 0;
+		uinteger newSpace = 0; // the new height/width of the widget
+		uinteger previousSpace = 0; // the newly calculated height/width of the widget
 		
 		foreach(widget; widgetList){
 			if (widget.visible){
 				// calculate width or height
 				newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
-				//calculate position, and check if size is too much or too less
-				if (layoutType == LayoutDisplayType.Vertical){
-					if (widget.size.maxWidth > 0 && newSpace > widget.size.maxWidth){
-						newSpace = widget.size.maxWidth;
-					}else if (widget.size.minWidth > 0 && newSpace < widget.size.minWidth){
-						newSpace = widget.size.minWidth;
-					}
-					// add previous widget's height to get this widget's y position
-					newPosition.y += newSpace;
-				}else{
-					if (widget.size.maxHeight > 0 && newSpace > widget.size.maxHeight){
-						newSpace = widget.size.maxHeight;
-					}else if (widget.size.minHeight > 0 && newSpace < widget.size.minHeight){
-						newSpace = widget.size.minHeight;
-					}
-					// add previous widget's width to get this widget's x position
-					newPosition.x += previousSpace;
+				// check if min > size > max
+				uinteger mSpace; // min/max space
+				mSpace = getMinSpace(widget);
+				if (mSpace > 0 && newSpace < mSpace){
+					newSpace = mSpace;
 				}
-
+				mSpace = getMaxSpace(widget);
+				if (mSpace > 0 && newSpace < mSpace){
+					newSpace = mSpace;
+				}
+				// calculate position
+				static if (T == LayoutDisplayType.Horizontal){
+					newPosition.x += previousSpace;
+				}else{
+					newPosition.y += previousSpace;
+				}
 				// check if there's enough space to contain that widget
 				if (newSpace > totalSpace){
 					newSpace = 0;
 					widget.visible = false;
 				}else{
 					// apply new size
-					if (layoutType == LayoutDisplayType.Horizontal){
+					static if (T == LayoutDisplayType.Horizontal){
 						newSize.width = newSpace;
-						newSize.height = widgetSize.height;
 					}else{
 						newSize.height = newSpace;
-						newSize.width = widgetSize.width;
 					}
 					widget.size = newSize;
-					//apply position
+					//apply new position
 					widget.position = newPosition;
-
-					previousSpace = newSpace;
 				}
+				previousSpace = newSpace;
 			}
 			
 		}
 	}
 	
 public:
-	/// Layout type
-	enum LayoutDisplayType{
-		Vertical,
-		Horizontal,
-	}
 	this(LayoutDisplayType type){
 		widgetName = "layout";
 		layoutType = type;
@@ -431,7 +442,7 @@ public:
 		//recalculate all widget's size to adjust
 		resize();
 	}
-
+	
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
 	void resize(){
@@ -442,9 +453,9 @@ public:
 			}
 		}
 		if (layoutType == LayoutDisplayType.Horizontal){
-			recalculateWidgetsSize(widgetList, widgetSize.width, ratioTotal);
+			recalculateWidgetsSize!(LayoutDisplayType.Horizontal)(widgetList, widgetSize.width, ratioTotal);
 		}else{
-			recalculateWidgetsSize(widgetList, widgetSize.height, ratioTotal);
+			recalculateWidgetsSize!(LayoutDisplayType.Vertical)(widgetList, widgetSize.height, ratioTotal);
 		}
 	}
 	
@@ -600,7 +611,7 @@ public:
 		terminal.showCursor();
 		return r;
 	}
-
+	
 	/// starts the UI loop
 	void run(){
 		InputEvent event;
@@ -669,9 +680,6 @@ public:
 	override @property Size size(Size newSize){
 		//don't let anything modify the size
 		return widgetSize;
-	}
-	override @property Position position(Position newPosition){
-		return widgetPosition;
 	}
 	/// Called by active-widget(s?) to position the cursor
 	void setCursorPos(uinteger x, uinteger y){
@@ -886,9 +894,9 @@ private:
 	uinteger matrixHeight, matrixWidth;
 	//next write position
 	uinteger xPosition, yPosition;
-
+	
 	LinkedList!Display toUpdate;
-
+	
 public:
 	this(uinteger width, uinteger height){
 		toUpdate = new LinkedList!Display;
@@ -952,11 +960,11 @@ public:
 					disp.content = c[0 .. matrixWidth-disp.x];
 					//remove first few elements from c
 					c = c[matrixWidth-disp.x .. c.length];
-
+					
 					yPosition ++;
 				}else{
 					disp.content = c;
-
+					
 					xPosition += c.length;
 					if (xPosition >= matrixWidth){
 						xPosition = 0;
@@ -985,7 +993,7 @@ public:
 				}
 			}
 		}
-
+		
 	}
 	/// Changes the matrix's colors. Must be called before any writing has taken place
 	void setColors(RGBColor textColor, RGBColor bgColor){
@@ -1036,7 +1044,7 @@ public:
 		for (uinteger i = 0; i < newMatrix.length; i ++){
 			newMatrix[i].y += y;
 			newMatrix[i].x += x;
-
+			
 			toUpdate.append(newMatrix[i]);
 		}
 	}
@@ -1049,11 +1057,11 @@ public:
 				terminal.moveTo(cast(int)(*disp).x, cast(int)(*disp).y);
 				terminal.setColors((*disp).textColor, (*disp).bgColor);
 				terminal.writeChars((*disp).content);
-
+				
 				disp = toUpdate.read;
 			}while (disp !is null);
 			terminal.flush();
-
+			
 			toUpdate.clear;
 		}
 	}
