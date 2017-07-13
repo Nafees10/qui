@@ -432,6 +432,8 @@ public:
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
+	/// 
+	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
 		widget.theme = widgetTheme;
 		widget.updateColors();
@@ -440,6 +442,20 @@ public:
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
 		//recalculate all widget's size to adjust
+		resize();
+	}
+	/// adds (appends) widgets to the widgetList, and makes space for them
+	/// 
+	/// If there a widget is too large, it's marked as not visible
+	void addWidget(QWidget[] widgets){
+		foreach(widget; widgets){
+			widget.theme = widgetTheme;
+			widget.updateColors();
+			widget.onForceUpdate = forceUpdate;
+		}
+		// add to array
+		widgetList ~= widgets.dup;
+		//resize
 		resize();
 	}
 	
