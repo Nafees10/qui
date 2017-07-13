@@ -1,4 +1,4 @@
-﻿/++
+/++
 	Some widgets that are included in the package.
 	
 	
