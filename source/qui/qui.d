@@ -578,9 +578,15 @@ public:
 		delete termDisplay;
 	}
 	
-	override public void addWidget(QWidget widget) {
+	override public void addWidget(QWidget widget){
 		super.addWidget(widget);
 		widget.onForceUpdate = &updateDisplay;
+	}
+	override public void addWidget(QWidget[] widgets){
+		super.addWidget(widgets);
+		foreach (widget; widgets){
+			widget.onForceUpdate = &updateDisplay;
+		}
 	}
 	
 	override public void mouseEvent(MouseClick mouse) {
