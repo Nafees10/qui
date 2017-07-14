@@ -177,9 +177,6 @@ public:
 	/// Return false if no need to update, and true if an update is required, and the new display in `display` Matrix
 	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 	
-	/// Called by owner to indicate that widget has to 're-fetch' colors from the theme.
-	abstract void updateColors();
-	
 	//event properties
 	/// use to change the custom mouse event
 	@property MouseEventFuction onMouseEvent(MouseEventFuction func){
@@ -395,7 +392,6 @@ public:
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
-		widget.updateColors();
 		widget.onForceUpdate = forceUpdate;
 		//add it to array
 		widgetList.length++;
@@ -408,7 +404,6 @@ public:
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget[] widgets){
 		foreach(widget; widgets){
-			widget.updateColors();
 			widget.onForceUpdate = forceUpdate;
 		}
 		// add to array
