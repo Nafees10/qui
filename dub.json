@@ -5,6 +5,6 @@
 	"authors": ["nafees"],
 	"license":"MIT",
 	"dependencies": {
-		"utils": "~>0.1.3"
+		"utils": "~>0.1.6"
 	}
 }
