@@ -171,6 +171,10 @@ public:
 			customKeyboardEvent(key);
 		}
 	}
+
+	void resize(){
+		needsUpdate = true;
+	}
 	
 	/// Called by owner to update.
 	/// 
@@ -343,6 +347,8 @@ private:
 		
 		foreach(widget; widgetList){
 			if (widget.visible){
+				// let the widget know it needs it's being resized
+				widget.resize;
 				// calculate width or height
 				newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
 				// check if min > size > max
@@ -414,7 +420,7 @@ public:
 	
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
-	void resize(){
+	override void resize(){
 		uinteger ratioTotal;
 		foreach(w; widgetList){
 			if (w.visible()){
@@ -598,6 +604,8 @@ public:
 	void run(){
 		InputEvent event;
 		isRunning = true;
+		//resize all widgets
+		resize();
 		//draw the whole thing
 		updateDisplay();
 		while (isRunning){
