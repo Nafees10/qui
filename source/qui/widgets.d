@@ -63,23 +63,8 @@ public:
 			char[] bar;
 			bar.length = widgetSize.width;
 			bar[0 .. bar.length] = ' ';
-			if (widgetCaption != null){
-				//write the caption too!
-				uinteger middle = widgetSize.height/2;
-				for (uinteger i = 0; i < widgetSize.height; i++){
-					if (i == middle){
-						bar = centerAlignText(cast(char[])caption, widgetSize.width);
-						writeBarLine(display, filled, bar);
-						bar[0 .. bar.length] = ' ';
-						continue;
-					}else{
-						writeBarLine(display, filled, bar);
-					}
-				}
-			}else{
-				for (uinteger i = 0; i < widgetSize.height; i++){
-					writeBarLine(display, filled, bar);
-				}
+			for (uinteger i = 0; i < widgetSize.height; i++){
+				writeBarLine(display, filled, bar);
 			}
 		}
 		return r;
@@ -196,9 +181,6 @@ public:
 			}
 			//set cursor pos, if can
 			setCursor();
-		}else{
-			/*widgetShow = false;
-			r = false;*/
 		}
 		return r;
 	}
@@ -694,8 +676,8 @@ class ButtonWidget : QWidget{
 private:
 	RGBColor bgColor, textColor;
 public:
-	this(){
-
+	this(string caption=""){
+		widgetCaption = caption;
 	}
 	
 	override public bool update(ref Matrix display){
