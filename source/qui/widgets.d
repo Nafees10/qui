@@ -703,4 +703,9 @@ public:
 		}
 		return r;
 	}
+
+	override void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
+		mouseEvent(MouseClick(MouseClick.Button.Left, 0, 0));
+	}
 }
