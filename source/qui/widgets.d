@@ -19,19 +19,7 @@ private:
 	RGBColor textColor, bgColor;
 public:
 	this(string wCaption = ""){
-		widgetName = "text-label";
 		widgetCaption = wCaption;
-	}
-	
-	override void updateColors(){
-		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
-			textColor = widgetTheme.getColor(name, "text");
-			bgColor = widgetTheme.getColor(name, "background");
-		}else{
-			//use default values
-			textColor = hexToColor("00FF00");
-			bgColor = hexToColor("000000");
-		}
 	}
 	
 	override bool update(ref Matrix display){
@@ -61,26 +49,9 @@ private:
 	}
 public:
 	this(uinteger totalAmount = 100, uinteger complete = 0){
-		widgetName = "progressbar";
 		widgetCaption = null;
 		max = totalAmount;
 		done = complete;
-	}
-	
-	override void updateColors(){
-		needsUpdate = true;
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "bar", "text"])){
-			bgColor = widgetTheme.getColor(name, "background");
-			barColor = widgetTheme.getColor(name, "bar");
-			textColor = widgetTheme.getColor(name, "text");
-		}else{
-			bgColor = hexToColor("A6A6A6");
-			barColor = hexToColor("00FF00");
-			textColor = hexToColor("000000");
-		}
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
 	}
 	
 	override bool update(ref Matrix display){
@@ -184,7 +155,6 @@ private:
 	}
 public:
 	this(string wCaption = "", string inputTxt = ""){
-		widgetName = "edit-line";
 		inputText = cast(char[])inputTxt;
 		widgetCaption = wCaption;
 		shortenCaption;
@@ -193,23 +163,7 @@ public:
 		widgetSize.minHeight = 1;
 		widgetSize.maxHeight = 1;
 	}
-	override void updateColors(){
-		needsUpdate = true;
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "caption-text", "caption-background", "text"])){
-			bgColor = widgetTheme.getColor(name, "background");
-			textColor = widgetTheme.getColor(name, "text");
-			captionTextColor = widgetTheme.getColor(name, "caption-text");
-			captionBgColor = widgetTheme.getColor(name, "caption-background");
-		}else{
-			bgColor = hexToColor("404040");
-			textColor = hexToColor("00FF00");
-			captionTextColor = textColor;
-			captionBgColor = hexToColor("000000");
-		}
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
-	}
+
 	override bool update(ref Matrix display){
 		bool r = false;
 		if (needsUpdate){
@@ -381,7 +335,6 @@ private:
 	}
 public:
 	this(bool readOnly = false){
-		widgetName = "memo";
 		widgetLines = new List!string;
 		scrollX, scrollY = 0;
 		cursorX, cursorY = 0;
@@ -389,20 +342,6 @@ public:
 	}
 	~this(){
 		delete widgetLines;
-	}
-	
-	override void updateColors(){
-		needsUpdate = true;
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
-			bgColor = widgetTheme.getColor(name, "background");
-			textColor = widgetTheme.getColor(name, "text");
-		}else{
-			bgColor = hexToColor("404040");
-			textColor = hexToColor("00FF00");
-		}
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
 	}
 	
 	override bool update(ref Matrix display){
@@ -673,27 +612,11 @@ private:
 	}
 public:
 	this(uinteger maxLen=100){
-		widgetName = "log";
-		
 		max = maxLen;
 		logs = new LinkedList!string;
 	}
 	~this(){
 		logs.destroy;
-	}
-	
-	override public void updateColors(){
-		needsUpdate = true;
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
-			bgColor = widgetTheme.getColor(name, "background");
-			textColor = widgetTheme.getColor(name, "text");
-		}else{
-			bgColor = hexToColor("404040");
-			textColor = hexToColor("00FF00");
-		}
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
 	}
 	
 	override public bool update(ref Matrix display){
@@ -772,16 +695,7 @@ private:
 	RGBColor bgColor, textColor;
 public:
 	this(){
-		widgetName = "button";
-	}
-	override public void updateColors(){
-		if (&widgetTheme && widgetTheme.hasColors(name, ["background", "text"])){
-			bgColor = widgetTheme.getColor(name, "background");
-			textColor = widgetTheme.getColor(name, "text");
-		}else{
-			bgColor = hexToColor("00FF00");
-			textColor = hexToColor("000000");
-		}
+
 	}
 	
 	override public bool update(ref Matrix display){
