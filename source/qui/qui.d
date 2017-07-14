@@ -495,6 +495,16 @@ public:
 		}
 		return updated;
 	}
+
+	// override setOnForceUpdate to change it for all child widgets as well
+	override @property bool delegate() onForceUpdate(bool delegate() newOnForceUpdate){
+		// change it for all child widgets
+		foreach(widget; widgetList){
+			widget.onForceUpdate = newOnForceUpdate;
+		}
+		// change it for itself
+		return super.onForceUpdate(newOnForceUpdate);
+	}
 }
 
 /// A terminal (as the name says).
