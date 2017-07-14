@@ -110,18 +110,11 @@ protected:
 	bool widgetShow = true;
 	///to specify if this widget needs to be updated or not, mark this as true when the widget has changed
 	bool needsUpdate = true;
-	///specifies name of this widget. must be unique, as it is used to identify widgets in theme
-	string widgetName = null;
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
 	uinteger widgetSizeRatio = 1;
 	
-	///The theme that is currently used
-	///
-	///The widget is free to modify the theme
-	QTheme widgetTheme;
-	
-	/// Called by widget when a redraw is needed, but no redraw is scheduled
+	/// Called by widget when a redraw is needed, when no redraw is scheduled
 	/// 
 	/// In other words: call this function using (or it'll cause a segfault):
 	/// ```
@@ -129,13 +122,14 @@ protected:
 	/// 	forceUpdate();
 	/// }
 	/// ``` 
-	/// when an update is needed, but it's not sure if an update will be called.
-	/// Update is automatically called after mouseEvent and keyboardEvent
+	/// when an update is needed, and it's not sure if an update will be called.
+	/// If an update is already ongoing, this function will return false
+	/// Update is automatically called after mouseEvent and keyboardEvent, so no need to call it after events
 	bool delegate() forceUpdate;
 	
 	/// Called by widgets (usually keyboard-input-taking) to position the cursor
 	/// 
-	/// It can only be called if the widget is active (i.e selected), in non-active widgets, it's null;
+	/// It can only be called if the widget is active (i.e selected), in non-active widgets, it is null;
 	void delegate(uinteger x, uinteger y) cursorPos;
 	
 	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
@@ -144,7 +138,7 @@ protected:
 	/// ```
 	/// override void mouseEvent(MouseClick mouse){
 	/// 	super.mouseEvent(mouse);
-	/// 	// rest of the code here
+	/// 	// rest of the code for mouse event here
 	/// }
 	/// ```
 	MouseEventFuction customMouseEvent;
@@ -155,7 +149,7 @@ protected:
 	/// ```
 	/// override void keyboardEvent(KeyPress key){
 	/// 	super.keyboardEvent(key);
-	/// 	// rest of the code here
+	/// 	// rest of the code for keyboard event here
 	/// }
 	/// ```
 	KeyboardEventFunction customKeyboardEvent;
@@ -198,11 +192,6 @@ public:
 	
 	
 	//properties:
-	
-	/// The name of the widget. Read-only, cannot be modified
-	@property string name(){
-		return widgetName;
-	}
 	
 	/// caption of the widget. getter
 	@property string caption(){
@@ -257,20 +246,6 @@ public:
 			forceUpdate();
 		}
 		return widgetShow;
-	}
-	
-	/// theme of the widget. getter
-	@property QTheme theme(){
-		return widgetTheme;
-	}
-	/// theme of the widget. setter
-	@property QTheme theme(QTheme newTheme){
-		needsUpdate = true;
-		widgetTheme = newTheme;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
-		return widgetTheme;
 	}
 	
 	/// called by owner to set the `forceUpdate` function, which is used to force an update immediately.
@@ -412,30 +387,14 @@ private:
 	
 public:
 	this(LayoutDisplayType type){
-		widgetName = "layout";
 		layoutType = type;
 		activeWidget = null;
-	}
-	
-	override void updateColors(){
-		needsUpdate = true;
-		if (&widgetTheme && widgetTheme.hasColors(name,["background","text"])){
-			bgColor = widgetTheme.getColor(name, "background");
-			textColor = widgetTheme.getColor(name, "text");
-		}else{
-			bgColor = hexToColor("000000");
-			textColor = hexToColor("00FF00");
-		}
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
-		widget.theme = widgetTheme;
 		widget.updateColors();
 		widget.onForceUpdate = forceUpdate;
 		//add it to array
@@ -449,7 +408,6 @@ public:
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget[] widgets){
 		foreach(widget; widgets){
-			widget.theme = widgetTheme;
 			widget.updateColors();
 			widget.onForceUpdate = forceUpdate;
 		}
@@ -556,7 +514,6 @@ private:
 public:
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
 		super(displayType);
-		widgetName = "terminal";
 		//create terminal & input
 		terminal = Terminal(ConsoleOutputType.cellular);
 		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
@@ -570,8 +527,6 @@ public:
 		//create display matrix
 		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
 		termDisplay.setColors(textColor, bgColor);
-		//create theme
-		widgetTheme = new QTheme;
 	}
 	~this(){
 		terminal.clear;
@@ -738,169 +693,6 @@ public:
 	///write char to terminal, called by Matrix
 	void writeChars(char c){
 		terminal.write(c);
-	}
-}
-
-///Theme class
-class QTheme{
-private:
-	RGBColor[string][string] colors;
-	RGBColor[string] globalColors;//i.e default colors
-public:
-	this(string themeFile = null){
-		if (themeFile != null){
-			loadTheme(themeFile);
-		}
-	}
-	///returns color, provided the widgetName, and which-color (like textColor).
-	///
-	///if not found, returns a default color provided by theme. If that color
-	///is also not found, throws exception
-	RGBColor getColor(string widgetName, string which){
-		if (widgetName in colors && which in colors[widgetName]){
-			return colors[widgetName][which];
-		}else{
-			if (which in globalColors){
-				return globalColors[which];
-			}else{
-				throw new Exception("Color "~which~" not defined (for "~widgetName~')');
-			}
-		}
-	}
-	///gets all colors for a widget.
-	///
-	///Throws exception if that widget has no colors defined in theme
-	RGBColor[string] getColors(string widgetName){
-		if (widgetName in colors){
-			return colors[widgetName];
-		}else{
-			throw new Exception("Widget "~widgetName~" not defined");
-		}
-	}
-	/// sets a  color for a widget
-	void setColor(string widgetName, string which, RGBColor color){
-		colors[widgetName][which] = color;
-	}
-	///sets a default value for a color
-	///
-	///i.e a color that is used when the color for widget is not found
-	void setColor(string which, RGBColor color){
-		globalColors[which] = color;
-	}
-	///sets all colors for a widget
-	void setColors(string widgetName, RGBColor[string] widgetColors){
-		colors[widgetName] = widgetColors;
-	}
-	///Saves current theme to a file, throws exception if failed
-	bool saveTheme(string filename){
-		bool r = true;
-		try{
-			File f = File(filename, "w");
-			foreach(widgetName; colors.keys){
-				foreach(colorName; colors[widgetName].keys){
-					f.write(widgetName,' ',colorName,' ',colorToHex(colors[widgetName][colorName]),'\n');
-				}
-			}
-			foreach(colorName; globalColors.keys){
-				f.write("* ",colorName,' ',colorToHex(globalColors[colorName]),'\n');
-			}
-			f.close;
-		}catch(Exception e){
-			throw e;
-		}
-		return r;
-	}
-	///Loads a theme from file, throws exception if failed
-	bool loadTheme(string filename){
-		bool r = true;
-		try{
-			string[] fcontents = fileToArray(filename);
-			string widgetName, colorName, colorCode, line;
-			uinteger lEnd;
-			for (uinteger lno = 0; lno < fcontents.length; lno++){
-				line = fcontents[lno];
-				uinteger readFrom = 0;
-				lEnd = line.length - 1;
-				for (uinteger i = 0; i < line.length; i++){
-					if (line[i] == ' ' || i == lEnd){
-						if (widgetName == null){
-							widgetName = line[readFrom .. i];
-						}
-						if (colorName == null){
-							colorName = line[readFrom .. i];
-						}
-						if (colorCode == null){
-							colorCode = line[readFrom .. i];
-						}
-						readFrom = i+1;
-					}
-				}
-				//add color, if any
-				if (widgetName && colorName && colorCode){
-					if (widgetName == "*"){
-						globalColors[colorName] = hexToColor(colorCode);
-					}else{
-						colors[widgetName][colorName] = hexToColor(colorCode);
-					}
-					//clear name ...
-					widgetName, colorName, colorCode = null;
-				}
-			}
-		}catch(Exception e){
-			throw e;
-		}
-		return r;
-	}
-	
-	///checks if theme has any color(s) for a widget
-	bool hasWidget(string widgetName){
-		if (widgetName in colors){
-			return true;
-		}else{
-			return false;
-		}
-	}
-	///checks if theme has a specific color for a specific widget
-	bool hasColor(string widgetName, string colorName){
-		if (widgetName in colors){
-			if (colorName in colors[widgetName]){
-				return true;
-			}else{
-				return false;
-			}
-		}else{
-			return false;
-		}
-	}
-	///checks if theme has specific colors for a specific widget
-	bool hasColors(string widgetName, string[] colorNames){
-		bool r = true;
-		foreach(color; colorNames){
-			if (hasColor(widgetName, color) == false){
-				r = false;
-				break;
-			}
-		}
-		return r;
-	}
-	///checks if theme has a default color
-	bool hasColor(string colorName){
-		if (colorName in globalColors){
-			return true;
-		}else{
-			return false;
-		}
-	}
-	///checks if theme has default colors
-	bool hasColors(string[] colorNames){
-		bool r = true;
-		foreach(color; colorNames){
-			if (hasColor(color) == false){
-				r = false;
-				break;
-			}
-		}
-		return r;
 	}
 }
 
