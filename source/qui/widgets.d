@@ -20,6 +20,9 @@ private:
 public:
 	this(string wCaption = ""){
 		widgetCaption = wCaption;
+
+		textColor = hexToColor("00FF00");
+		bgColor = hexToColor("000000");
 	}
 	
 	override bool update(ref Matrix display){
@@ -42,16 +45,19 @@ public:
 class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
-	RGBColor bgColor, barColor, textColor;
+	RGBColor bgColor, barColor;
 	void writeBarLine(ref Matrix display, uinteger filled, char[] bar){
-		display.write(bar[0 .. filled], textColor, barColor);
-		display.write(bar[filled .. bar.length], textColor, bgColor);
+		display.write(bar[0 .. filled], barColor, barColor);
+		display.write(bar[filled .. bar.length], barColor, bgColor);
 	}
 public:
 	this(uinteger totalAmount = 100, uinteger complete = 0){
 		widgetCaption = null;
 		max = totalAmount;
 		done = complete;
+
+		bgColor = hexToColor("000000");
+		barColor = hexToColor("00FF00");
 	}
 	
 	override bool update(ref Matrix display){
@@ -147,6 +153,11 @@ public:
 		widgetSize.minWidth = 1;
 		widgetSize.minHeight = 1;
 		widgetSize.maxHeight = 1;
+
+		bgColor = hexToColor("404040");
+		textColor = hexToColor("00FF00");
+		captionBgColor = hexToColor("000000");
+		captionTextColor = hexToColor("00FF00");
 	}
 
 	override bool update(ref Matrix display){
@@ -321,6 +332,9 @@ public:
 		scrollX, scrollY = 0;
 		cursorX, cursorY = 0;
 		writeProtected = readOnly;//cause if readOnly, then writeProtected = true also
+
+		bgColor = hexToColor("404040");
+		textColor = hexToColor("00FF00");
 	}
 	~this(){
 		delete widgetLines;
@@ -596,6 +610,9 @@ public:
 	this(uinteger maxLen=100){
 		max = maxLen;
 		logs = new LinkedList!string;
+
+		bgColor = hexToColor("404040");
+		textColor = hexToColor("00FF00");
 	}
 	~this(){
 		logs.destroy;
@@ -678,6 +695,9 @@ private:
 public:
 	this(string caption=""){
 		widgetCaption = caption;
+
+		bgColor = hexToColor("00FF00");
+		textColor = hexToColor("000000");
 	}
 	
 	override public bool update(ref Matrix display){
