@@ -469,11 +469,6 @@ public:
 		bool updated = false;
 		//check if already updating, case yes, return false
 		if (!isUpdating){
-			debug{
-				if (widgetCaption != "terminal"){
-					sendDebug("update started in "~widgetCaption);
-				}
-			}
 			isUpdating = true;
 			//go through all widgets, check if they need update, update them
 			Matrix wDisplay = new Matrix(1,1);
@@ -485,19 +480,8 @@ public:
 					if (widget.update(wDisplay)){
 						display.insert(wDisplay, widget.position.x, widget.position.y);
 						updated = true;
-						debug{
-							import std.conv : to;
-							sendDebug("updated "~widget.caption~" size: "~to!string(widget.size.width)~"x"~
-								to!string(widget.size.height)~"\n\tposition: "~to!string(widget.position.x)~","~
-								to!string(widget.position.y));
-						}
 					}
 					wDisplay.clear();
-				}
-			}
-			debug{
-				if (widgetCaption != "terminal"){
-					sendDebug("update ended in "~widgetCaption);
 				}
 			}
 			isUpdating = false;
@@ -603,9 +587,6 @@ public:
 	/// Use this instead of `update` to forcefully update the terminal
 	bool updateDisplay(){
 		if (isRunning && !isUpdating){
-			debug{
-				sendDebug("starting update in "~widgetCaption);
-			}
 			bool r = update(termDisplay);
 			if (r){
 				terminal.moveTo(0, 0);
@@ -614,9 +595,6 @@ public:
 			//set cursor position
 			terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
 			terminal.showCursor();
-			debug{
-				sendDebug("update ended in "~widgetCaption);
-			}
 			return r;
 		}else{
 			return false;
@@ -702,6 +680,9 @@ public:
 	override @property Size size(Size newSize){
 		//don't let anything modify the size
 		return widgetSize;
+	}
+	override public @property Size size(){
+		return super.size;
 	}
 	/// Called by active-widget(s?) to position the cursor
 	void setCursorPos(uinteger x, uinteger y){
@@ -800,59 +781,37 @@ public:
 	/// To write to terminal
 	void write(char[] c, RGBColor textColor, RGBColor bgColor){
 		//get available cells
-		uinteger cells = matrixWidth * matrixHeight;// first get the whole area
+		uinteger cells = (matrixHeight - yPosition) * matrixWidth;// first get the whole area
 		cells -= xPosition;//subtract partial-lines
-		cells -= yPosition*matrixWidth;//subtract lines taken by yPosition
 		if (c.length > cells){
-			c.length = cells;
+			c = c[0 .. cells];
 		}
-		uinteger i, end;
+		debug{
+			import std.conv : to;
+			uinteger charsRemaining = (matrixHeight - yPosition) * matrixWidth;
+			charsRemaining -= xPosition;
+				sendDebug("remaining space: "~to!string(charsRemaining)~"; c.length: "~to!string(c.length)~"\nc:\n"~
+					cast(string)c~"\n\tx="~to!string(xPosition)~"; y="~to!string(yPosition));
+		}
 		if (c.length > 0){
+			uinteger toAdd = xPosition + (yPosition * matrixWidth);
 			Display disp;
-			disp.y = yPosition;
-			disp.x = xPosition;
 			disp.bgColor = bgColor;
 			disp.textColor = textColor;
-			//check if xPosition > 0, then fill that row before continuing
-			if (disp.x > 0){
-				if (c.length > matrixWidth-disp.x){
-					disp.content = c[0 .. matrixWidth-disp.x];
-					//remove first few elements from c
-					c = c[matrixWidth-disp.x .. c.length];
-					
-					yPosition ++;
-				}else{
-					disp.content = c;
-					
-					xPosition += c.length;
-					if (xPosition >= matrixWidth){
-						xPosition = 0;
-						yPosition ++;
-					}
-					//empty `c`
-					c.length = 0;
-				}
-				toUpdate.append(disp);
-			}
-			if (c.length > 0){
-				end = c.length / matrixWidth;
-				for (i = 0; i < end; i ++){
-					disp.content = c[i * matrixWidth .. (i * matrixWidth) + matrixWidth];
+			for (uinteger i = 0, readFrom = 0, end = c.length+1; i < end; i ++){
+				if ((i+toAdd)%matrixWidth == 0 || i == c.length){
+					//line ended, append it
+					disp.x = (readFrom+toAdd)%matrixWidth;
+					disp.y = (readFrom+toAdd)/matrixWidth;
+					disp.content = c[readFrom .. i].dup;
 					toUpdate.append(disp);
-					disp.y ++;
-				}
-				//update xPosition and yPosition
-				xPosition = 0;
-				yPosition = disp.y;
-				// check if there was a partial line at end that needs to be appended
-				if (c.length % matrixWidth > 0){
-					disp.content = c[c.length - ( (c.length % matrixWidth) ) .. c.length];
-					toUpdate.append(disp);
-					xPosition = disp.content.length;
+					readFrom = i;
 				}
 			}
+			// update x and y positions
+			xPosition = (c.length+toAdd)%matrixWidth;
+			yPosition = (c.length+toAdd)/matrixWidth;
 		}
-		
 	}
 	/// Changes the matrix's colors. Must be called before any writing has taken place
 	void setColors(RGBColor textColor, RGBColor bgColor){
