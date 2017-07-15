@@ -882,14 +882,14 @@ public:
 		return toUpdate.toArray;
 	}
 	///insert a matrix into this one at a position
-	void Matrix toInsert, uinteger x, uinteger y){
+	void insert(Matrix toInsert, uinteger x, uinteger y){
 		Display[] newMatrix = toInsert.toArray;
 		// go through the new Displays and increae their x and y, and append them
 		foreach (disp; newMatrix){
-			disp[i].y += y;
-			disp[i].x += x;
+			disp.y += y;
+			disp.x += x;
 			
-			toUpdate.append(disp[i]);
+			toUpdate.append(disp);
 		}
 	}
 	///Write contents of matrix to a QTerminal
