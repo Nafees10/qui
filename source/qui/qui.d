@@ -475,7 +475,6 @@ public:
 			foreach(widget; widgetList){
 				if (widget.visible){
 					wDisplay.changeSize(widget.size.width, widget.size.height);
-					wDisplay.setColors(textColor, bgColor);
 					wDisplay.resetWritePosition();
 					if (widget.update(wDisplay)){
 						display.insert(wDisplay, widget.position.x, widget.position.y);
@@ -786,13 +785,6 @@ public:
 		if (c.length > cells){
 			c = c[0 .. cells];
 		}
-		debug{
-			import std.conv : to;
-			uinteger charsRemaining = (matrixHeight - yPosition) * matrixWidth;
-			charsRemaining -= xPosition;
-				sendDebug("remaining space: "~to!string(charsRemaining)~"; c.length: "~to!string(c.length)~"\nc:\n"~
-					cast(string)c~"\n\tx="~to!string(xPosition)~"; y="~to!string(yPosition));
-		}
 		if (c.length > 0){
 			uinteger toAdd = xPosition + (yPosition * matrixWidth);
 			Display disp;
@@ -804,8 +796,10 @@ public:
 					disp.x = (readFrom+toAdd)%matrixWidth;
 					disp.y = (readFrom+toAdd)/matrixWidth;
 					disp.content = c[readFrom .. i].dup;
-					toUpdate.append(disp);
-					readFrom = i;
+					if (disp.content != null){
+						toUpdate.append(disp);
+						readFrom = i;
+					}
 				}
 			}
 			// update x and y positions
@@ -831,7 +825,7 @@ public:
 	}
 	///move to a different position to write
 	void moveTo(uinteger x, uinteger y){
-		if (x < matrixHeight && y < matrixHeight){
+		if (x < matrixWidth && y < matrixHeight){
 			xPosition = x;
 			yPosition = y;
 		}
@@ -857,7 +851,7 @@ public:
 	}
 	///insert a matrix into this one at a position
 	void insert(Matrix toInsert, uinteger x, uinteger y){
-		Display[] newMatrix = toInsert.toArray;
+		Display[] newMatrix = toInsert.toArray.dup;
 		// go through the new Displays and increae their x and y, and append them
 		foreach (disp; newMatrix){
 			disp.y += y;
