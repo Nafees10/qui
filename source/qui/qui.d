@@ -878,11 +878,11 @@ public:
 	void insert(Matrix toInsert, uinteger x, uinteger y){
 		Display[] newMatrix = toInsert.toArray;
 		// go through the new Displays and increae their x and y, and append them
-		for (uinteger i = 0; i < newMatrix.length; i ++){
-			newMatrix[i].y += y;
-			newMatrix[i].x += x;
+		foreach (disp; newMatrix){
+			disp[i].y += y;
+			disp[i].x += x;
 			
-			toUpdate.append(newMatrix[i]);
+			toUpdate.append(disp[i]);
 		}
 	}
 	///Write contents of matrix to a QTerminal
