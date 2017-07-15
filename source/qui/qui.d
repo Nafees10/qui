@@ -9,6 +9,7 @@ import utils.lists;
 import utils.baseconv;//used for hexadecimal colors
 import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
+debug{import app;}
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
@@ -263,6 +264,10 @@ public:
 	}
 	/// size of the widget. setter
 	@property  Size size(Size newSize){
+		debug{
+			import std.conv : to;
+			sendDebug(widgetCaption~" resized: "~to!string(widgetSize.width)~"x"~to!string(widgetSize.height));
+		}
 		//check if height or width < min
 		if (newSize.minWidth > 0 && newSize.width < newSize.minWidth){
 			return widgetSize;
@@ -628,11 +633,17 @@ public:
 			event = input.nextEvent;
 			//check event type
 			if (event.type == event.Type.KeyboardEvent){
+				// prevent any updates during event, the update will be done at end
+				isUpdating = true;
 				KeyPress kPress;
 				kPress.key = event.get!(event.Type.KeyboardEvent).which;
 				this.keyboardEvent(kPress);
+				// now it can update
+				isUpdating = false;
 				updateDisplay;
 			}else if (event.type == event.Type.MouseEvent){
+				// prevent any updates during event, the update will be done at end
+				isUpdating = true;
 				MouseEvent mEvent = event.get!(event.Type.MouseEvent);
 				MouseClick mPos;
 				mPos.x = mEvent.x;
@@ -654,6 +665,8 @@ public:
 						continue;
 				}
 				this.mouseEvent(mPos);
+				// now it can update
+				isUpdating = false;
 				updateDisplay;
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//change matrix size
