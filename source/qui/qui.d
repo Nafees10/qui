@@ -358,7 +358,7 @@ private:
 					newSpace = mSpace;
 				}
 				mSpace = getMaxSpace(widget);
-				if (mSpace > 0 && newSpace < mSpace){
+				if (mSpace > 0 && newSpace > mSpace){
 					newSpace = mSpace;
 				}
 				// calculate position
