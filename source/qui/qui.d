@@ -9,7 +9,6 @@ import utils.lists;
 import utils.baseconv;//used for hexadecimal colors
 import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
-debug{import app;}
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
