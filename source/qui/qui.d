@@ -657,6 +657,7 @@ public:
 				terminal.updateSize;
 				widgetSize.height = terminal.height;
 				widgetSize.width = terminal.width;
+				this.clear;
 				//call size change on all widgets
 				resize;
 				updateDisplay;
