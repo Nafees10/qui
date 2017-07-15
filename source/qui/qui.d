@@ -264,10 +264,6 @@ public:
 	}
 	/// size of the widget. setter
 	@property  Size size(Size newSize){
-		debug{
-			import std.conv : to;
-			sendDebug(widgetCaption~" resized: "~to!string(widgetSize.width)~"x"~to!string(widgetSize.height));
-		}
 		//check if height or width < min
 		if (newSize.minWidth > 0 && newSize.width < newSize.minWidth){
 			return widgetSize;
@@ -320,25 +316,10 @@ private:
 		static if (T != LayoutDisplayType.Horizontal && T != LayoutDisplayType.Vertical){
 			assert(false);
 		}
-		/// gets min heigth/width for a widget
-		uinteger getMinSpace(QWidget widget){
-			static if (T == LayoutDisplayType.Horizontal){
-				return widget.size.minWidth;
-			}else{
-				return widget.size.minHeight;
-			}
-		}
-		/// gets max height/width for a widget
-		uinteger getMaxSpace(QWidget widget){
-			static if (T == LayoutDisplayType.Horizontal){
-				return widget.size.maxWidth;
-			}else{
-				return widget.size.maxHeight;
-			}
-		}
-		
+
 		Position newPosition;
-		newPosition.x, newPosition.y = 0;
+		newPosition.x = widgetPosition.x;
+		newPosition.y = widgetPosition.y;
 		Size newSize;
 		// if Horizontal, the y position will be same for all widgets, else, x position will be same
 		static if (T == LayoutDisplayType.Horizontal){
@@ -352,19 +333,17 @@ private:
 		
 		foreach(widget; widgetList){
 			if (widget.visible){
-				// let the widget know it needs it's being resized
-				widget.resize;
 				// calculate width or height
 				newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
-				// check if min > size > max
-				uinteger mSpace; // min/max space
-				mSpace = getMinSpace(widget);
-				if (mSpace > 0 && newSpace < mSpace){
-					newSpace = mSpace;
-				}
-				mSpace = getMaxSpace(widget);
-				if (mSpace > 0 && newSpace > mSpace){
-					newSpace = mSpace;
+				//apply size
+				static if (T == LayoutDisplayType.Horizontal){
+					newSize.width = newSpace;
+					widget.size = newSize;// the widget is assigned new size, it will modify the size to meet it's min/max size requirements itself
+					newSpace = widget.size.width;//we retreive the size that the widget wants
+				}else{
+					newSize.height = newSpace;
+					widget.size = newSize;
+					newSpace = widget.size.height;
 				}
 				// calculate position
 				static if (T == LayoutDisplayType.Horizontal){
@@ -388,8 +367,9 @@ private:
 					widget.position = newPosition;
 				}
 				previousSpace = newSpace;
+				// let the know it was resized, useful if the widget is a layout
+				widget.resize;
 			}
-			
 		}
 	}
 	
@@ -489,6 +469,11 @@ public:
 		bool updated = false;
 		//check if already updating, case yes, return false
 		if (!isUpdating){
+			debug{
+				if (widgetCaption != "terminal"){
+					sendDebug("update started in "~widgetCaption);
+				}
+			}
 			isUpdating = true;
 			//go through all widgets, check if they need update, update them
 			Matrix wDisplay = new Matrix(1,1);
@@ -500,8 +485,19 @@ public:
 					if (widget.update(wDisplay)){
 						display.insert(wDisplay, widget.position.x, widget.position.y);
 						updated = true;
+						debug{
+							import std.conv : to;
+							sendDebug("updated "~widget.caption~" size: "~to!string(widget.size.width)~"x"~
+								to!string(widget.size.height)~"\n\tposition: "~to!string(widget.position.x)~","~
+								to!string(widget.position.y));
+						}
 					}
 					wDisplay.clear();
+				}
+			}
+			debug{
+				if (widgetCaption != "terminal"){
+					sendDebug("update ended in "~widgetCaption);
 				}
 			}
 			isUpdating = false;
@@ -606,7 +602,10 @@ public:
 	
 	/// Use this instead of `update` to forcefully update the terminal
 	bool updateDisplay(){
-		if (isRunning){
+		if (isRunning && !isUpdating){
+			debug{
+				sendDebug("starting update in "~widgetCaption);
+			}
 			bool r = update(termDisplay);
 			if (r){
 				terminal.moveTo(0, 0);
@@ -615,6 +614,9 @@ public:
 			//set cursor position
 			terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
 			terminal.showCursor();
+			debug{
+				sendDebug("update ended in "~widgetCaption);
+			}
 			return r;
 		}else{
 			return false;
@@ -678,7 +680,7 @@ public:
 				widgetSize.width = terminal.width;
 				this.clear;
 				//call size change on all widgets
-				resize;
+				resize();
 				updateDisplay;
 			}else if (event.type == event.Type.UserInterruptionEvent){
 				//die here
