@@ -427,6 +427,8 @@ public:
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
 	override void resize(){
+		//disable update during size change, saves CPU and time
+		isUpdating = true;
 		uinteger ratioTotal;
 		foreach(w; widgetList){
 			if (w.visible()){
@@ -438,6 +440,7 @@ public:
 		}else{
 			recalculateWidgetsSize!(LayoutDisplayType.Vertical)(widgetList, widgetSize.height, ratioTotal);
 		}
+		isUpdating = false;
 	}
 	
 	override void mouseEvent(MouseClick mouse){
