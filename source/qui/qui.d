@@ -393,6 +393,12 @@ public:
 		layoutType = type;
 		activeWidget = null;
 	}
+	~this(){
+		// destroy child widgets
+		foreach(widget; widgetList){
+			.destroy(widget);
+		}
+	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
 	/// 
@@ -542,6 +548,10 @@ public:
 	~this(){
 		terminal.clear;
 		delete termDisplay;
+		//delete all child widgets
+		foreach(widget; widgetList){
+			.destroy(widget);
+		}
 	}
 	
 	override public void addWidget(QWidget widget){
