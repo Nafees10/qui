@@ -598,16 +598,19 @@ public:
 	
 	/// Use this instead of `update` to forcefully update the terminal
 	bool updateDisplay(){
-		//termDisplay.clear(emptySpace);
-		bool r = update(termDisplay);
-		if (r){
-			terminal.moveTo(0, 0);
-			termDisplay.flushToTerminal(this);
+		if (isRunning){
+			bool r = update(termDisplay);
+			if (r){
+				terminal.moveTo(0, 0);
+				termDisplay.flushToTerminal(this);
+			}
+			//set cursor position
+			terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
+			terminal.showCursor();
+			return r;
+		}else{
+			return false;
 		}
-		//set cursor position
-		terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
-		terminal.showCursor();
-		return r;
 	}
 	
 	/// starts the UI loop
@@ -876,7 +879,7 @@ public:
 		return toUpdate.toArray;
 	}
 	///insert a matrix into this one at a position
-	void insert(Matrix toInsert, uinteger x, uinteger y){
+	void Matrix toInsert, uinteger x, uinteger y){
 		Display[] newMatrix = toInsert.toArray;
 		// go through the new Displays and increae their x and y, and append them
 		foreach (disp; newMatrix){
