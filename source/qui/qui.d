@@ -85,9 +85,35 @@ struct Position{
 /// 
 /// zero in min/max means no limit
 struct Size{
-	uinteger width, height;
-	uinteger minHeight = 0, minWidth = 0;
-	uinteger maxHeight = 0, maxWidth = 0;
+	private{
+		uinteger w, h;
+	}
+	@property uinteger width(){
+		return width;
+	}
+	@property uinteger width(uinteger newWidth){
+		if (newWidth < minWidth){
+			return w = minWidth;
+		}else if (newWidth > maxWidth){
+			return w = maxWidth;
+		}else{
+			return w = newWidth;
+		}
+	}
+	@property uinteger height(){
+		return h;
+	}
+	@property uinteger height(uinteger newHeight){
+		if (newHeight < minHeight){
+			return h = minHeight;
+		}else if (newHeight > maxHeight){
+			return h = maxHeight;
+		}else{
+			return h = newHeight;
+		}
+	}
+	uinteger minWidth = 0, minHeight = 0;
+	uinteger maxWidth = 0, maxHeight = 0;
 }
 
 /// mouseEvent function
@@ -311,55 +337,44 @@ private:
 	// stores whether an update is in progress
 	bool isUpdating = false;
 	
-	// recalculates the size and position of every widget inside layout
+	// recalculates the size of every widget inside layout
 	void recalculateWidgetsSize(LayoutDisplayType T)(QWidget[] widgets, uinteger totalSpace, uinteger totalRatio){
 		static if (T != LayoutDisplayType.Horizontal && T != LayoutDisplayType.Vertical){
 			assert(false);
 		}
-
-		Position newPosition;
-		newPosition.x = widgetPosition.x;
-		newPosition.y = widgetPosition.y;
-		Size newSize;
-		// if Horizontal, the y position will be same for all widgets, else, x position will be same
-		static if (T == LayoutDisplayType.Horizontal){
-			newSize.height = widgetSize.height;
-		}else{
-			newSize.width = widgetSize.width;
-		}
+		Size newSize = (T == LayoutDisplayType.Horizontal ? Size(0, widgetSize.height) : Size(widgetSize.width, 0));
 		
-		uinteger newSpace = 0; // the new height/width of the widget
-		uinteger previousSpace = 0; // the newly calculated height/width of the widget
-		
-		foreach(widget; widgetList){
+		foreach(i, widget; widgets){
 			if (widget.visible){
 				// calculate width or height
-				newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
+				uinteger newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
+				uinteger calculatedSpace = newSpace;
 				//apply size
 				static if (T == LayoutDisplayType.Horizontal){
 					newSize.width = newSpace;
-					widget.size = newSize;// the widget is assigned new size, it will modify the size to meet it's min/max size requirements itself
-					newSpace = widget.size.width;//we retreive the size that the widget wants
+					widget.size = newSize;
+					newSpace = widget.size.width;
 				}else{
 					newSize.height = newSpace;
 					widget.size = newSize;
 					newSpace = widget.size.height;
 				}
-				// calculate position
-				static if (T == LayoutDisplayType.Horizontal){
-					newPosition.x += previousSpace;
-				}else{
-					newPosition.y += previousSpace;
+				if (newSpace != calculatedSpace){
+					totalRatio -= widget.sizeRatio;
+					totalSpace -= newSpace;
+					QWidget[] toUpdate = widgets.dup.deleteElement(i);
+					static if (T == LayoutDisplayType.Horizontal){
+						recalculateWidgetsSize!(LayoutDisplayType.Horizontal)(toUpdate, totalSpace, totalRatio);
+					}else{
+						recalculateWidgetsSize!(LayoutDisplayType.Vertical)(toUpdate, totalSpace, totalRatio);
+					}
+					break;
 				}
 				// check if there's enough space to contain that widget
 				if (newSpace > totalSpace){
 					newSpace = 0;
 					widget.visible = false;
-				}else{
-					//apply new position
-					widget.position = newPosition;
 				}
-				previousSpace = newSpace;
 				// let the know it was resized, useful if the widget is a layout
 				widget.resize;
 			}
