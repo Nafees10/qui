@@ -356,13 +356,6 @@ private:
 					newSpace = 0;
 					widget.visible = false;
 				}else{
-					// apply new size
-					static if (T == LayoutDisplayType.Horizontal){
-						newSize.width = newSpace;
-					}else{
-						newSize.height = newSpace;
-					}
-					widget.size = newSize;
 					//apply new position
 					widget.position = newPosition;
 				}
