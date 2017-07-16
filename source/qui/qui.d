@@ -105,7 +105,7 @@ protected:
 	Position widgetPosition;
 	///size of this widget
 	Size widgetSize;
-	///caption of this widget, it's up to the widget how to use this, progressbarWidget shows this inside the bar...
+	///caption of this widget, it's up to the widget how to use this, TextLabelWidget shows this as the text
 	string widgetCaption;
 	///whether this widget should be drawn or not
 	bool widgetShow = true;
@@ -124,13 +124,13 @@ protected:
 	/// }
 	/// ``` 
 	/// when an update is needed, and it's not sure if an update will be called.
-	/// If an update is already ongoing, this function will return false
-	/// Update is automatically called after mouseEvent and keyboardEvent, so no need to call it after events
+	/// If an update is already ongoing, this function will return false, or scheduled
 	bool delegate() forceUpdate;
 	
 	/// Called by widgets (usually keyboard-input-taking) to position the cursor
 	/// 
 	/// It can only be called if the widget is active (i.e selected), in non-active widgets, it is null;
+	/// The position is relative to the (0, 0) on terminal
 	void delegate(uinteger x, uinteger y) cursorPos;
 	
 	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
@@ -378,12 +378,6 @@ public:
 		layoutType = type;
 		activeWidget = null;
 	}
-	~this(){
-		// destroy child widgets
-		foreach(widget; widgetList){
-			.destroy(widget);
-		}
-	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
 	/// 
@@ -535,10 +529,6 @@ public:
 	~this(){
 		terminal.clear;
 		delete termDisplay;
-		//delete all child widgets
-		foreach(widget; widgetList){
-			.destroy(widget);
-		}
 	}
 	
 	override public void addWidget(QWidget widget){
@@ -584,6 +574,8 @@ public:
 	}
 	
 	/// Use this instead of `update` to forcefully update the terminal
+	/// 
+	/// returns true if at least one widget was updated, false if nothing was updated
 	bool updateDisplay(){
 		if (isRunning && !isUpdating){
 			bool r = update(termDisplay);
