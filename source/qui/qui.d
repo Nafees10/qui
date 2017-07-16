@@ -37,13 +37,13 @@ struct KeyPress{
 	
 	/// Returns true if the key was a character.
 	/// 
-	/// A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
+	/// A note: Enter/Return ('\n') is not included in KeyPress.NonCharKey
 	bool isChar(){
 		return !(key >= NonCharKey.min && key <= NonCharKey.max);
 	}
 	/// Types of non-character keys
 	enum NonCharKey{
-		escape = 0x1b + 0xF0000,
+		Escape = 0x1b + 0xF0000,
 		F1 = 0x70 + 0xF0000,
 		F2 = 0x71 + 0xF0000,
 		F3 = 0x72 + 0xF0000,
@@ -66,6 +66,7 @@ struct KeyPress{
 		End = 0x23 + 0xF0000,
 		PageUp = 0x21 + 0xF0000,
 		PageDown = 0x22 + 0xF0000,
+		Backspace = '\b',
 	}
 }
 
