@@ -39,8 +39,6 @@ public:
 
 /// Displays a left-to-right progress bar.
 /// 
-/// If caption is set, it is displayed in the middle of the widget
-/// 
 /// Name in theme: 'progressbar';
 class ProgressbarWidget : QWidget{
 private:
