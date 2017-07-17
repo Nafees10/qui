@@ -343,6 +343,8 @@ private:
 						widget.size.height = newSpace;
 						newSpace = widget.size.height;
 					}
+					// let the know it was resized, useful if the widget is a layout. This marks `needsUpdate` true in the widget
+					widget.resize;
 					if (newSpace != calculatedSpace){
 						totalRatio -= widget.sizeRatio;
 						totalSpace -= newSpace;
@@ -355,8 +357,6 @@ private:
 						newSpace = 0;
 						widget.visible = false;
 					}
-					// let the know it was resized, useful if the widget is a layout
-					widget.resize;
 				}
 			}
 		} while (repeat);
