@@ -89,7 +89,7 @@ struct Size{
 		uinteger w, h;
 	}
 	@property uinteger width(){
-		return width;
+		return w;
 	}
 	@property uinteger width(uinteger newWidth){
 		if (minWidth > 0 && newWidth < minWidth){
@@ -106,7 +106,7 @@ struct Size{
 	@property uinteger height(uinteger newHeight){
 		if (minHeight > 0 && newHeight < minHeight){
 			return h = minHeight;
-		}else if (minHeight > 0 && newHeight > maxHeight){
+		}else if (maxHeight > 0 && newHeight > maxHeight){
 			return h = maxHeight;
 		}else{
 			return h = newHeight;
@@ -236,11 +236,11 @@ public:
 	}
 	
 	/// position of the widget. getter
-	@property Position position(){
+	@property ref Position position(){
 		return widgetPosition;
 	}
 	/// position of the widget. setter
-	@property Position position(Position newPosition){
+	@property ref Position position(Position newPosition){
 		widgetPosition = newPosition;
 		if (forceUpdate !is null){
 			forceUpdate();
@@ -285,28 +285,12 @@ public:
 		return cursorPos = newOnCursorPos;
 	}
 	/// size of the widget. getter
-	@property Size size(){
+	@property ref Size size(){
 		return widgetSize;
 	}
 	/// size of the widget. setter
-	@property  Size size(Size newSize){
-		//check if height or width < min
-		if (newSize.minWidth > 0 && newSize.width < newSize.minWidth){
-			return widgetSize;
-		}else if (newSize.maxWidth > 0 && newSize.width > newSize.maxWidth){
-			return widgetSize;
-		}else if (newSize.minHeight > 0 && newSize.height < newSize.minHeight){
-			return widgetSize;
-		}else if (newSize.maxHeight > 0 && newSize.height > newSize.maxHeight){
-			return widgetSize;
-		}else{
-			needsUpdate = true;
-			widgetSize = newSize;
-			if (forceUpdate !is null){
-				forceUpdate();
-			}
-			return widgetSize;
-		}
+	@property ref Size size(Size newSize){
+		return widgetSize = newSize;
 	}
 }
 
@@ -342,41 +326,60 @@ private:
 		static if (T != LayoutDisplayType.Horizontal && T != LayoutDisplayType.Vertical){
 			assert(false);
 		}
-		Size newSize = (T == LayoutDisplayType.Horizontal ? Size(0, widgetSize.height) : Size(widgetSize.width, 0));
-		
-		foreach(i, widget; widgets){
-			if (widget.visible){
-				// calculate width or height
-				uinteger newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
-				uinteger calculatedSpace = newSpace;
-				//apply size
-				static if (T == LayoutDisplayType.Horizontal){
-					newSize.width = newSpace;
-					widget.size = newSize;
-					newSpace = widget.size.width;
-				}else{
-					newSize.height = newSpace;
-					widget.size = newSize;
-					newSpace = widget.size.height;
-				}
-				if (newSpace != calculatedSpace){
-					totalRatio -= widget.sizeRatio;
-					totalSpace -= newSpace;
-					QWidget[] toUpdate = widgets.dup.deleteElement(i);
+		uinteger repeat;
+		do{
+			repeat = false;
+			foreach(i, widget; widgets){
+				if (widget.visible){
+					// calculate width or height
+					uinteger newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
+					uinteger calculatedSpace = newSpace;
+					//apply size
 					static if (T == LayoutDisplayType.Horizontal){
-						recalculateWidgetsSize!(LayoutDisplayType.Horizontal)(toUpdate, totalSpace, totalRatio);
+						widget.size.height = widgetSize.height;
+						widget.size.width = newSpace;
+						newSpace = widget.size.width;
 					}else{
-						recalculateWidgetsSize!(LayoutDisplayType.Vertical)(toUpdate, totalSpace, totalRatio);
+						widget.size.width = widgetSize.width;
+						widget.size.height = newSpace;
+						newSpace = widget.size.height;
 					}
-					break;
+					if (newSpace != calculatedSpace){
+						totalRatio -= widget.sizeRatio;
+						totalSpace -= newSpace;
+						widgets = widgets.dup.deleteElement(i);
+						repeat = true;
+						break;
+					}
+					// check if there's enough space to contain that widget
+					if (newSpace > totalSpace){
+						newSpace = 0;
+						widget.visible = false;
+					}
+					// let the know it was resized, useful if the widget is a layout
+					widget.resize;
 				}
-				// check if there's enough space to contain that widget
-				if (newSpace > totalSpace){
-					newSpace = 0;
-					widget.visible = false;
+			}
+		} while (repeat);
+	}
+	/// calculates and assigns widgets positions based on their sizes
+	void recalculateWidgetsPosition(LayoutDisplayType T)(QWidget[] widgets){
+		static if (T != LayoutDisplayType.Horizontal && T != LayoutDisplayType.Vertical){
+			assert(false);
+		}
+		uinteger previousSpace = (T == LayoutDisplayType.Horizontal ? widgetPosition.x : widgetPosition.y);
+		uinteger fixedPoint = (T == LayoutDisplayType.Horizontal ? widgetPosition.y : widgetPosition.x);
+		foreach(widget; widgets){
+			if (widget.visible){
+				static if (T == LayoutDisplayType.Horizontal){
+					widget.position.y = widgetPosition.y;
+					widget.position.x = previousSpace;
+					previousSpace += widget.size.width;
+				}else{
+					widget.position.x = widgetPosition.x;
+					widget.position.y = previousSpace;
+					previousSpace += widget.size.height;
 				}
-				// let the know it was resized, useful if the widget is a layout
-				widget.resize;
 			}
 		}
 	}
@@ -424,8 +427,10 @@ public:
 		}
 		if (layoutType == LayoutDisplayType.Horizontal){
 			recalculateWidgetsSize!(LayoutDisplayType.Horizontal)(widgetList, widgetSize.width, ratioTotal);
+			recalculateWidgetsPosition!(LayoutDisplayType.Horizontal)(widgetList);
 		}else{
 			recalculateWidgetsSize!(LayoutDisplayType.Vertical)(widgetList, widgetSize.height, ratioTotal);
+			recalculateWidgetsPosition!(LayoutDisplayType.Vertical)(widgetList);
 		}
 		isUpdating = false;
 	}
@@ -674,16 +679,8 @@ public:
 	void terminate(){
 		isRunning = false;
 	}
-	
-	//override write properties
-	override @property Size size(Size newSize){
-		//don't let anything modify the size
-		return widgetSize;
-	}
-	override public @property Size size(){
-		return super.size;
-	}
-	/// Called by active-widget(s?) to position the cursor
+
+	/// Called by active-widget to position the cursor
 	void setCursorPos(uinteger x, uinteger y){
 		cursorPos.x = x;
 		cursorPos.y = y;
