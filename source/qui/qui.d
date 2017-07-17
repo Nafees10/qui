@@ -557,30 +557,26 @@ public:
 	
 	override public void mouseEvent(MouseClick mouse) {
 		super.mouseEvent(mouse);
-		//check on which widget the cursor was on
-		Position p;
-		Size s;
-		uinteger i;
-		QWidget widget;
 		//remove access to cursor from previous active widget
 		if (activeWidget){
 			activeWidget.onCursorPosition = null;
 		}
-		for (i = 0; i < widgetList.length; i++){
-			widget = widgetList[i];
-			p = widget.position;
-			s = widget.size;
-			//check x-axis
-			if (mouse.x >= p.x && mouse.x < p.x + s.width){
-				//check y-axis
-				if (mouse.y >= p.y && mouse.y < p.y + s.height){
-					//give access to cursor position
-					widget.onCursorPosition = &setCursorPos;
-					//call mouseEvent
-					widget.mouseEvent(mouse);
-					//mark this widget as active
-					activeWidget = widget;
-					break;
+		foreach (widget; widgetList){
+			if (widget.visible){
+				Position p = widget.position;
+				Size s = widget.size;
+				//check x-axis
+				if (mouse.x >= p.x && mouse.x < p.x + s.width){
+					//check y-axis
+					if (mouse.y >= p.y && mouse.y < p.y + s.height){
+						//give access to cursor position
+						widget.onCursorPosition = &setCursorPos;
+						//call mouseEvent
+						widget.mouseEvent(mouse);
+						//mark this widget as active
+						activeWidget = widget;
+						break;
+					}
 				}
 			}
 		}
