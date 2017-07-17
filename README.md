@@ -9,4 +9,4 @@ It is based on [adamdruppe's arsd.terminal](https://github.com/adamdruppe/arsd/b
 2. Easy to get started with
 3. Event-based
 4. Support for mouse events
-5. Most, if not all, of the code is commented - Separate documentation can be found at [https://nafees10.github.io/qui/qui.html](https://nafees10.github.io/qui/qui.html)
+5. Most, if not all, of the code is commented - Separate docs can be found in docs/ directory
