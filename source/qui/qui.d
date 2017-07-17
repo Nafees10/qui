@@ -104,9 +104,9 @@ struct Size{
 		return h;
 	}
 	@property uinteger height(uinteger newHeight){
-		if (newHeight < minHeight){
+		if (minHeight > 0 && newHeight < minHeight){
 			return h = minHeight;
-		}else if (newHeight > maxHeight){
+		}else if (minHeight > 0 && newHeight > maxHeight){
 			return h = maxHeight;
 		}else{
 			return h = newHeight;
