@@ -4,11 +4,11 @@
 +/
 module qui.qui;
 
-import utils.misc;
-import utils.lists;
-import utils.baseconv;//used for hexadecimal colors
-import std.stdio;//used by QTheme.themeToFile
 import arsd.terminal;
+import std.stdio;
+import utils.baseconv;
+import utils.lists;
+import utils.misc;
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
@@ -92,9 +92,9 @@ struct Size{
 		return width;
 	}
 	@property uinteger width(uinteger newWidth){
-		if (newWidth < minWidth){
+		if (minWidth > 0 && newWidth < minWidth){
 			return w = minWidth;
-		}else if (newWidth > maxWidth){
+		}else if (maxWidth > 0 && newWidth > maxWidth){
 			return w = maxWidth;
 		}else{
 			return w = newWidth;
