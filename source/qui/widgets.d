@@ -25,7 +25,7 @@ public:
 		marginTop, marginBottom, marginLeft, marginRight = 0;
 	}
 
-	override bool update(ref Matrix display){
+	override bool update(Matrix display){
 		if (needsUpdate){
 			// draw the top margin
 
@@ -67,7 +67,7 @@ public:
 		bgColor = hexToColor("000000");
 	}
 	
-	override bool update(ref Matrix display){
+	override bool update(Matrix display){
 		if (needsUpdate){
 			needsUpdate = false;
 			//redraw text
@@ -86,7 +86,7 @@ class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
 	RGBColor bgColor, barColor;
-	void writeBarLine(ref Matrix display, uinteger filled, char[] bar){
+	void writeBarLine(Matrix display, uinteger filled, char[] bar){
 		display.write(bar[0 .. filled], barColor, barColor);
 		display.write(bar[filled .. bar.length], barColor, bgColor);
 	}
@@ -100,7 +100,7 @@ public:
 		barColor = hexToColor("00FF00");
 	}
 	
-	override bool update(ref Matrix display){
+	override bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			needsUpdate = false;
@@ -200,7 +200,7 @@ public:
 		captionTextColor = hexToColor("00FF00");
 	}
 
-	override bool update(ref Matrix display){
+	override bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			needsUpdate = false;
@@ -380,7 +380,7 @@ public:
 		delete widgetLines;
 	}
 	
-	override bool update(ref Matrix display){
+	override bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			needsUpdate = false;
@@ -658,7 +658,7 @@ public:
 		logs.destroy;
 	}
 	
-	override public bool update(ref Matrix display){
+	override public bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			needsUpdate = false;
@@ -740,7 +740,7 @@ public:
 		textColor = hexToColor("000000");
 	}
 	
-	override public bool update(ref Matrix display){
+	override public bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
 			r = true;

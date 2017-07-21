@@ -205,7 +205,7 @@ public:
 	/// Called by owner to update.
 	/// 
 	/// Return false if no need to update, and true if an update is required, and the new display in `display` Matrix
-	abstract bool update(ref Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
+	abstract bool update(Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
 	
 	//event properties
 	/// use to change the custom mouse event
@@ -467,7 +467,7 @@ public:
 			activeWidget.keyboardEvent(key);
 		}
 	}
-	override bool update(ref Matrix display){
+	override bool update(Matrix display){
 		bool updated = false;
 		//check if already updating, case yes, return false
 		if (!isUpdating){
