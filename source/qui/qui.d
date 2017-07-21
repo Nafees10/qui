@@ -151,7 +151,7 @@ protected:
 	///whether this widget should be drawn or not
 	bool widgetShow = true;
 	///to specify if this widget needs to be updated or not, mark this as true when the widget has changed
-	bool needsUpdate = true;
+	bool widgetNeedsUpdate = true;
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
 	uinteger widgetSizeRatio = 1;
@@ -235,21 +235,8 @@ public:
 	
 	/// Called by owner to update.
 	/// 
-	/// It must be inherited like:
-	/// ```
-	/// 	override bool update(Matrix display){
-	/// 		if (super.update(null)){
-	/// 			// code to do the update here
-	/// 		}	
-	/// 	}
-	/// ```
-	/// Or size-changes wont make it resize
-	/// 
 	/// Return false if no need to update, and true if an update is required, and the new display in `display` Matrix
-	bool update(Matrix display){
-		needsUpdate = (this.size.sizeChanged ? true : needsUpdate);
-		return needsUpdate;
-	}
+	abstract bool update(Matrix display);
 	
 	//event properties
 	/// use to change the custom mouse event
@@ -263,6 +250,18 @@ public:
 	
 	
 	//properties:
+
+	/// needsUpdate - whether the widget needs to update or not
+	@property bool needsUpdate(){
+		widgetNeedsUpdate = (this.size.sizeChanged ? true : needsUpdate);
+		return widgetNeedsUpdate;
+	}
+
+	/// needsUpdate - whether the widget needs to update or not
+	@property bool needsUpdate(bool newVal){
+		size.sizeChanged; // to mark sizeChanged false
+		return widgetNeedsUpdate = newVal;
+	}
 	
 	/// caption of the widget. getter
 	@property string caption(){
