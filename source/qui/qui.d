@@ -253,7 +253,7 @@ public:
 
 	/// needsUpdate - whether the widget needs to update or not
 	@property bool needsUpdate(){
-		widgetNeedsUpdate = (this.size.sizeChanged ? true : needsUpdate);
+		widgetNeedsUpdate = (this.size.sizeChanged ? true : widgetNeedsUpdate);
 		return widgetNeedsUpdate;
 	}
 
