@@ -86,10 +86,22 @@ struct Position{
 struct Size{
 	private{
 		uinteger w, h;
+		bool hasChanged; /// specifies if has been changed.
 	}
+	/// returns whether the size was changed since the last time this property was read
+	@property bool sizeChanged(){
+		if (hasChanged){
+			hasChanged = false;
+			return true;
+		}else{
+			return false;
+		}
+	}
+	/// width
 	@property uinteger width(){
 		return w;
 	}
+	/// width
 	@property uinteger width(uinteger newWidth){
 		if (minWidth > 0 && newWidth < minWidth){
 			return w = minWidth;
@@ -99,9 +111,11 @@ struct Size{
 			return w = newWidth;
 		}
 	}
+	/// height
 	@property uinteger height(){
 		return h;
 	}
+	/// height
 	@property uinteger height(uinteger newHeight){
 		if (minHeight > 0 && newHeight < minHeight){
 			return h = minHeight;
@@ -111,7 +125,9 @@ struct Size{
 			return h = newHeight;
 		}
 	}
+	/// minimun width & height. These are "applied" automatically when setting value using `width` or `height`
 	uinteger minWidth = 0, minHeight = 0;
+	/// maximum width & height. These are "applied" automatically when setting value using `width` or `height`
 	uinteger maxWidth = 0, maxHeight = 0;
 }
 
@@ -182,7 +198,14 @@ protected:
 public:
 	/// Called by owner when mouse is clicked with cursor on this widget.
 	/// 
-	/// `forceUpdate` is not required after this
+	/// Must be inherited like:
+	/// ```
+	/// 	override void mouseEvent(MouseClick mouse){
+	/// 		super.mouseEvent(mouse);
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
+	/// `forceUpdate` is not required after this. if `forceUpdate` is called in this, it will have no effect
 	void mouseEvent(MouseClick mouse){
 		if (customMouseEvent !is null){
 			customMouseEvent(mouse);
@@ -191,21 +214,42 @@ public:
 	
 	/// Called by owner when key is pressed and this widget is active.
 	/// 
-	/// `forceUpdate` is not required after this
+	/// Must be inherited like:
+	/// ```
+	/// 	override void keyboardEvent(KeyPress key){
+	/// 		super.keyboardEvent(key);
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
+	/// `forceUpdate` is not required after this. if `forceUpdate` is called in this, it will have no effect
 	void keyboardEvent(KeyPress key){
 		if (customKeyboardEvent !is null){
 			customKeyboardEvent(key);
 		}
 	}
 
+	/// called by `QLayout` when the widget is resized.
 	void resize(){
 		needsUpdate = true;
 	}
 	
 	/// Called by owner to update.
 	/// 
+	/// It must be inherited like:
+	/// ```
+	/// 	override bool update(Matrix display){
+	/// 		if (super.update(null)){
+	/// 			// code to do the update here
+	/// 		}	
+	/// 	}
+	/// ```
+	/// Or size-changes wont make it resize
+	/// 
 	/// Return false if no need to update, and true if an update is required, and the new display in `display` Matrix
-	abstract bool update(Matrix display);///return true to indicate that it has to be redrawn, else, make changes in display
+	bool update(Matrix display){
+		needsUpdate = (this.size.sizeChanged ? true : needsUpdate);
+		return needsUpdate;
+	}
 	
 	//event properties
 	/// use to change the custom mouse event
