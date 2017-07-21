@@ -30,6 +30,7 @@ public:
 			// draw the top margin
 
 
+			needsUpdate = false;
 			return true;
 		}else{
 			return false;
@@ -69,9 +70,8 @@ public:
 	
 	override bool update(Matrix display){
 		if (needsUpdate){
-			needsUpdate = false;
-			//redraw text
 			display.write(cast(char[])widgetCaption, textColor, bgColor);
+			needsUpdate = false;
 			return true;
 		}else{
 			return false;
@@ -103,7 +103,6 @@ public:
 	override bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
-			needsUpdate = false;
 			r = true;
 			uinteger filled = ratioToRaw(done, max, this.size.width);
 			char[] bar;
@@ -112,6 +111,7 @@ public:
 			for (uinteger i = 0; i < this.size.height; i++){
 				writeBarLine(display, filled, bar);
 			}
+			needsUpdate = false;
 		}
 		return r;
 	}
@@ -203,7 +203,6 @@ public:
 	override bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
-			needsUpdate = false;
 			r = true;
 			//make sure there's enough space
 			if (this.size.width > widgetCaption.length){
@@ -232,6 +231,7 @@ public:
 			}
 			//set cursor pos, if can
 			setCursor();
+			needsUpdate = false;
 		}
 		return r;
 	}
@@ -383,7 +383,6 @@ public:
 	override bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
-			needsUpdate = false;
 			r = true;
 			//check if there's lines to be displayed
 			uinteger count = widgetLines.length, i, linesWritten = 0;
@@ -427,6 +426,7 @@ public:
 				//put the cursor at correct position, if possible
 				setCursor();
 			}
+			needsUpdate = false;
 		}
 		return r;
 	}
@@ -661,7 +661,6 @@ public:
 	override public bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
-			needsUpdate = false;
 			r = true;
 			//get list of messages
 			string[] messages = logs.toArray;
@@ -695,6 +694,7 @@ public:
 				//add newline
 				display.moveTo(0, display.writePos.y+1);
 			}
+			needsUpdate = false;
 		}
 		return r;
 	}
@@ -743,8 +743,6 @@ public:
 	override public bool update(Matrix display){
 		bool r = false;
 		if (needsUpdate){
-			r = true;
-			needsUpdate = false;
 			char[] row;
 			row.length = this.size.width;
 			row[0 .. row.length] = ' ';
@@ -760,6 +758,8 @@ public:
 					display.write(row, textColor, bgColor);
 				}
 			}
+			r = true;
+			needsUpdate = false;
 		}
 		return r;
 	}
