@@ -9,6 +9,48 @@ import qui.qui;
 import utils.misc;
 import utils.lists;
 
+/// To contain another widget in "margins"
+class ContainerWidget : QWidget{
+private:
+	QWidget childWidget; // the widget to be "contained"
+	uinteger marginTop, marginBottom, marginLeft, marginRight; // margins
+	char marginChar;
+
+	RGBColor bgColor, textColor; // backgrond and foreground colors
+public:
+	this (){
+		bgColor = hexToColor("000000");
+		textColor = hexToColor("00FF00");
+		marginChar = ' ';
+		marginTop, marginBottom, marginLeft, marginRight = 0;
+	}
+
+	override bool update(ref Matrix display){
+		if (needsUpdate){
+			// draw the top margin
+
+
+			return true;
+		}else{
+			return false;
+		}
+	}
+
+	override void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
+		if (childWidget !is null){
+			childWidget.keyboardEvent(key);
+		}
+	}
+
+	override void mouseEvent(MouseClick mouse) {
+		super.mouseEvent(mouse);
+		if (childWidget !is null){
+			childWidget.mouseEvent(mouse);
+		}
+	}
+}
+
 ///Displays some text
 ///
 ///And it can't handle new-line characters
