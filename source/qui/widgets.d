@@ -105,11 +105,11 @@ public:
 		if (needsUpdate){
 			needsUpdate = false;
 			r = true;
-			uinteger filled = ratioToRaw(done, max, widgetSize.width);
+			uinteger filled = ratioToRaw(done, max, this.size.width);
 			char[] bar;
-			bar.length = widgetSize.width;
+			bar.length = this.size.width;
 			bar[0 .. bar.length] = ' ';
-			for (uinteger i = 0; i < widgetSize.height; i++){
+			for (uinteger i = 0; i < this.size.height; i++){
 				writeBarLine(display, filled, bar);
 			}
 		}
@@ -158,7 +158,7 @@ private:
 		if (cursorX > inputText.length){
 			cursorX = inputText.length;
 		}
-		uinteger w = widgetSize.width - widgetCaption.length;
+		uinteger w = this.size.width - widgetCaption.length;
 		//now calculate scrollX, if it needs to be increased
 		if ((scrollX + w < cursorX || scrollX + w >= cursorX)){
 			if (cursorX <= w){
@@ -180,8 +180,8 @@ private:
 	}
 	///shortens caption if too long
 	void shortenCaption(){
-		if (widgetSize.width - widgetCaption.length < 4){
-			widgetCaption.length = widgetSize.width - 4;
+		if (this.size.width - widgetCaption.length < 4){
+			widgetCaption.length = this.size.width - 4;
 		}
 	}
 public:
@@ -190,9 +190,9 @@ public:
 		widgetCaption = wCaption;
 		shortenCaption;
 		//specify min/max
-		widgetSize.minWidth = 1;
-		widgetSize.minHeight = 1;
-		widgetSize.maxHeight = 1;
+		this.size.minWidth = 1;
+		this.size.minHeight = 1;
+		this.size.maxHeight = 1;
 
 		bgColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
@@ -206,11 +206,11 @@ public:
 			needsUpdate = false;
 			r = true;
 			//make sure there's enough space
-			if (widgetSize.width > widgetCaption.length){
+			if (this.size.width > widgetCaption.length){
 				//draw the caption
 				display.write(cast(char[])widgetCaption, captionTextColor, captionBgColor);
 				//draw the inputText
-				uinteger width = widgetSize.width - widgetCaption.length;
+				uinteger width = this.size.width - widgetCaption.length;
 				//fit the line into screen, i.e check if only a part of it will be displayed
 				if (inputText.length >= width+scrollX){
 					//display only partial line
@@ -322,11 +322,11 @@ private:
 	// used by widget itseld to recalculate scrolling
 	void reScroll(){
 		//calculate scrollY first
-		if ((scrollY + widgetSize.height < cursorY || scrollY + widgetSize.height >= cursorY) && cursorY != 0){
-			if (cursorY <= widgetSize.height/2){
+		if ((scrollY + this.size.height < cursorY || scrollY + this.size.height >= cursorY) && cursorY != 0){
+			if (cursorY <= this.size.height/2){
 				scrollY = 0;
 			}else{
-				scrollY = cursorY - (widgetSize.height/2);
+				scrollY = cursorY - (this.size.height/2);
 			}
 		}
 		//now time for scrollX
@@ -336,11 +336,11 @@ private:
 			cursorX = len;
 		}
 		//now calculate scrollX, if it needs to be increased
-		if (/*cursorX > widgetSize.width &&*/(scrollX + widgetSize.width < cursorX || scrollX + widgetSize.width >= cursorX)){
-			if (cursorX <= widgetSize.width/2){
+		if (/*cursorX > this.size.width &&*/(scrollX + this.size.width < cursorX || scrollX + this.size.width >= cursorX)){
+			if (cursorX <= this.size.width/2){
 				scrollX = 0;
 			}else{
-				scrollX = cursorX - (widgetSize.width/2);
+				scrollX = cursorX - (this.size.width/2);
 			}
 		}
 	}
@@ -388,7 +388,7 @@ public:
 			//check if there's lines to be displayed
 			uinteger count = widgetLines.length, i, linesWritten = 0;
 			char[] emptyLine;
-			emptyLine.length = widgetSize.width;
+			emptyLine.length = this.size.width;
 			emptyLine[0 .. emptyLine.length] = ' ';
 			if (count > 0){
 				//write lines to memo
@@ -397,9 +397,9 @@ public:
 					//echo current line
 					line = cast(char[])widgetLines.read(i);
 					//fit the line into screen, i.e check if only a part of it will be displayed
-					if (line.length >= widgetSize.width+scrollX){
+					if (line.length >= this.size.width+scrollX){
 						//display only partial line
-						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, bgColor);
+						display.write(line[scrollX .. scrollX + this.size.width], textColor, bgColor);
 					}else{
 						//either the line is small enough to fit, or 0-length
 						if (line.length <= scrollX || line.length == 0){
@@ -413,13 +413,13 @@ public:
 					}
 					linesWritten ++;
 					//check if is at end
-					if (i-scrollY >= widgetSize.height){
+					if (i-scrollY >= this.size.height){
 						break;
 					}
 				}
 				//fill empty space with emptyLine
-				if (linesWritten < widgetSize.height){
-					count = widgetSize.height;
+				if (linesWritten < this.size.height){
+					count = this.size.height;
 					for (i = linesWritten; i < count; i++){
 						display.write(emptyLine,textColor, bgColor);
 					}
@@ -614,7 +614,7 @@ private:
 	RGBColor bgColor, textColor;
 	
 	uinteger stringLineCount(string s){
-		uinteger width = widgetSize.width;
+		uinteger width = this.size.width;
 		uinteger i, widthTaken = 0, count = 1;
 		for (i = 0; i < s.length; i++){
 			widthTaken ++;
@@ -630,7 +630,7 @@ private:
 	}
 	string stripString(string s, uinteger height){
 		char[] r;
-		uinteger width = widgetSize.width;
+		uinteger width = this.size.width;
 		uinteger i, widthTaken = 0, count = 1;
 		for (i = 0; i < s.length; i++){
 			widthTaken ++;
@@ -674,13 +674,13 @@ public:
 			if (messages.length>0){
 				for (i=messages.length-1; i>=0; i--){
 					count += stringLineCount(messages[i]);
-					if (count > widgetSize.height){
+					if (count > this.size.height){
 						messages = messages[i+1 .. messages.length];
 						//try to insert part of the last message
 						uinteger thisCount = stringLineCount(messages[i]);
 						count -= thisCount;
-						if (count < widgetSize.height){
-							messages ~= [stripString(messages[i], widgetSize.height - count)];
+						if (count < this.size.height){
+							messages ~= [stripString(messages[i], this.size.height - count)];
 						}
 						break;
 					}
@@ -746,13 +746,13 @@ public:
 			r = true;
 			needsUpdate = false;
 			char[] row;
-			row.length = widgetSize.width;
+			row.length = this.size.width;
 			row[0 .. row.length] = ' ';
 			//write the caption too!
-			uinteger middle = widgetSize.height/2;
-			for (uinteger i = 0; i < widgetSize.height; i++){
+			uinteger middle = this.size.height/2;
+			for (uinteger i = 0; i < this.size.height; i++){
 				if (i == middle && widgetCaption != ""){
-					row = centerAlignText(cast(char[])caption, widgetSize.width);
+					row = centerAlignText(cast(char[])caption, this.size.width);
 					display.write(row, textColor, bgColor);
 					row[0 .. row.length] = ' ';
 					continue;
