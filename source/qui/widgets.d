@@ -50,7 +50,7 @@ public:
 		bgColor = hexToColor("000000");
 		textColor = hexToColor("00FF00");
 		marginChar = ' ';
-		marginTop, marginBottom, marginLeft, marginRight = 0;
+		mTop, mBottom, mLeft, mRight = 0;
 	}
 
 	override bool update(Matrix display){
