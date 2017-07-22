@@ -13,10 +13,38 @@ import utils.lists;
 class ContainerWidget : QWidget{
 private:
 	QWidget childWidget; // the widget to be "contained"
-	uinteger marginTop, marginBottom, marginLeft, marginRight; // margins
+	uinteger mTop, mBottom, mLeft, mRight; // margins
 	char marginChar;
 
 	RGBColor bgColor, textColor; // backgrond and foreground colors
+	/// called by `update` to draw margins
+	void drawMargins(Matrix display){
+		char[] emptyLine;
+		emptyLine.length = this.size.width;
+		// top
+		display.moveTo(0, 0);
+		for (uinteger i = 0; i < mTop; i ++){
+			display.write(emptyLine, textColor, bgColor);
+		}
+		// bottom
+		display.moveTo(0, this.size.height - mBottom);
+		for (uinteger i = 0; i < mBottom; i ++){
+			display.write(emptyLine, textColor, bgColor);
+		}
+		//left
+		emptyLine = emptyLine[0 .. mLeft];
+		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
+			display.moveTo(0, mTop+i);
+			display.write(emptyLine, textColor, bgColor);
+		}
+		// right
+		emptyLine.length = mRight;
+		emptyLine[] = ' ';
+		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
+			display.moveTo(this.size.width-mRight, mTop+i);
+			display.write(emptyLine, textColor, bgColor);
+		}
+	}
 public:
 	this (){
 		bgColor = hexToColor("000000");
