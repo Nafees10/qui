@@ -13,6 +13,7 @@ import utils.lists;
 class ContainerWidget : QWidget{
 private:
 	QWidget childWidget; // the widget to be "contained"
+	bool childWidgetIsActive;
 	uinteger mTop, mBottom, mLeft, mRight; // margins
 	char marginChar;
 
@@ -55,9 +56,14 @@ public:
 
 	override bool update(Matrix display){
 		if (needsUpdate){
-			// draw the top margin
-
-
+			// draw the margins
+			drawMargins(display);
+			// then the widget
+			Matrix wDisplay = new Matrix(childWidget.size.width, childWidget.size.height);
+			if (childWidget.update(wDisplay)){
+				display.insert(wDisplay, mLeft, mRight);
+			}
+			.destroy(wDisplay);
 			needsUpdate = false;
 			return true;
 		}else{
@@ -67,17 +73,32 @@ public:
 
 	override void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
-		if (childWidget !is null){
+		if (childWidget !is null && childWidget.visible && childWidgetIsActive){
 			childWidget.keyboardEvent(key);
 		}
 	}
 
+	/// Receives the event, and hands it down to the child widget if mouse is on that widget
 	override void mouseEvent(MouseClick mouse) {
 		super.mouseEvent(mouse);
-		if (childWidget !is null){
-			childWidget.mouseEvent(mouse);
+		// mark child widget as not-active, it'll be marked active if the mouse is on it
+		childWidgetIsActive = false;
+		if (childWidget !is null && childWidget.visible){
+			//check x-axis
+			if (mouse.x >= childWidget.position.x && mouse.x < childWidget.position.x + childWidget.size.width){
+				//check y-axis
+				if (mouse.y >= childWidget.position.y && mouse.y < childWidget.position.y + childWidget.size.height){
+					//give access to cursor position
+					childWidget.onCursorPosition = cursorPos;
+					//call mouseEvent
+					childWidget.mouseEvent(mouse);
+					//mark this widget as active
+					childWidgetIsActive = true;
+				}
+			}
 		}
 	}
+	// properties
 }
 
 ///Displays some text
