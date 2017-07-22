@@ -488,6 +488,8 @@ public:
 
 		bgColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
+		// zero lines = wont work
+		widgetLines.add("");
 	}
 	~this(){
 		delete widgetLines;
