@@ -46,6 +46,19 @@ private:
 			display.write(emptyLine, textColor, bgColor);
 		}
 	}
+	/// called by margin-changing-properties to calculate new minHeight & minWidth to fit the widget in
+	void calculateMinSize(){
+		// first minHeight
+		uinteger minHeight = (childWidget !is null ? childWidget.size.minHeight : 0) + mTop + mBottom;
+		if (this.size.minHeight < minHeight){
+			this.size.minHeight = minHeight;
+		}
+		// then width
+		uinteger minWidth = (childWidget !is null ? childWidget.size.minWidth : 0) + mLeft + mRight;
+		if (this.size.minWidth < minWidth){
+			this.size.minWidth = minWidth;
+		}
+	}
 public:
 	this (){
 		bgColor = hexToColor("000000");
@@ -56,6 +69,9 @@ public:
 
 	override bool update(Matrix display){
 		if (needsUpdate){
+			// reset the childWidget's size to fill space
+			childWidget.size.width = this.size.width - (mLeft + mRight);
+			childWidget.size.height = this.size.height - (mTop + mBottom);
 			// draw the margins
 			drawMargins(display);
 			// then the widget
@@ -99,6 +115,54 @@ public:
 		}
 	}
 	// properties
+	/// the widget to be contained
+	@property QWidget widget(){
+		return childWidget;
+	}
+	/// the widget to be contained
+	@property QWidget widget(QWidget newVal){
+		return childWidget = newVal;
+	}
+	/// top margin
+	@property uinteger marginTop(){
+		return mTop;
+	}
+	/// top margin
+	@property uinteger marginTop(uinteger newVal){
+		mTop = newVal;
+		calculateMinSize;
+		return mTop;
+	}
+	/// bottom margin
+	@property uinteger marginBottom(){
+		return mBottom;
+	}
+	/// bottom margin
+	@property uinteger marginBottom(uinteger newVal){
+		mBottom = newVal;
+		calculateMinSize;
+		return mBottom;
+	}
+	/// left margin
+	@property uinteger marginLeft(){
+		return mLeft;
+	}
+	/// left margin
+	@property uinteger marginLeft(uinteger newVal){
+		mLeft = newVal;
+		calculateMinSize;
+		return mLeft;
+	}
+	/// right margin
+	@property uinteger marginRight(){
+		return mRight;
+	}
+	/// right margin
+	@property uinteger marginRight(uinteger newVal){
+		mRight = newVal;
+		calculateMinSize;
+		return mRight;
+	}
 }
 
 ///Displays some text
