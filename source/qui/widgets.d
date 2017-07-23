@@ -34,7 +34,8 @@ private:
 			display.write(emptyLine, textColor, bgColor);
 		}
 		//left
-		emptyLine = emptyLine[0 .. mLeft];
+		emptyLine.length = mLeft;
+		emptyLine[] = mChar;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
 			display.moveTo(0, mTop+i);
 			display.write(emptyLine, textColor, bgColor);
@@ -167,6 +168,18 @@ public:
 		mRight = newVal;
 		calculateMinSize;
 		return mRight;
+	}
+	/// the character that will be written in space occupied by margins
+	/// 
+	/// default is `\n`
+	@property char marginChar(){
+		return mChar;
+	}
+	/// the character that will be written in space occupied by margins
+	/// 
+	/// default is `\n`
+	@property char marginChar(char newVal){
+		return mChar = newVal;
 	}
 }
 
