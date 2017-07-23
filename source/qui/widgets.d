@@ -68,7 +68,7 @@ public:
 	}
 
 	override bool update(Matrix display){
-		if (needsUpdate){
+		if (childWidget.needsUpdate || needsUpdate){
 			// reset the childWidget's size to fill space
 			childWidget.size.width = this.size.width - (mLeft + mRight);
 			childWidget.size.height = this.size.height - (mTop + mBottom);
