@@ -72,11 +72,14 @@ public:
 			// reset the childWidget's size to fill space
 			childWidget.size.width = this.size.width - (mLeft + mRight);
 			childWidget.size.height = this.size.height - (mTop + mBottom);
+			// reset the position
+			childWidget.position.x = this.position.x + mLeft;
+			childWidget.position.y = this.position.y + mTop;
 			// draw the margins
 			drawMargins(display);
 			// then the widget
 			Matrix wDisplay = new Matrix(childWidget.size.width, childWidget.size.height);
-			if (childWidget.update(wDisplay)){
+			if (childWidget!is null && childWidget.visible && childWidget.update(wDisplay)){
 				display.insert(wDisplay, mLeft, mRight);
 			}
 			.destroy(wDisplay);
