@@ -15,13 +15,14 @@ private:
 	QWidget childWidget; // the widget to be "contained"
 	bool childWidgetIsActive;
 	uinteger mTop, mBottom, mLeft, mRight; // margins
-	char marginChar;
+	char mChar;
 
 	RGBColor bgColor, textColor; // backgrond and foreground colors
 	/// called by `update` to draw margins
 	void drawMargins(Matrix display){
 		char[] emptyLine;
 		emptyLine.length = this.size.width;
+		emptyLine[] = mChar;
 		// top
 		display.moveTo(0, 0);
 		for (uinteger i = 0; i < mTop; i ++){
@@ -40,9 +41,9 @@ private:
 		}
 		// right
 		emptyLine.length = mRight;
-		emptyLine[] = ' ';
+		emptyLine[] = mChar;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
-			display.moveTo(this.size.width-mRight, mTop+i);
+			display.moveTo(this.size.width-(mRight+1), mTop+i);
 			display.write(emptyLine, textColor, bgColor);
 		}
 	}
@@ -63,7 +64,7 @@ public:
 	this (){
 		bgColor = hexToColor("000000");
 		textColor = hexToColor("00FF00");
-		marginChar = ' ';
+		mChar = ' ';
 		mTop, mBottom, mLeft, mRight = 0;
 	}
 
@@ -75,14 +76,15 @@ public:
 			// reset the position
 			childWidget.position.x = this.position.x + mLeft;
 			childWidget.position.y = this.position.y + mTop;
-			// draw the margins
-			drawMargins(display);
 			// then the widget
 			Matrix wDisplay = new Matrix(childWidget.size.width, childWidget.size.height);
 			if (childWidget!is null && childWidget.visible && childWidget.update(wDisplay)){
 				display.insert(wDisplay, mLeft, mRight);
 			}
 			.destroy(wDisplay);
+			// draw the margins
+			drawMargins(display);
+
 			needsUpdate = false;
 			return true;
 		}else{
