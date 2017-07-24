@@ -169,6 +169,15 @@ public:
 		calculateMinSize;
 		return mRight;
 	}
+	/// to change value of all margins
+	@property uinteger margin(uinteger newVal){
+		mTop = newVal;
+		mBottom = newVal;
+		mLeft = newVal;
+		mRight = newVal;
+		calculateMinSize;
+		return newVal;
+	}
 	/// the character that will be written in space occupied by margins
 	/// 
 	/// default is `\n`
