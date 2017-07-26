@@ -10,6 +10,9 @@ import utils.misc;
 import utils.lists;
 
 /// To contain another widget in "margins"
+/// 
+/// set margins using the `marginLeft/Right/Top/Bottom` properties, or simply using `margin` - default margins are zero
+/// set the character to display in margin using `marginChar` - default is space character
 class ContainerWidget : QWidget{
 private:
 	QWidget childWidget; // the widget to be "contained"
