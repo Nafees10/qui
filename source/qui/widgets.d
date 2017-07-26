@@ -74,7 +74,7 @@ public:
 	}
 
 	override bool update(Matrix display){
-		if (childWidget.needsUpdate || needsUpdate){
+		if (needsUpdate || (childWidget !is null && childWidget.visible && childWidget.needsUpdate)){
 			// reset the childWidget's size to fill space
 			childWidget.size.width = this.size.width - (mLeft + mRight);
 			childWidget.size.height = this.size.height - (mTop + mBottom);
@@ -83,7 +83,7 @@ public:
 			childWidget.position.y = this.position.y + mTop;
 			// then the widget
 			Matrix wDisplay = new Matrix(childWidget.size.width, childWidget.size.height);
-			if (childWidget!is null && childWidget.visible && childWidget.update(wDisplay)){
+			if (childWidget.update(wDisplay)){
 				display.insert(wDisplay, mLeft, mRight);
 			}
 			.destroy(wDisplay);
