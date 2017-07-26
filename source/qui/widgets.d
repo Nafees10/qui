@@ -12,40 +12,41 @@ import utils.lists;
 /// To contain another widget in "margins"
 /// 
 /// set margins using the `marginLeft/Right/Top/Bottom` properties, or simply using `margin` - default margins are zero
-/// set the character to display in margin using `marginChar` - default is space character
+/// set the character to write in margin using `marginCharTop/Bottom/Left/Right` or just `marginChar` - default is space character
 class ContainerWidget : QWidget{
 private:
 	QWidget childWidget; // the widget to be "contained"
 	bool childWidgetIsActive;
 	uinteger mTop, mBottom, mLeft, mRight; // margins
-	char mChar;
+	char mCharTop, mCharBottom, mCharLeft, mCharRight;
 
 	RGBColor bgColor, textColor; // backgrond and foreground colors
 	/// called by `update` to draw margins
 	void drawMargins(Matrix display){
 		char[] emptyLine;
-		emptyLine.length = this.size.width;
-		emptyLine[] = mChar;
 		// top
+		emptyLine.length = this.size.width;
+		emptyLine[] = mCharTop;
 		display.moveTo(0, 0);
 		for (uinteger i = 0; i < mTop; i ++){
 			display.write(emptyLine, textColor, bgColor);
 		}
 		// bottom
+		emptyLine[] = mCharBottom;
 		display.moveTo(0, this.size.height - mBottom);
 		for (uinteger i = 0; i < mBottom; i ++){
 			display.write(emptyLine, textColor, bgColor);
 		}
 		//left
 		emptyLine.length = mLeft;
-		emptyLine[] = mChar;
+		emptyLine[] = mCharLeft;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
 			display.moveTo(0, mTop+i);
 			display.write(emptyLine, textColor, bgColor);
 		}
 		// right
 		emptyLine.length = mRight;
-		emptyLine[] = mChar;
+		emptyLine[] = mCharRight;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
 			display.moveTo(this.size.width-(mRight+1), mTop+i);
 			display.write(emptyLine, textColor, bgColor);
@@ -68,7 +69,7 @@ public:
 	this (){
 		bgColor = hexToColor("000000");
 		textColor = hexToColor("00FF00");
-		mChar = ' ';
+		mCharTop, mCharBottom, mCharLeft, mCharRight = ' ';
 		mTop, mBottom, mLeft, mRight = 0;
 	}
 
@@ -181,17 +182,47 @@ public:
 		calculateMinSize;
 		return newVal;
 	}
-	/// the character that will be written in space occupied by margins
-	/// 
-	/// default is `\n`
-	@property char marginChar(){
-		return mChar;
+	/// the char that is written in space occupied by top margin
+	@property char marginCharTop(){
+		return mCharTop;
 	}
-	/// the character that will be written in space occupied by margins
-	/// 
-	/// default is `\n`
+	/// the char that is written in space occupied by top margin
+	@property char marginCharTop(char newVal){
+		needsUpdate = true;
+		return mCharTop = newVal;
+	}
+	/// the char that is written in space occupied by bottom margin
+	@property char marginCharBottom(){
+		return mCharBottom;
+	}
+	/// the char that is written in space occupied by bottom margin
+	@property char marginCharBottom(char newVal){
+		needsUpdate = true;
+		return mCharBottom = newVal;
+	}
+	/// the char that is written in space occupied by left margin
+	@property char marginCharLeft(){
+		return mCharLeft;
+	}
+	/// the char that is written in space occupied by left margin
+	@property char marginCharLeft(char newVal){
+		needsUpdate = true;
+		return mCharLeft = newVal;
+	}
+	/// the char that is written in space occupied by top margin
+	@property char marginCharRight(){
+		return mCharRight;
+	}
+	/// the char that is written in space occupied by top margin
+	@property char marginCharRight(char newVal){
+		needsUpdate = true;
+		return mCharRight = newVal;
+	}
+	/// to set the character written in each margin (top, bottom, left, & right)
 	@property char marginChar(char newVal){
-		return mChar = newVal;
+		needsUpdate = true;
+		mCharTop, mCharBottom, mCharLeft, mCharRight = newVal;
+		return newVal;
 	}
 }
 
