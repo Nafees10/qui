@@ -86,7 +86,7 @@ struct Position{
 struct Size{
 	private{
 		uinteger w, h;
-		bool hasChanged; /// specifies if has been changed.
+		bool hasChanged = false; /// specifies if has been changed.
 	}
 	/// returns whether the size was changed since the last time this property was read
 	@property bool sizeChanged(){
@@ -103,6 +103,7 @@ struct Size{
 	}
 	/// width
 	@property uinteger width(uinteger newWidth){
+		hasChanged = true;
 		if (minWidth > 0 && newWidth < minWidth){
 			return w = minWidth;
 		}else if (maxWidth > 0 && newWidth > maxWidth){
@@ -117,6 +118,7 @@ struct Size{
 	}
 	/// height
 	@property uinteger height(uinteger newHeight){
+		hasChanged = true;
 		if (minHeight > 0 && newHeight < minHeight){
 			return h = minHeight;
 		}else if (maxHeight > 0 && newHeight > maxHeight){
