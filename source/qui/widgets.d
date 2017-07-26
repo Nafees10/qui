@@ -48,7 +48,7 @@ private:
 		emptyLine.length = mRight;
 		emptyLine[] = mCharRight;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
-			display.moveTo(this.size.width-(mRight+1), mTop+i);
+			display.moveTo(this.size.width-(mRight), mTop+i);
 			display.write(emptyLine, textColor, bgColor);
 		}
 	}
