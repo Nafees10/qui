@@ -309,8 +309,13 @@ public:
 	}
 	
 	/// called by owner to set the `termInterface`, which widget uses to call some functions on terminal
+	/// 
+	/// **Should __NEVER__ be called from outside, only the owner should call this**
 	@property QTermInterface setTermInterface(QTermInterface newInterface){
-		return termInterface = newInterface;
+		termInterface = newInterface;
+		// register itself
+		termInterface.registerWidget(this);
+		return termInterface;
 	}
 	/// size of the widget. getter
 	@property ref Size size(){
@@ -515,14 +520,19 @@ public:
 		return updated;
 	}
 
-	// override setOnForceUpdate to change it for all child widgets as well
+	// override setTermInterface to change it for all child widgets as well
+	/// 
+	/// **Should __NEVER__ be called from outside, only the owner should call this**
 	override public @property QTermInterface setTermInterface(QTermInterface newInterface) {
 		// change it for all child widgets
 		foreach(widget; widgetList){
 			widget.setTermInterface = newInterface;
 		}
 		// change it for itself
-		return super.setTermInterface(newInterface);
+		auto r = super.setTermInterface(newInterface);
+		// register itself
+		termInterface.registerWidget(this);
+		return r;
 	}
 }
 
