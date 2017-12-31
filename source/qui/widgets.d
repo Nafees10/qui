@@ -121,7 +121,7 @@ public:
 				//check y-axis
 				if (mouse.y >= childWidget.position.y && mouse.y < childWidget.position.y + childWidget.size.height){
 					//give access to cursor position
-					childWidget.onCursorPosition = cursorPos;
+					childWidget.setTermInterface = termInterface;
 					//call mouseEvent
 					childWidget.mouseEvent(mouse);
 					//mark this widget as active
@@ -303,9 +303,8 @@ public:
 	@property uinteger total(uinteger newTotal){
 		needsUpdate = true;
 		max = newTotal;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return max;
 	}
 	/// the amount of progress. getter
@@ -316,9 +315,8 @@ public:
 	@property uinteger progress(uinteger newProgress){
 		needsUpdate = true;
 		done = newProgress;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return done;
 	}
 }
@@ -350,13 +348,11 @@ private:
 	}
 	/// used by widget itself to set cursor
 	void setCursor(){
-		//put the cursor at correct position, if possible
-		if (cursorPos !is null){
-			//check if cursor is at a position that's possible
-			if (inputText.length >= cursorX){
-				cursorPos((cursorX - scrollX)+widgetPosition.x+widgetCaption.length, widgetPosition.y);
-			}
-		}
+		termInterface.setCursorPos(
+			Position(
+				(cursorX - scrollX)+widgetPosition.x+widgetCaption.length, // x
+				widgetPosition.y), // y
+			this);
 	}
 	///shortens caption if too long
 	void shortenCaption(){
@@ -472,9 +468,8 @@ public:
 	///The text that has been input-ed.
 	@property string text(string newText){
 		inputText = cast(char[])newText;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return cast(string)inputText;
 	}
 	/// caption of the widget. setter
@@ -482,9 +477,8 @@ public:
 		needsUpdate = true;
 		widgetCaption = newCaption;
 		shortenCaption;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return widgetCaption;
 	}
 }
@@ -526,13 +520,12 @@ private:
 	}
 	// used by widget itself to set cursor
 	void setCursor(){
-		//put the cursor at correct position, if possible
-		if (cursorPos !is null){
-			//check if cursor is at a position that's possible
-			if (widgetLines.length >= cursorY && widgetLines.read(cursorY).length >= cursorX){
-				cursorPos((cursorX - scrollX)+widgetPosition.x, (cursorY - scrollY)+widgetPosition.y);
-			}
-		}
+		termInterface.setCursorPos(
+			Position(
+				(cursorX - scrollX)+widgetPosition.x, // x
+				(cursorY - scrollY)+widgetPosition.y //  y
+				),
+			this);
 	}
 	// used by widget itself to move cursor
 	void moveCursor(uinteger x, uinteger y){
@@ -775,9 +768,8 @@ public:
 	///sets whether to allow modifying of contents (false) or not (true)
 	@property bool readOnly(bool newPermission){
 		writeProtected = newPermission;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return writeProtected;
 	}
 }
@@ -891,18 +883,16 @@ public:
 		}
 		//update
 		needsUpdate = true;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 	}
 	///clears the log
 	void clear(){
 		logs.clear;
 		//update
 		needsUpdate = true;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 	}
 }
 

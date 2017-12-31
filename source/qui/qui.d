@@ -34,7 +34,7 @@ struct MouseClick{
 ///A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
 struct KeyPress{
 	dchar key;/// stores which key was pressed
-	
+
 	/// Returns true if the key was a character.
 	/// 
 	/// A note: Enter/Return ('\n') is not included in KeyPress.NonCharKey
@@ -157,24 +157,11 @@ protected:
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
 	uinteger widgetSizeRatio = 1;
-	
-	/// Called by widget when a redraw is needed, when no redraw is scheduled
-	/// 
-	/// In other words: call this function using (or it'll cause a segfault):
-	/// ```
-	/// if (forceUpdate !is null){
-	/// 	forceUpdate();
-	/// }
-	/// ``` 
-	/// when an update is needed, and it's not sure if an update will be called.
-	/// If an update is already ongoing, this function will return false, or scheduled
-	bool delegate() forceUpdate;
-	
-	/// Called by widgets (usually keyboard-input-taking) to position the cursor
-	/// 
-	/// It can only be called if the widget is active (i.e selected), in non-active widgets, it is null;
-	/// The position is relative to the (0, 0) on terminal
-	void delegate(uinteger x, uinteger y) cursorPos;
+	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true
+	/// if only required, for example, in text editors
+	bool widgetWantsTab = false;
+	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
+	QTermInterface termInterface;
 	
 	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
 	/// 
@@ -230,6 +217,11 @@ public:
 		}
 	}
 
+	/// Returns: whether the widget is receiving the Tab key press or not
+	@property bool wantsTab(){
+		return widgetWantsTab;
+	}
+
 	/// called by `QLayout` when the widget is resized.
 	void resize(){
 		needsUpdate = true;
@@ -273,9 +265,8 @@ public:
 	@property string caption(string newCaption){
 		needsUpdate = true;
 		widgetCaption = newCaption;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return widgetCaption;
 	}
 	
@@ -286,9 +277,8 @@ public:
 	/// position of the widget. setter
 	@property ref Position position(Position newPosition){
 		widgetPosition = newPosition;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return widgetPosition;
 	}
 	
@@ -300,9 +290,8 @@ public:
 	@property uinteger sizeRatio(uinteger newRatio){
 		needsUpdate = true;
 		widgetSizeRatio = newRatio;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return widgetSizeRatio;
 	}
 	
@@ -314,19 +303,14 @@ public:
 	@property bool visible(bool visibility){
 		needsUpdate = true;
 		widgetShow = visibility;
-		if (forceUpdate !is null){
-			forceUpdate();
-		}
+		// force an update
+		termInterface.forceUpdate();
 		return widgetShow;
 	}
 	
-	/// called by owner to set the `forceUpdate` function, which is used to force an update immediately.
-	@property bool delegate() onForceUpdate(bool delegate() newOnForceUpdate){
-		return forceUpdate = newOnForceUpdate;
-	}
-	/// called by the owner to set the `cursorPos` function, which is used to position the cursor on the terminal.
-	@property void delegate(uinteger, uinteger) onCursorPosition(void delegate(uinteger, uinteger) newOnCursorPos){
-		return cursorPos = newOnCursorPos;
+	/// called by owner to set the `termInterface`, which widget uses to call some functions on terminal
+	@property QTermInterface setTermInterface(QTermInterface newInterface){
+		return termInterface = newInterface;
 	}
 	/// size of the widget. getter
 	@property ref Size size(){
@@ -438,7 +422,7 @@ public:
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
-		widget.onForceUpdate = forceUpdate;
+		widget.setTermInterface = termInterface;
 		//add it to array
 		widgetList.length++;
 		widgetList[widgetList.length-1] = widget;
@@ -450,7 +434,7 @@ public:
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget[] widgets){
 		foreach(widget; widgets){
-			widget.onForceUpdate = forceUpdate;
+			widget.termInterface = termInterface;
 		}
 		// add to array
 		widgetList ~= widgets.dup;
@@ -481,10 +465,6 @@ public:
 	
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
-		//remove access to cursor from previous active widget
-		if (activeWidget){
-			activeWidget.onCursorPosition = null;
-		}
 		foreach (widget; widgetList){
 			if (widget.visible){
 				Position p = widget.position;
@@ -493,12 +473,10 @@ public:
 				if (mouse.x >= p.x && mouse.x < p.x + s.width){
 					//check y-axis
 					if (mouse.y >= p.y && mouse.y < p.y + s.height){
-						//give access to cursor position
-						widget.onCursorPosition = cursorPos;
-						//call mouseEvent
-						widget.mouseEvent(mouse);
 						//mark this widget as active
 						activeWidget = widget;
+						//call mouseEvent
+						widget.mouseEvent(mouse);
 						break;
 					}
 				}
@@ -538,14 +516,54 @@ public:
 	}
 
 	// override setOnForceUpdate to change it for all child widgets as well
-	override @property bool delegate() onForceUpdate(bool delegate() newOnForceUpdate){
+	override public @property QTermInterface setTermInterface(QTermInterface newInterface) {
 		// change it for all child widgets
 		foreach(widget; widgetList){
-			widget.onForceUpdate = newOnForceUpdate;
+			widget.setTermInterface = newInterface;
 		}
 		// change it for itself
-		return super.onForceUpdate(newOnForceUpdate);
+		return super.setTermInterface(newInterface);
 	}
+}
+
+/// Provides interface to the QTerminal for widgets
+struct QTermInterface{
+	/// the terminal to provide interface to
+	private QTerminal term;
+	/// constructor
+	this (QTerminal terminal){
+		term = terminal;
+	}
+	/// called to set position of the cursor
+	/// 
+	/// Returns: true on success, false on failure, probably because caller isnt activeWidget
+	bool setCursorPos(Position cursorPos, QWidget callerWidget){
+		if (term)
+			return term.setCursorPos(cursorPos.x, cursorPos.y, callerWidget);
+		return false;
+	}
+	/// used to set "hotkey", so each a key is pressed, a specific widget's keyboardEvent will be triggered
+	/// 
+	/// Returns: true on success, false on failure, probably because the key is already registered
+	bool setKeyHandler(KeyPress key, QWidget handlerWidget){
+		if (term)
+			return term.registerKeyHandler(key, handlerWidget);
+		return false;
+	}
+	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
+	void registerWidget(QWidget newWidget){
+		if (term)
+			term.registerWidget(newWidget);
+	}
+	/// forces an update of the terminal, only widgets that need update will be updated.
+	/// 
+	/// Returns: true if at least one widget was updated, otherwise, false
+	bool forceUpdate(){
+		if (term)
+			return term.updateDisplay;
+		return false;
+	}
+
 }
 
 /// A terminal (as the name says).
@@ -557,71 +575,73 @@ class QTerminal : QLayout{
 private:
 	Terminal terminal;
 	RealTimeConsoleInput input;
+	/// the Matrix in which all the terminal's content lives
 	Matrix termDisplay;
-	
+	/// stores the position of the mouse cursor
 	Position cursorPos;
-	
+	/// used to terminate the run-loop
 	bool isRunning = false;
-public:
-	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
-		super(displayType);
-		//create terminal & input
-		terminal = Terminal(ConsoleOutputType.cellular);
-		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
-		terminal.showCursor();
-		//init vars
-		widgetSize.height = terminal.height;
-		widgetSize.width = terminal.width;
-		widgetCaption = caption;
-		//set caption
-		terminal.setTitle(widgetCaption);
-		//create display matrix
-		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
-		termDisplay.setColors(textColor, bgColor);
+	/// array containing registered widgets
+	QWidget[] registeredWidgets;
+	/// stores the index of the active widget, which is in `registeredWidgets`, <0 if none
+	integer activeWidgetIndex = -1;
+	/// stores list of keys and widgets that will catch their KeyPress event
+	QWidget[KeyPress] keysToCatch;
+
+	/// Called by QTermInterface to position the cursor, only the activeWidget can change the cursorPos
+	/// 
+	/// Returns: true on success, false on failure
+	bool setCursorPos(uinteger x, uinteger y, QWidget callerWidget){
+		if (activeWidget !is null && callerWidget == activeWidget){
+			cursorPos.x = x;
+			cursorPos.y = y;
+			return true;
+		}
+		return false;
 	}
-	~this(){
+
+	/// registers a key with a widget, so regardless of activeWidget, that widget will catch that key's KeyPress event
+	/// 
+	/// Returns:  true on success, false on failure, which can occur because that key is already registered
+	bool registerKeyHandler(KeyPress key, QWidget widget){
+		if (key in keysToCatch){
+			return false;
+		}else{
+			keysToCatch[key] = widget;
+			return true;
+		}
+	}
+
+	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
+	void registerWidget(QWidget newWidget){
+		registeredWidgets ~= newWidget;
+	}
+
+	//functions below are used by Matrix.flushToTerminal
+	///flush changes to terminal, called by Matrix
+	void flush(){
+		terminal.flush;
+	}
+	///clear terminal, called before writing, called by Matrix
+	void clear(){
 		terminal.clear;
-		delete termDisplay;
 	}
-	
-	override public void addWidget(QWidget widget){
-		super.addWidget(widget);
-		widget.onForceUpdate = &updateDisplay;
+	///change colors, called by Matrix
+	void setColors(RGBColor textColor, RGBColor bgColor){
+		terminal.setTrueColor(textColor, bgColor);
 	}
-	override public void addWidget(QWidget[] widgets){
-		super.addWidget(widgets);
-		foreach (widget; widgets){
-			widget.onForceUpdate = &updateDisplay;
-		}
+	///move write-cursor to a position, called by Matrix
+	void moveTo(int x, int y){
+		terminal.moveTo(x, y);
 	}
-	
-	override public void mouseEvent(MouseClick mouse) {
-		super.mouseEvent(mouse);
-		//remove access to cursor from previous active widget
-		if (activeWidget){
-			activeWidget.onCursorPosition = null;
-		}
-		foreach (widget; widgetList){
-			if (widget.visible){
-				Position p = widget.position;
-				Size s = widget.size;
-				//check x-axis
-				if (mouse.x >= p.x && mouse.x < p.x + s.width){
-					//check y-axis
-					if (mouse.y >= p.y && mouse.y < p.y + s.height){
-						//give access to cursor position
-						widget.onCursorPosition = &setCursorPos;
-						//call mouseEvent
-						widget.mouseEvent(mouse);
-						//mark this widget as active
-						activeWidget = widget;
-						break;
-					}
-				}
-			}
-		}
+	///write chars to terminal, called by Matrix
+	void writeChars(char[] c){
+		terminal.write(c);
 	}
-	
+	///write char to terminal, called by Matrix
+	void writeChars(char c){
+		terminal.write(c);
+	}
 	/// Use this instead of `update` to forcefully update the terminal
 	/// 
 	/// returns true if at least one widget was updated, false if nothing was updated
@@ -640,6 +660,87 @@ public:
 			return false;
 		}
 	}
+public:
+	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
+		super(displayType);
+		//create terminal & input
+		terminal = Terminal(ConsoleOutputType.cellular);
+		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
+		terminal.showCursor();
+		//init vars
+		termInterface = QTermInterface(this);
+		widgetSize.height = terminal.height;
+		widgetSize.width = terminal.width;
+		widgetCaption = caption;
+		//set caption
+		terminal.setTitle(widgetCaption);
+		//create display matrix
+		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
+		termDisplay.setColors(textColor, bgColor);
+	}
+	~this(){
+		terminal.clear;
+		delete termDisplay;
+	}
+	
+	override public void addWidget(QWidget widget){
+		super.addWidget(widget);
+		widget.setTermInterface = termInterface;
+	}
+	override public void addWidget(QWidget[] widgets){
+		super.addWidget(widgets);
+		foreach (widget; widgets){
+			widget.setTermInterface = termInterface;
+		}
+	}
+	
+	override public void mouseEvent(MouseClick mouse){
+		super.mouseEvent(mouse);
+		foreach (widget; widgetList){
+			if (widget.visible){
+				Position p = widget.position;
+				Size s = widget.size;
+				//check x-axis
+				if (mouse.x >= p.x && mouse.x < p.x + s.width){
+					//check y-axis
+					if (mouse.y >= p.y && mouse.y < p.y + s.height){
+						//mark this widget as active
+						activeWidget = null;
+						activeWidgetIndex = registeredWidgets.indexOf(widget);
+						if (activeWidgetIndex >= 0){
+							activeWidget = registeredWidgets[activeWidgetIndex];
+						}
+						//call mouseEvent
+						widget.mouseEvent(mouse);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	override public void keyboardEvent(KeyPress key){
+		// check if the activeWidget wants Tab, otherwise, if is Tab, make the next widget active
+		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (activeWidgetIndex < 0 || !activeWidget.wantsTab))){
+			// make the next widget active
+			if (registeredWidgets.length > 0){
+				activeWidgetIndex ++;
+				if (activeWidgetIndex > registeredWidgets.length){
+					activeWidgetIndex = 0;
+					activeWidget = registeredWidgets[activeWidgetIndex];
+				}
+			}else{
+				activeWidgetIndex = -1;
+				activeWidget = null;
+			}
+		}else if (key in keysToCatch){
+			// this is a registered key, only a specific widget catches it
+			keysToCatch[key].keyboardEvent(key);
+		}else{
+			super.keyboardEvent(key);
+		}
+	}
+
 	
 	/// starts the UI loop
 	void run(){
@@ -700,7 +801,7 @@ public:
 				//call size change on all widgets
 				resize();
 				updateDisplay;
-			}else if (event.type == event.Type.UserInterruptionEvent){
+			}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
 				//die here
 				terminal.clear;
 				isRunning = false;
@@ -715,42 +816,10 @@ public:
 	void terminate(){
 		isRunning = false;
 	}
-
-	/// Called by active-widget to position the cursor
-	void setCursorPos(uinteger x, uinteger y){
-		cursorPos.x = x;
-		cursorPos.y = y;
-	}
 	
 	///returns true if UI loop is running
 	@property bool running(){
 		return isRunning;
-	}
-	
-	//functions below are used by Matrix.flushToTerminal
-	///flush changes to terminal, called by Matrix
-	void flush(){
-		terminal.flush;
-	}
-	///clear terminal, called before writing, called by Matrix
-	void clear(){
-		terminal.clear;
-	}
-	///change colors, called by Matrix
-	void setColors(RGBColor textColor, RGBColor bgColor){
-		terminal.setTrueColor(textColor, bgColor);
-	}
-	///move write-cursor to a position, called by Matrix
-	void moveTo(int x, int y){
-		terminal.moveTo(x, y);
-	}
-	///write chars to terminal, called by Matrix
-	void writeChars(char[] c){
-		terminal.write(c);
-	}
-	///write char to terminal, called by Matrix
-	void writeChars(char c){
-		terminal.write(c);
 	}
 }
 
