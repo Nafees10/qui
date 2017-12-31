@@ -369,6 +369,8 @@ public:
 		this.size.minWidth = 1;
 		this.size.minHeight = 1;
 		this.size.maxHeight = 1;
+		// this widget wants Tab key
+		widgetWantsTab = true;
 
 		bgColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
@@ -545,6 +547,9 @@ public:
 		scrollX, scrollY = 0;
 		cursorX, cursorY = 0;
 		writeProtected = readOnly;//cause if readOnly, then writeProtected = true also
+
+		// this widget wants Tab key
+		widgetWantsTab = true;
 
 		bgColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
