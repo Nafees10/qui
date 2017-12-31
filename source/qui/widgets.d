@@ -100,6 +100,7 @@ public:
 
 			childWidget.position.x = this.position.x + mLeft;
 			childWidget.position.y = this.position.y + mTop;
+			childWidget.resize();
 		}
 	}
 
@@ -137,7 +138,9 @@ public:
 	}
 	/// the widget to be contained
 	@property QWidget widget(QWidget newVal){
-		return childWidget = newVal;
+		childWidget = newVal;
+		childWidget.setTermInterface = termInterface;
+		return childWidget;
 	}
 	/// top margin
 	@property uinteger marginTop(){
