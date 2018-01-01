@@ -722,7 +722,9 @@ public:
 	}
 	
 	override public void mouseEvent(MouseClick mouse){
-		super.mouseEvent(mouse);
+		if (customMouseEvent !is null){
+			customMouseEvent(mouse);
+		}
 		foreach (widget; widgetList){
 			if (widget.visible){
 				Position p = widget.position;
@@ -747,6 +749,9 @@ public:
 	}
 
 	override public void keyboardEvent(KeyPress key){
+		if (customKeyboardEvent !is null){
+			customKeyboardEvent(key);
+		}
 		// check if the activeWidget wants Tab, otherwise, if is Tab, make the next widget active
 		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (activeWidgetIndex < 0 || !activeWidget.wantsTab))){
 			// make the next widget active
