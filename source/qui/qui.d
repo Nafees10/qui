@@ -725,8 +725,10 @@ public:
 		if (customMouseEvent !is null){
 			customMouseEvent(mouse);
 		}
-		foreach (widget; widgetList){
-			if (widget.visible){
+		activeWidget = null;
+		activeWidgetIndex = -1;
+		foreach (i, widget; registeredWidgets){
+			if (widget.visible && widget.wantsInput){
 				Position p = widget.position;
 				Size s = widget.size;
 				//check x-axis
@@ -734,11 +736,8 @@ public:
 					//check y-axis
 					if (mouse.y >= p.y && mouse.y < p.y + s.height){
 						//mark this widget as active
-						activeWidget = null;
-						activeWidgetIndex = registeredWidgets.indexOf(widget);
-						if (activeWidgetIndex >= 0){
-							activeWidget = registeredWidgets[activeWidgetIndex];
-						}
+						activeWidget = widget;
+						activeWidgetIndex = i;
 						//call mouseEvent
 						widget.mouseEvent(mouse);
 						break;
