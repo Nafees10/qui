@@ -507,7 +507,8 @@ public:
 					wDisplay.changeSize(widget.size.width, widget.size.height);
 					wDisplay.resetWritePosition();
 					if (widget.update(wDisplay)){
-						display.insert(wDisplay, widget.position.x, widget.position.y);
+						display.insert(wDisplay, widget.position.x - this.position.x,
+							widget.position.y - this.position.y);
 						updated = true;
 					}
 					wDisplay.clear();
@@ -523,13 +524,13 @@ public:
 	// override setTermInterface to change it for all child widgets as well
 	/// 
 	/// **Should __NEVER__ be called from outside, only the owner should call this**
-	override public @property QTermInterface setTermInterface(QTermInterface newInterface) {
-		// change it for all child widgets
-		foreach(widget; widgetList){
-			widget.setTermInterface = newInterface;
-		}
+	override public @property QTermInterface setTermInterface(QTermInterface newInterface){
 		// change it for itself
 		auto r = super.setTermInterface(newInterface);
+		// change it for all child widgets
+		foreach(widget; widgetList){
+			widget.setTermInterface = termInterface;
+		}
 		// register itself
 		termInterface.registerWidget(this);
 		return r;
