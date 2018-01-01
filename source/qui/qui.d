@@ -160,6 +160,10 @@ protected:
 	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true
 	/// if only required, for example, in text editors
 	bool widgetWantsTab = false;
+	/// specifies whether the widget wants input, mouse or keyboard, or both
+	bool widgetWantsInput = false;
+	/// specifies if the widget needs to show the cursor
+	bool widgetShowCursor = false;
 	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
 	QTermInterface termInterface;
 	
@@ -220,6 +224,16 @@ public:
 	/// Returns: whether the widget is receiving the Tab key press or not
 	@property bool wantsTab(){
 		return widgetWantsTab;
+	}
+	
+	/// Returns: whether the widget wants input
+	@property bool wantsInput(){
+		return widgetWantsInput;
+	}
+
+	/// Returns: whether the widget needs to show a cursor, only considered when this widget is active
+	@property bool showCursor(){
+		return widgetShowCursor;
 	}
 
 	/// called by `QLayout` when the widget is resized.
@@ -603,7 +617,7 @@ private:
 	/// 
 	/// Returns: true on success, false on failure
 	bool setCursorPos(uinteger x, uinteger y, QWidget callerWidget){
-		if (activeWidget !is null && callerWidget == activeWidget){
+		if (activeWidget && callerWidget == activeWidget){
 			cursorPos.x = x;
 			cursorPos.y = y;
 			return true;
@@ -664,8 +678,10 @@ private:
 				termDisplay.flushToTerminal(this);
 			}
 			//set cursor position
-			terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
-			terminal.showCursor();
+			if (activeWidget && activeWidget.showCursor){
+				terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
+				terminal.showCursor();
+			}
 			return r;
 		}else{
 			return false;
@@ -738,7 +754,17 @@ public:
 				activeWidgetIndex ++;
 				if (activeWidgetIndex > registeredWidgets.length){
 					activeWidgetIndex = 0;
+				}
+				// see if it wants input, case no, switch to some other widget
+				for (;activeWidgetIndex < registeredWidgets.length; activeWidgetIndex ++){
+					if (registeredWidgets[activeWidgetIndex].wantsInput){
+						break;
+					}
+				}
+				if (activeWidgetIndex < registeredWidgets.length){
 					activeWidget = registeredWidgets[activeWidgetIndex];
+				}else{
+					activeWidgetIndex = -1;
 				}
 			}else{
 				activeWidgetIndex = -1;

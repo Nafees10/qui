@@ -71,6 +71,9 @@ public:
 		textColor = hexToColor("00FF00");
 		marginChar = ' ';
 		margin = 0;
+		// this widget doesnt want input, but it's child-widget may want, but child widget is registered separately, so 
+		// this widget does not want input
+		widgetWantsInput = false;
 	}
 
 	override bool update(Matrix display){
@@ -377,6 +380,10 @@ public:
 		this.size.maxHeight = 1;
 		// this widget wants Tab key
 		widgetWantsTab = true;
+		// and input too, obvious
+		widgetWantsInput = true;
+		// and needs to show the cursor too
+		widgetShowCursor = true;
 
 		bgColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
@@ -556,6 +563,10 @@ public:
 
 		// this widget wants Tab key
 		widgetWantsTab = true;
+		// and input too, obviously
+		widgetWantsInput = true;
+		// and the cursor should be visible
+		widgetShowCursor = true;
 
 		bgColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
@@ -918,6 +929,7 @@ private:
 public:
 	this(string caption=""){
 		widgetCaption = caption;
+		widgetWantsInput = true;
 
 		bgColor = hexToColor("00FF00");
 		textColor = hexToColor("000000");
