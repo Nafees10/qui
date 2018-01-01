@@ -453,7 +453,7 @@ public:
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget[] widgets){
 		foreach(widget; widgets){
-			widget.termInterface = termInterface;
+			widget.setTermInterface = termInterface;
 		}
 		// add to array
 		widgetList ~= widgets.dup;
