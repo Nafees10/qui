@@ -424,10 +424,9 @@ public:
 					}
 				}
 			}
-			//set cursor pos, if can
-			setCursor();
 			needsUpdate = false;
 		}
+		setCursor();
 		return r;
 	}
 	
@@ -624,11 +623,10 @@ public:
 						display.write(emptyLine,textColor, bgColor);
 					}
 				}
-				//put the cursor at correct position, if possible
-				setCursor();
 			}
 			needsUpdate = false;
 		}
+		setCursor();
 		return r;
 	}
 	
