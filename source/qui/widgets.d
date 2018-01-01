@@ -69,8 +69,8 @@ public:
 	this (){
 		bgColor = hexToColor("000000");
 		textColor = hexToColor("00FF00");
-		mCharTop, mCharBottom, mCharLeft, mCharRight = ' ';
-		mTop, mBottom, mLeft, mRight = 0;
+		marginChar = ' ';
+		margin = 0;
 	}
 
 	override bool update(Matrix display){
@@ -78,7 +78,7 @@ public:
 			// then the widget
 			Matrix wDisplay = new Matrix(childWidget.size.width, childWidget.size.height);
 			if (childWidget.update(wDisplay)){
-				display.insert(wDisplay, mLeft, mRight);
+				display.insert(wDisplay, mLeft, mTop);
 			}
 			.destroy(wDisplay);
 			// draw the margins
@@ -230,7 +230,10 @@ public:
 	/// to set the character written in each margin (top, bottom, left, & right)
 	@property char marginChar(char newVal){
 		needsUpdate = true;
-		mCharTop, mCharBottom, mCharLeft, mCharRight = newVal;
+		mCharTop = newVal;
+		mCharBottom = newVal;
+		mCharLeft = newVal;
+		mCharRight = newVal;
 		return newVal;
 	}
 }
