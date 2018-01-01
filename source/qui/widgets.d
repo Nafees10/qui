@@ -124,8 +124,6 @@ public:
 			if (mouse.x >= childWidget.position.x && mouse.x < childWidget.position.x + childWidget.size.width){
 				//check y-axis
 				if (mouse.y >= childWidget.position.y && mouse.y < childWidget.position.y + childWidget.size.height){
-					//give access to cursor position
-					childWidget.setTermInterface = termInterface;
 					//call mouseEvent
 					childWidget.mouseEvent(mouse);
 					//mark this widget as active
@@ -133,6 +131,12 @@ public:
 				}
 			}
 		}
+	}
+	/// overriding to change termInterface of child-widget too
+	override public @property QTermInterface setTermInterface(QTermInterface newInterface) {
+		auto r = super.setTermInterface(newInterface);
+		childWidget.setTermInterface (termInterface);
+		return r;
 	}
 	// properties
 	/// the widget to be contained
