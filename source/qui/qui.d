@@ -761,7 +761,7 @@ public:
 				}
 				// see if it wants input, case no, switch to some other widget
 				for (;activeWidgetIndex < registeredWidgets.length; activeWidgetIndex ++){
-					if (registeredWidgets[activeWidgetIndex].wantsInput){
+					if (registeredWidgets[activeWidgetIndex].wantsInput && registeredWidgets[activeWidgetIndex].visible){
 						break;
 					}
 				}
