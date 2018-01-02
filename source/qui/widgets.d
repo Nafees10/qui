@@ -20,7 +20,7 @@ private:
 	uinteger mTop, mBottom, mLeft, mRight; // margins
 	char mCharTop, mCharBottom, mCharLeft, mCharRight;
 
-	RGBColor bgColor, textColor; // backgrond and foreground colors
+	RGB bgColor, textColor; // backgrond and foreground colors
 	/// called by `update` to draw margins
 	void drawMargins(Matrix display){
 		char[] emptyLine;
@@ -252,7 +252,7 @@ public:
 ///Name in theme: 'text-label';
 class TextLabelWidget : QWidget{
 private:
-	RGBColor textColor, bgColor;
+	RGB textColor, bgColor;
 public:
 	this(string wCaption = ""){
 		widgetCaption = wCaption;
@@ -278,7 +278,7 @@ public:
 class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
-	RGBColor bgColor, barColor;
+	RGB bgColor, barColor;
 	void writeBarLine(Matrix display, uinteger filled, char[] bar){
 		display.write(bar[0 .. filled], barColor, barColor);
 		display.write(bar[filled .. bar.length], barColor, bgColor);
@@ -342,7 +342,7 @@ private:
 	char[] inputText;
 	uinteger cursorX;
 	uinteger scrollX = 0;//amount of chars that won't be displayed because of not enough space
-	RGBColor bgColor, textColor, captionTextColor, captionBgColor;
+	RGB bgColor, textColor, captionTextColor, captionBgColor;
 	
 	void reScroll(){
 		//check if is within length of line
@@ -509,7 +509,7 @@ private:
 	List!string widgetLines;
 	uinteger scrollX, scrollY;
 	uinteger cursorX, cursorY;
-	RGBColor bgColor, textColor;
+	RGB bgColor, textColor;
 	bool writeProtected = false;
 	// used by widget itseld to recalculate scrolling
 	void reScroll(){
@@ -809,7 +809,7 @@ private:
 	
 	uinteger max;
 	
-	RGBColor bgColor, textColor;
+	RGB bgColor, textColor;
 	
 	uinteger stringLineCount(string s){
 		uinteger width = this.size.width;
@@ -927,7 +927,7 @@ public:
 /// To receive input, set the `onMouseEvent` to set a custom mouse event
 class ButtonWidget : QWidget{
 private:
-	RGBColor bgColor, textColor;
+	RGB bgColor, textColor;
 public:
 	this(string caption=""){
 		widgetCaption = caption;

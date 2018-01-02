@@ -73,7 +73,7 @@ struct KeyPress{
 /// 
 /// `r` represents amount of red, `g` is green, and `b` is blue.
 /// the `a` is ignored
-alias RGBColor = RGB;
+public import arsd.terminal : RGB;
 
 /// Used to store position for widgets
 struct Position{
@@ -360,11 +360,6 @@ private:
 	QWidget activeWidget;
 	// stores the layout type, horizontal or vertical
 	LayoutDisplayType layoutType;
-	
-	// background color
-	RGBColor bgColor;
-	// foreground color
-	RGBColor textColor;
 	// stores whether an update is in progress
 	bool isUpdating = false;
 	
@@ -612,6 +607,8 @@ private:
 	integer activeWidgetIndex = -1;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[KeyPress] keysToCatch;
+	/// colors
+	RGB textColor, bgColor;
 
 	/// Called by QTermInterface to position the cursor, only the activeWidget can change the cursorPos
 	/// 
@@ -652,7 +649,7 @@ private:
 		terminal.clear;
 	}
 	///change colors, called by Matrix
-	void setColors(RGBColor textColor, RGBColor bgColor){
+	void setColors(RGB textColor, RGB bgColor){
 		terminal.setTrueColor(textColor, bgColor);
 	}
 	///move write-cursor to a position, called by Matrix
@@ -869,7 +866,7 @@ class Matrix{
 private:
 	struct Display{
 		uinteger x, y;
-		RGBColor bgColor, textColor;
+		RGB bgColor, textColor;
 		char[] content;
 	}
 	//matrix size
@@ -921,7 +918,7 @@ public:
 		yPosition = 0;
 	}
 	/// To write to terminal
-	void write(char[] c, RGBColor textColor, RGBColor bgColor){
+	void write(char[] c, RGB textColor, RGB bgColor){
 		//get available cells
 		uinteger cells = (matrixHeight - yPosition) * matrixWidth;// first get the whole area
 		cells -= xPosition;//subtract partial-lines
@@ -951,7 +948,7 @@ public:
 		}
 	}
 	/// Changes the matrix's colors. Must be called before any writing has taken place
-	void setColors(RGBColor textColor, RGBColor bgColor){
+	void setColors(RGB textColor, RGB bgColor){
 		toUpdate.clear;// because it's contents are going to be overwritten, so why bother waste time writing them?
 		Display disp;
 		disp.bgColor = bgColor;
@@ -1049,9 +1046,9 @@ uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total)
 	return r;
 }
 
-///Converts hex color code to RGBColor
-RGBColor hexToColor(string hex){
-	RGBColor r;
+///Converts hex color code to RGB
+RGB hexToColor(string hex){
+	RGB r;
 	uinteger den = hexToDenary(hex);
 	//min val for red in denary = 65536
 	//min val for green in denary = 256
@@ -1069,15 +1066,15 @@ RGBColor hexToColor(string hex){
 }
 ///
 unittest{
-	RGBColor c;
+	RGB c;
 	c.r = 10;
 	c.g = 15;
 	c.b = 0;
 	assert("0A0F00".hexToColor == c);
 }
 
-///Converts RGBColor to hex color code
-string colorToHex(RGBColor col){
+///Converts RGB to hex color code
+string colorToHex(RGB col){
 	uinteger den;
 	den = col.b;
 	den += col.g*256;
@@ -1086,7 +1083,7 @@ string colorToHex(RGBColor col){
 }
 ///
 unittest{
-	RGBColor c;
+	RGB c;
 	c.r = 10;
 	c.g = 8;
 	c.b = 12;
