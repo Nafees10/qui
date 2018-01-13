@@ -107,32 +107,6 @@ public:
 		}
 	}
 
-	override void keyboardEvent(KeyPress key){
-		super.keyboardEvent(key);
-		if (childWidget !is null && childWidget.visible && childWidgetIsActive){
-			childWidget.keyboardEvent(key);
-		}
-	}
-
-	/// Receives the event, and hands it down to the child widget if mouse is on that widget
-	override void mouseEvent(MouseClick mouse) {
-		super.mouseEvent(mouse);
-		// mark child widget as not-active, it'll be marked active if the mouse is on it
-		childWidgetIsActive = false;
-		if (childWidget !is null && childWidget.visible){
-			//check x-axis
-			if ((mouse.x >= mLeft && mouse.x < widgetSize.width-mRight) &&
-				(mouse.y >= mTop && mouse.y < widgetSize.height-mBottom)){
-				// make mouse position relative to widget position
-				mouse.x -= mLeft;
-				mouse.y -= mTop;
-				//call mouseEvent
-				childWidget.mouseEvent(mouse);
-				//mark this widget as active
-				childWidgetIsActive = true;
-			}
-		}
-	}
 	/// overriding to change termInterface of child-widget too
 	override public @property QTermInterface setTermInterface(QTermInterface newInterface) {
 		auto r = super.setTermInterface(newInterface);
