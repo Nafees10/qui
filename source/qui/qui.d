@@ -356,8 +356,6 @@ class QLayout : QWidget{
 private:
 	// array of all the widgets that have been added to this layout
 	QWidget[] widgetList;
-	// contains reference to the active widget, null if no active widget
-	QWidget activeWidget;
 	// stores the layout type, horizontal or vertical
 	LayoutDisplayType layoutType;
 	// stores whether an update is in progress
@@ -368,7 +366,7 @@ private:
 		static if (T != LayoutDisplayType.Horizontal && T != LayoutDisplayType.Vertical){
 			assert(false);
 		}
-		uinteger repeat;
+		bool repeat;
 		do{
 			repeat = false;
 			foreach(i, widget; widgets){
@@ -429,7 +427,7 @@ private:
 public:
 	this(LayoutDisplayType type){
 		layoutType = type;
-		activeWidget = null;
+		widgetWantsInput = false;
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
@@ -438,8 +436,7 @@ public:
 	void addWidget(QWidget widget){
 		widget.setTermInterface = termInterface;
 		//add it to array
-		widgetList.length++;
-		widgetList[widgetList.length-1] = widget;
+		widgetList ~= widget;
 		//recalculate all widget's size to adjust
 		resize();
 	}
@@ -475,34 +472,6 @@ public:
 			recalculateWidgetsPosition!(LayoutDisplayType.Vertical)(widgetList);
 		}
 		isUpdating = false;
-	}
-	
-	override void mouseEvent(MouseClick mouse){
-		super.mouseEvent(mouse);
-		foreach (widget; widgetList){
-			if (widget.visible){
-				Position p = widget.position;
-				Size s = widget.size;
-				//check x-axis
-				if (mouse.x >= p.x && mouse.x < p.x + s.width){
-					//check y-axis
-					if (mouse.y >= p.y && mouse.y < p.y + s.height){
-						//mark this widget as active
-						activeWidget = widget;
-						//call mouseEvent
-						widget.mouseEvent(mouse);
-						break;
-					}
-				}
-			}
-		}
-	}
-	override void keyboardEvent(KeyPress key){
-		super.keyboardEvent(key);
-		//check active widget, call keyboardEvent
-		if (activeWidget){
-			activeWidget.keyboardEvent(key);
-		}
 	}
 	override bool update(Matrix display){
 		bool updated = false;
@@ -605,6 +574,8 @@ private:
 	QWidget[] registeredWidgets;
 	/// stores the index of the active widget, which is in `registeredWidgets`, <0 if none
 	integer activeWidgetIndex = -1;
+	// contains reference to the active widget, null if no active widget
+	QWidget activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[KeyPress] keysToCatch;
 	/// colors
@@ -719,9 +690,7 @@ public:
 	}
 	
 	override public void mouseEvent(MouseClick mouse){
-		if (customMouseEvent !is null){
-			customMouseEvent(mouse);
-		}
+		super.mouseEvent(mouse);
 		activeWidget = null;
 		activeWidgetIndex = -1;
 		foreach (i, widget; registeredWidgets){
@@ -745,9 +714,7 @@ public:
 	}
 
 	override public void keyboardEvent(KeyPress key){
-		if (customKeyboardEvent !is null){
-			customKeyboardEvent(key);
-		}
+		super.keyboardEvent(key);
 		// check if the activeWidget wants Tab, otherwise, if is Tab, make the next widget active
 		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (activeWidgetIndex < 0 || !activeWidget.wantsTab))){
 			// make the next widget active
@@ -774,8 +741,8 @@ public:
 		}else if (key in keysToCatch){
 			// this is a registered key, only a specific widget catches it
 			keysToCatch[key].keyboardEvent(key);
-		}else{
-			super.keyboardEvent(key);
+		}else if (activeWidget !is null){
+			activeWidget.keyboardEvent (key);
 		}
 	}
 
