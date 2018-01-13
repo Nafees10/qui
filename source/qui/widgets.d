@@ -363,8 +363,8 @@ private:
 	void setCursor(){
 		termInterface.setCursorPos(
 			Position(
-				(cursorX - scrollX)+widgetPosition.x+widgetCaption.length, // x
-				widgetPosition.y), // y
+				(cursorX - scrollX)+widgetCaption.length, // x
+				0), // y
 			this);
 	}
 	///shortens caption if too long
@@ -540,8 +540,8 @@ private:
 	void setCursor(){
 		termInterface.setCursorPos(
 			Position(
-				(cursorX - scrollX)+widgetPosition.x, // x
-				(cursorY - scrollY)+widgetPosition.y //  y
+				cursorX - scrollX, // x
+				cursorY - scrollY //  y
 				),
 			this);
 	}

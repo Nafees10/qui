@@ -586,8 +586,8 @@ private:
 	/// Returns: true on success, false on failure
 	bool setCursorPos(uinteger x, uinteger y, QWidget callerWidget){
 		if (activeWidget && callerWidget == activeWidget){
-			cursorPos.x = x;
-			cursorPos.y = y;
+			cursorPos.x = activeWidget.position.x + x;
+			cursorPos.y = activeWidget.position.y + y;
 			return true;
 		}
 		return false;
