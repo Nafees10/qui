@@ -552,7 +552,13 @@ struct QTermInterface{
 			return term.updateDisplay;
 		return false;
 	}
-
+	/// Returns: true if a widget is active widget
+	bool isActiveWidget(QWidget widget){
+		if (term){
+			return term.isActiveWidget(widget);
+		}
+		return false;
+	}
 }
 
 /// A terminal (as the name says).
@@ -608,6 +614,14 @@ private:
 	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
 	void registerWidget(QWidget newWidget){
 		registeredWidgets ~= newWidget;
+	}
+
+	/// Returns: true if a widget is active widget
+	bool isActiveWidget(QWidget widget){
+		if (widget == activeWidget){
+			return true;
+		}
+		return false;
 	}
 
 	//functions below are used by Matrix.flushToTerminal
