@@ -121,14 +121,15 @@ public:
 		childWidgetIsActive = false;
 		if (childWidget !is null && childWidget.visible){
 			//check x-axis
-			if (mouse.x >= childWidget.position.x && mouse.x < childWidget.position.x + childWidget.size.width){
-				//check y-axis
-				if (mouse.y >= childWidget.position.y && mouse.y < childWidget.position.y + childWidget.size.height){
-					//call mouseEvent
-					childWidget.mouseEvent(mouse);
-					//mark this widget as active
-					childWidgetIsActive = true;
-				}
+			if ((mouse.x >= mLeft && mouse.x < widgetSize.width-mRight) &&
+				(mouse.y >= mTop && mouse.y < widgetSize.height-mBottom)){
+				// make mouse position relative to widget position
+				mouse.x -= mLeft;
+				mouse.y -= mTop;
+				//call mouseEvent
+				childWidget.mouseEvent(mouse);
+				//mark this widget as active
+				childWidgetIsActive = true;
 			}
 		}
 	}
@@ -435,9 +436,8 @@ public:
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
 			//move cursor to that pos
-			uinteger tmp = widgetPosition.x + widgetCaption.length;
-			if (mouse.x > tmp && mouse.x < tmp + inputText.length){
-				cursorX = mouse.x - (widgetPosition.x + widgetCaption.length + scrollX);
+			if (mouse.x > widgetCaption.length && mouse.x < widgetCaption.length + inputText.length){
+				cursorX = mouse.x - (widgetCaption.length + scrollX);
 			}
 		}
 		reScroll;
@@ -633,8 +633,8 @@ public:
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll and widgetPosition
-		mouse.x = (mouse.x - widgetPosition.x) + scrollX;
-		mouse.y = (mouse.y - widgetPosition.y) + scrollY;
+		mouse.x = mouse.x + scrollX;
+		mouse.y = mouse.y + scrollY;
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);

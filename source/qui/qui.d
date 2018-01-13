@@ -704,6 +704,9 @@ public:
 						//mark this widget as active
 						activeWidget = widget;
 						activeWidgetIndex = i;
+						// make mouse position relative to widget position, not 0:0
+						mouse.x = mouse.x - activeWidget.position.x;
+						mouse.y = mouse.y - activeWidget.position.y;
 						//call mouseEvent
 						widget.mouseEvent(mouse);
 						break;
