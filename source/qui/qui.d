@@ -793,6 +793,7 @@ public:
 	
 	override public void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
+		QWidget lastActiveWidget = activeWidget;
 		activeWidget = null;
 		activeWidgetIndex = -1;
 		foreach (i, widget; registeredWidgets){
@@ -816,12 +817,21 @@ public:
 				}
 			}
 		}
+		if (activeWidget != lastActiveWidget){
+			if (lastActiveWidget){
+				lastActiveWidget.activateEvent(false);
+			}
+			if (activeWidget){
+				activeWidget.activateEvent(true);
+			}
+		}
 	}
 
 	override public void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
 		// check if the activeWidget wants Tab, otherwise, if is Tab, make the next widget active
 		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (activeWidgetIndex < 0 || !activeWidget.wantsTab))){
+			QWidget lastActiveWidget = activeWidget;
 			// make the next widget active
 			if (registeredWidgets.length > 0){
 				activeWidgetIndex ++;
@@ -843,6 +853,14 @@ public:
 			}else{
 				activeWidgetIndex = -1;
 				activeWidget = null;
+			}
+			if (activeWidget != lastActiveWidget){
+				if (lastActiveWidget){
+					lastActiveWidget.activateEvent(false);
+				}
+				if (activeWidget){
+					activeWidget.activateEvent(true);
+				}
 			}
 		}else if (key in keysToCatch){
 			// this is a registered key, only a specific widget catches it
