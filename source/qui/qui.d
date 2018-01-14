@@ -9,6 +9,7 @@ import std.stdio;
 import utils.baseconv;
 import utils.lists;
 import utils.misc;
+import std.conv : to;
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
@@ -27,6 +28,10 @@ struct MouseClick{
 	uinteger x;
 	/// the y-axis of mouse cursor, 0 means top-most
 	uinteger y;
+	/// Returns: a string representation of MouseClick, in JSON
+	string stringof(){
+		return "{button:"~to!string(mouseButton)~",x:"~to!string(x)~",y:"~to!string(y)~"}";
+	}
 }
 
 ///Key press event, keyboardEvent function is called with this
@@ -67,6 +72,13 @@ struct KeyPress{
 		PageUp = 0x21 + 0xF0000,
 		PageDown = 0x22 + 0xF0000,
 	}
+	/// Returns: a string representation of KeyPress, in JSON
+	string stringof(){
+		if (isChar){
+			return "{key:"~cast(char)key~'}';
+		}
+		return "{key:\""~to!string(cast(NonCharKey)key)~"\"}";
+	}
 }
 
 /// A 24 bit, RGB, color
@@ -78,6 +90,10 @@ public import arsd.terminal : RGB;
 /// Used to store position for widgets
 struct Position{
 	uinteger x, y;
+	/// Returns: a string representation of Position
+	string stirngof(){
+		return "{x:"~to!string(x)~",y:"~to!string(y)~"}";
+	}
 }
 
 /// To store size for widgets
@@ -131,6 +147,12 @@ struct Size{
 	uinteger minWidth = 0, minHeight = 0;
 	/// maximum width & height. These are "applied" automatically when setting value using `width` or `height`
 	uinteger maxWidth = 0, maxHeight = 0;
+	/// Returns: a string representation of KeyPress, in JSON
+	string stringof(){
+		return "{width:"~to!string(w)~",height:"~to!string(height)~
+			",minWidth:"~to!string(minWidth)~",maxWidth:"~to!string(maxWidth)~
+				",minHeight:"~to!string(minHeight)~",maxHeight:"~to!string(maxHeight)~"}";
+	}
 }
 
 /// mouseEvent function
