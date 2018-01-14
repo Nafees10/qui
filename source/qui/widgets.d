@@ -84,10 +84,12 @@ public:
 				display.insert(wDisplay, mLeft, mTop);
 			}
 			.destroy(wDisplay);
-			// draw the margins
-			drawMargins(display);
+			// draw the margins, only if "this" widget needs update, meaning: only if it resized or something messed up margins
+			if (needsUpdate){
+				drawMargins(display);
+				needsUpdate = false;
+			}
 
-			needsUpdate = false;
 			return true;
 		}else{
 			return false;
@@ -95,7 +97,7 @@ public:
 	}
 
 	override public void resize(){
-		needsUpdate = true;
+		super.resize();
 		// resize and reposition childWidget if any
 		if (childWidget !is null){
 			childWidget.size.width = this.size.width - (mLeft + mRight);
