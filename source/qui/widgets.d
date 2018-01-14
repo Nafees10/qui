@@ -97,13 +97,13 @@ public:
 		}
 	}
 
-	override public void resize(){
-		super.resize();
+	override public void resizeEvent(){
+		super.resizeEvent();
 		// resize and reposition childWidget if any
 		if (childWidget !is null){
 			childWidget.size.width = this.size.width - (mLeft + mRight);
 			childWidget.size.height = this.size.height - (mTop + mBottom);
-			childWidget.resize();
+			childWidget.resizeEvent();
 
 			childWidget.position.x = this.position.x + mLeft;
 			childWidget.position.y = this.position.y + mTop;
@@ -475,8 +475,8 @@ public:
 		return widgetCaption;
 	}
 	/// override resize to shorten caption
-	override void resize(){
-		super.resize;
+	override void resizeEvent(){
+		super.resizeEvent;
 		shortenCaption;
 	}
 }
