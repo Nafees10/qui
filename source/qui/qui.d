@@ -707,6 +707,8 @@ private:
 			if (activeWidget && activeWidget.showCursor){
 				terminal.moveTo(cast(int)cursorPos.x, cast(int)cursorPos.y);
 				terminal.showCursor();
+			}else{
+				terminal.hideCursor();
 			}
 			return r;
 		}else{
