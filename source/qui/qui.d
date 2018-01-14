@@ -426,8 +426,6 @@ private:
 						widget.size.height = newSpace;
 						newSpace = widget.size.height;
 					}
-					// let the know it was resized, useful if the widget is a layout. This marks `needsUpdate` true in the widget
-					widget.resize;
 					if (newSpace != calculatedSpace){
 						totalRatio -= widget.sizeRatio;
 						totalSpace -= newSpace;
@@ -513,6 +511,9 @@ public:
 		}else{
 			recalculateWidgetsSize!(LayoutDisplayType.Vertical)(widgetList, widgetSize.height, ratioTotal);
 			recalculateWidgetsPosition!(LayoutDisplayType.Vertical)(widgetList);
+		}
+		foreach (widget; widgetList){
+			widget.resize;
 		}
 		isUpdating = false;
 	}

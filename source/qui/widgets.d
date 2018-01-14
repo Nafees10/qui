@@ -102,10 +102,10 @@ public:
 		if (childWidget !is null){
 			childWidget.size.width = this.size.width - (mLeft + mRight);
 			childWidget.size.height = this.size.height - (mTop + mBottom);
+			childWidget.resize();
 
 			childWidget.position.x = this.position.x + mLeft;
 			childWidget.position.y = this.position.y + mTop;
-			childWidget.resize();
 		}
 	}
 
