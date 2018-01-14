@@ -161,6 +161,8 @@ alias MouseEventFuction = void delegate(MouseClick);
 alias KeyboardEventFunction = void delegate(KeyPress);
 /// resizeEvent function
 alias ResizeEventFunction = void delegate(Size);
+/// activateEvent function
+alias ActivateEventFunction = void delegate(bool);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -223,6 +225,17 @@ protected:
 	/// }
 	/// ```
 	ResizeEventFunction customResizeEvent;
+
+	/// custom onActivate event, if not null, it should be called before doing anything else in activateEvent
+	/// 
+	/// Like:
+	/// ```
+	/// override void activateEvent(){
+	/// 	super.activateEvent();
+	/// 	// rest of the code for resize here
+	/// }
+	/// ```
+	ActivateEventFunction customActivateEvent;
 public:
 	/// Called by owner when mouse is clicked with cursor on this widget.
 	/// 
@@ -233,7 +246,7 @@ public:
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
-	/// `forceUpdate` is not required after this. if `forceUpdate` is called in this, it will have no effect
+	/// `forceUpdate` is not required in this. if `forceUpdate` is called in this, it will have no effect
 	void mouseEvent(MouseClick mouse){
 		if (customMouseEvent !is null){
 			customMouseEvent(mouse);
@@ -249,10 +262,43 @@ public:
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
-	/// `forceUpdate` is not required after this. if `forceUpdate` is called in this, it will have no effect
+	/// `forceUpdate` is not required in this. if `forceUpdate` is called in this, it will have no effect
 	void keyboardEvent(KeyPress key){
 		if (customKeyboardEvent !is null){
 			customKeyboardEvent(key);
+		}
+	}
+
+	/// called by owner after the widget is resized.
+	/// 
+	/// Must be inherited, only if inherited, like:
+	/// ```
+	/// 	override void resizeEvent(){
+	/// 		super.resizeEvent(key);
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
+	/// `forceUpdate` is not required in this. if `forceUpdate` is called in this, it will have no effect
+	void resizeEvent(){
+		if (customResizeEvent !is null){
+			customResizeEvent(widgetSize);
+		}
+		needsUpdate = true;
+	}
+
+	/// called by QTerminal right after this widget is activated, or de-activated, i.e: is made activeWidget, or un-made activeWidget
+	/// 
+	/// Must be inherited, only if inherited, like:
+	/// ```
+	/// 	override void activateEvent(){
+	/// 		super.activateEvent(key);
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
+	/// `forceUpdate` is not required in this. if `forceUpdate` is called in this, it will have no effect
+	void activateEvent(bool isActive){
+		if (customActivateEvent){
+			customActivateEvent(isActive);
 		}
 	}
 
@@ -269,14 +315,6 @@ public:
 	/// Returns: whether the widget needs to show a cursor, only considered when this widget is active
 	@property bool showCursor(){
 		return widgetShowCursor;
-	}
-
-	/// called by `QLayout` when the widget is resized.
-	void resize(){
-		if (customResizeEvent !is null){
-			customResizeEvent(widgetSize);
-		}
-		needsUpdate = true;
 	}
 	
 	/// Called by owner to update.
@@ -296,6 +334,10 @@ public:
 	/// use to change the custom resize event
 	@property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
 		return customResizeEvent = func;
+	}
+	/// use to change the custom activate event
+	@property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
+		return customActivateEvent = func;
 	}
 	
 	
@@ -478,7 +520,7 @@ public:
 		//add it to array
 		widgetList ~= widget;
 		//recalculate all widget's size to adjust
-		resize();
+		resizeEvent();
 	}
 	/// adds (appends) widgets to the widgetList, and makes space for them
 	/// 
@@ -490,14 +532,14 @@ public:
 		// add to array
 		widgetList ~= widgets.dup;
 		//resize
-		resize();
+		resizeEvent();
 	}
 	
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
-	override void resize(){
+	override void resizeEvent(){
 		//disable update during size change, saves CPU and time
-		super.resize();
+		super.resizeEvent();
 		isUpdating = true;
 		uinteger ratioTotal;
 		foreach(w; widgetList){
@@ -513,7 +555,7 @@ public:
 			recalculateWidgetsPosition!(LayoutDisplayType.Vertical)(widgetList);
 		}
 		foreach (widget; widgetList){
-			widget.resize;
+			widget.resizeEvent;
 		}
 		isUpdating = false;
 	}
@@ -816,7 +858,7 @@ public:
 		InputEvent event;
 		isRunning = true;
 		//resize all widgets
-		resize();
+		resizeEvent();
 		//draw the whole thing
 		updateDisplay();
 		while (isRunning){
@@ -868,7 +910,7 @@ public:
 				widgetSize.width = terminal.width;
 				this.clear;
 				//call size change on all widgets
-				resize();
+				resizeEvent();
 				updateDisplay;
 			}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
 				//die here
