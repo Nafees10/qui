@@ -20,7 +20,6 @@ private:
 	uinteger mTop, mBottom, mLeft, mRight; // margins
 	char mCharTop, mCharBottom, mCharLeft, mCharRight;
 
-	RGB bgColor, textColor; // backgrond and foreground colors
 	/// called by `update` to draw margins
 	void drawMargins(Matrix display){
 		char[] emptyLine;
@@ -29,27 +28,27 @@ private:
 		emptyLine[] = mCharTop;
 		display.moveTo(0, 0);
 		for (uinteger i = 0; i < mTop; i ++){
-			display.write(emptyLine, textColor, bgColor);
+			display.write(emptyLine, textColor, backgroundColor);
 		}
 		// bottom
 		emptyLine[] = mCharBottom;
 		display.moveTo(0, this.size.height - mBottom);
 		for (uinteger i = 0; i < mBottom; i ++){
-			display.write(emptyLine, textColor, bgColor);
+			display.write(emptyLine, textColor, backgroundColor);
 		}
 		//left
 		emptyLine.length = mLeft;
 		emptyLine[] = mCharLeft;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
 			display.moveTo(0, mTop+i);
-			display.write(emptyLine, textColor, bgColor);
+			display.write(emptyLine, textColor, backgroundColor);
 		}
 		// right
 		emptyLine.length = mRight;
 		emptyLine[] = mCharRight;
 		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
 			display.moveTo(this.size.width-(mRight), mTop+i);
-			display.write(emptyLine, textColor, bgColor);
+			display.write(emptyLine, textColor, backgroundColor);
 		}
 	}
 	/// called by margin-changing-properties to calculate new minHeight & minWidth to fit the widget in
@@ -66,8 +65,10 @@ private:
 		}
 	}
 public:
+	/// background and text colors
+	RGB backgroundColor, textColor;
 	this (){
-		bgColor = hexToColor("000000");
+		backgroundColor = hexToColor("000000");
 		textColor = hexToColor("00FF00");
 		marginChar = ' ';
 		margin = 0;
@@ -225,22 +226,20 @@ public:
 ///Displays some text
 ///
 ///And it can't handle new-line characters
-///
-///Name in theme: 'text-label';
 class TextLabelWidget : QWidget{
-private:
-	RGB textColor, bgColor;
 public:
+	/// text and background colors
+	RGB textColor, backgroundColor;
 	this(string wCaption = ""){
 		widgetCaption = wCaption;
 
 		textColor = hexToColor("00FF00");
-		bgColor = hexToColor("000000");
+		backgroundColor = hexToColor("000000");
 	}
 	
 	override bool update(Matrix display){
 		if (needsUpdate){
-			display.write(cast(char[])widgetCaption, textColor, bgColor);
+			display.write(cast(char[])widgetCaption, textColor, backgroundColor);
 			needsUpdate = false;
 			return true;
 		}else{
@@ -250,23 +249,18 @@ public:
 }
 
 /// Displays a left-to-right progress bar.
-/// 
-/// Name in theme: 'progressbar';
 class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
-	RGB bgColor, barColor;
-	void writeBarLine(Matrix display, uinteger filled, char[] bar){
-		display.write(bar[0 .. filled], barColor, barColor);
-		display.write(bar[filled .. bar.length], barColor, bgColor);
-	}
 public:
+	/// background color, and bar's color
+	RGB backgroundColor, barColor;
 	this(uinteger totalAmount = 100, uinteger complete = 0){
 		widgetCaption = null;
 		max = totalAmount;
 		done = complete;
 
-		bgColor = hexToColor("000000");
+		backgroundColor = hexToColor("000000");
 		barColor = hexToColor("00FF00");
 	}
 	
@@ -279,7 +273,8 @@ public:
 			bar.length = this.size.width;
 			bar[0 .. bar.length] = ' ';
 			for (uinteger i = 0; i < this.size.height; i++){
-				writeBarLine(display, filled, bar);
+				display.write(bar[0 .. filled], barColor, barColor);
+				display.write(bar[filled .. bar.length], barColor, backgroundColor);
 			}
 			needsUpdate = false;
 		}
@@ -312,14 +307,11 @@ public:
 }
 
 /// To get single-line input from keyboard
-/// 
-/// Name in theme: 'editline';
 class EditLineWidget : QWidget{
 private:
 	char[] inputText;
 	uinteger cursorX;
 	uinteger scrollX = 0;//amount of chars that won't be displayed because of not enough space
-	RGB bgColor, textColor, captionTextColor, captionBgColor;
 	
 	void reScroll(){
 		//check if is within length of line
@@ -351,6 +343,8 @@ private:
 		}
 	}
 public:
+	/// background, text, caption, and caption's background colors
+	RGB backgroundColor, textColor, captionTextColor, captionBackgroundColor;
 	this(string wCaption = "", string inputTxt = ""){
 		inputText = cast(char[])inputTxt;
 		widgetCaption = wCaption;
@@ -366,9 +360,9 @@ public:
 		// and needs to show the cursor too
 		widgetShowCursor = true;
 
-		bgColor = hexToColor("404040");
+		backgroundColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
-		captionBgColor = hexToColor("000000");
+		captionBackgroundColor = hexToColor("000000");
 		captionTextColor = hexToColor("00FF00");
 	}
 
@@ -379,13 +373,13 @@ public:
 			//make sure there's enough space
 			if (this.size.width > widgetCaption.length){
 				//draw the caption
-				display.write(cast(char[])widgetCaption, captionTextColor, captionBgColor);
+				display.write(cast(char[])widgetCaption, captionTextColor, captionBackgroundColor);
 				//draw the inputText
 				uinteger width = this.size.width - widgetCaption.length;
 				//fit the line into screen, i.e check if only a part of it will be displayed
 				if (inputText.length >= width+scrollX){
 					//display only partial line
-					display.write(inputText[scrollX .. scrollX + width], textColor, bgColor);
+					display.write(inputText[scrollX .. scrollX + width], textColor, backgroundColor);
 				}else{
 					char[] emptyLine;
 					emptyLine.length = width;
@@ -393,12 +387,17 @@ public:
 					//either the line is small enough to fit, or 0-length
 					if (inputText.length <= scrollX || inputText.length == 0){
 						//just write the bgColor
-						display.write(emptyLine, textColor, bgColor);
+						display.write(emptyLine, textColor, backgroundColor);
 					}else{
-						display.write(inputText[scrollX .. inputText.length], textColor, bgColor);
+						display.write(inputText[scrollX .. inputText.length], textColor, backgroundColor);
 						//write the bgColor
-						display.write(emptyLine[inputText.length - scrollX .. emptyLine.length], textColor, bgColor);
+						display.write(emptyLine[inputText.length - scrollX .. emptyLine.length], textColor, backgroundColor);
 					}
+				}
+			}else{
+				// be sad, there's not enough space to draw
+				if (this.widgetSize.width >= 2){
+					display.write(cast(char[])":(", textColor, backgroundColor);
 				}
 			}
 			needsUpdate = false;
@@ -475,17 +474,19 @@ public:
 		termInterface.forceUpdate();
 		return widgetCaption;
 	}
+	/// override resize to shorten caption
+	override void resize(){
+		super.resize;
+		shortenCaption;
+	}
 }
 
 /// Can be used as a simple text editor, or to just display text
-/// 
-/// Name in theme: 'memo';
 class MemoWidget : QWidget{
 private:
 	List!string widgetLines;
 	uinteger scrollX, scrollY;
 	uinteger cursorX, cursorY;
-	RGB bgColor, textColor;
 	bool writeProtected = false;
 	// used by widget itseld to recalculate scrolling
 	void reScroll(){
@@ -534,6 +535,8 @@ private:
 		}
 	}
 public:
+	// background and text colors
+	RGB backgroundColor, textColor;
 	this(bool readOnly = false){
 		widgetLines = new List!string;
 		scrollX, scrollY = 0;
@@ -547,7 +550,7 @@ public:
 		// and the cursor should be visible
 		widgetShowCursor = true;
 
-		bgColor = hexToColor("404040");
+		backgroundColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
 		// zero lines = wont work
 		widgetLines.add("");
@@ -574,16 +577,16 @@ public:
 					//fit the line into screen, i.e check if only a part of it will be displayed
 					if (line.length >= this.size.width+scrollX){
 						//display only partial line
-						display.write(line[scrollX .. scrollX + this.size.width], textColor, bgColor);
+						display.write(line[scrollX .. scrollX + this.size.width], textColor, backgroundColor);
 					}else{
 						//either the line is small enough to fit, or 0-length
 						if (line.length <= scrollX || line.length == 0){
 							//just write the bgColor
-							display.write(emptyLine, textColor, bgColor);
+							display.write(emptyLine, textColor, backgroundColor);
 						}else{
-							display.write(line[scrollX .. line.length], textColor, bgColor);
+							display.write(line[scrollX .. line.length], textColor, backgroundColor);
 							//write the bgColor
-							display.write(emptyLine[line.length - scrollX .. emptyLine.length], textColor, bgColor);
+							display.write(emptyLine[line.length - scrollX .. emptyLine.length], textColor, backgroundColor);
 						}
 					}
 					linesWritten ++;
@@ -596,7 +599,7 @@ public:
 				if (linesWritten < this.size.height){
 					count = this.size.height;
 					for (i = linesWritten; i < count; i++){
-						display.write(emptyLine,textColor, bgColor);
+						display.write(emptyLine,textColor, backgroundColor);
 					}
 				}
 			}
@@ -777,15 +780,12 @@ public:
 /// Displays an un-scrollable log, that removes older lines
 /// 
 /// It's content cannot be modified by user.
-/// 
-/// Name in theme: 'log';
 class LogWidget : QWidget{
 private:
 	LinkedList!string logs;
 	
 	uinteger max;
-	
-	RGB bgColor, textColor;
+
 	
 	uinteger stringLineCount(string s){
 		uinteger width = this.size.width;
@@ -821,11 +821,13 @@ private:
 		return cast(string)r;
 	}
 public:
+	/// background and text color
+	RGB backgroundColor, textColor;
 	this(uinteger maxLen=100){
 		max = maxLen;
 		logs = new LinkedList!string;
 
-		bgColor = hexToColor("404040");
+		backgroundColor = hexToColor("404040");
 		textColor = hexToColor("00FF00");
 	}
 	~this(){
@@ -840,7 +842,7 @@ public:
 			string[] messages = logs.toArray;
 			//messages = messages.arrayReverse;
 			//set colors
-			display.setColors(textColor, bgColor);
+			display.setColors(textColor, backgroundColor);
 			//determine how many of them will be displayed
 			uinteger count;//right now, it's used to store number of lines used
 			uinteger i;
@@ -864,7 +866,7 @@ public:
 			}
 			//write them
 			for (i = 0; i < messages.length; i++){
-				display.write(cast(char[])messages[i], textColor, bgColor);
+				display.write(cast(char[])messages[i], textColor, backgroundColor);
 				//add newline
 				display.moveTo(0, display.writePos.y+1);
 			}
@@ -902,15 +904,20 @@ public:
 /// 
 /// To receive input, set the `onMouseEvent` to set a custom mouse event
 class ButtonWidget : QWidget{
-private:
-	RGB bgColor, textColor;
 public:
+	/// background, and text color, in case it's not active
+	RGB backgroundColor, textColor;
+	/// background, and text color, in case it's activeWidget
+	RGB activeBackgroundColor, activeTextColor;
 	this(string caption=""){
 		widgetCaption = caption;
 		widgetWantsInput = true;
 
-		bgColor = hexToColor("00FF00");
+		backgroundColor = hexToColor("00FF00");
 		textColor = hexToColor("000000");
+
+		activeBackgroundColor = hexToColor("006600");
+		activeTextColor = hexToColor("000000");
 	}
 	
 	override public bool update(Matrix display){
@@ -921,14 +928,23 @@ public:
 			row[0 .. row.length] = ' ';
 			//write the caption too!
 			uinteger middle = this.size.height/2;
+			// the colors to use now, background, and text
+			RGB bgC, tC;
+			if (termInterface.isActiveWidget(this)){
+				bgC = activeBackgroundColor;
+				tC = activeTextColor;
+			}else{
+				bgC = backgroundColor;
+				tC = textColor;
+			}
 			for (uinteger i = 0; i < this.size.height; i++){
 				if (i == middle && widgetCaption != ""){
 					row = centerAlignText(cast(char[])caption, this.size.width);
-					display.write(row, textColor, bgColor);
+					display.write(row, tC, bgC);
 					row[0 .. row.length] = ' ';
 					continue;
 				}else{
-					display.write(row, textColor, bgColor);
+					display.write(row, tC, bgC);
 				}
 			}
 			r = true;
