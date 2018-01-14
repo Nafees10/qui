@@ -953,6 +953,11 @@ public:
 		return r;
 	}
 
+	override public void activateEvent(bool isActive){
+		super.activateEvent(isActive);
+		needsUpdate = true;
+	}
+
 	override void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
 		mouseEvent(MouseClick(MouseClick.Button.Left, 0, 0));
