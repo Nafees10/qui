@@ -137,6 +137,8 @@ struct Size{
 alias MouseEventFuction = void delegate(MouseClick);
 ///keyboardEvent function
 alias KeyboardEventFunction = void delegate(KeyPress);
+/// resizeEvent function
+alias ResizeEventFunction = void delegate(Size);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -188,6 +190,17 @@ protected:
 	/// }
 	/// ```
 	KeyboardEventFunction customKeyboardEvent;
+
+	/// custom resize event, if not null, it should be called before doing anything else in resize().
+	/// 
+	/// Like:
+	/// ```
+	/// override void resize(){
+	/// 	super.resize();
+	/// 	// rest of the code for resize here
+	/// }
+	/// ```
+	ResizeEventFunction customResizeEvent;
 public:
 	/// Called by owner when mouse is clicked with cursor on this widget.
 	/// 
@@ -238,6 +251,9 @@ public:
 
 	/// called by `QLayout` when the widget is resized.
 	void resize(){
+		if (customResizeEvent !is null){
+			customResizeEvent(widgetSize);
+		}
 		needsUpdate = true;
 	}
 	
@@ -254,6 +270,10 @@ public:
 	/// use to change the custom keyboard event
 	@property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
 		return customKeyboardEvent = func;
+	}
+	/// use to change the custom resize event
+	@property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
+		return customResizeEvent = func;
 	}
 	
 	
@@ -457,6 +477,7 @@ public:
 	/// If a widget is too large to fit in, it's visibility is marked false
 	override void resize(){
 		//disable update during size change, saves CPU and time
+		super.resize();
 		isUpdating = true;
 		uinteger ratioTotal;
 		foreach(w; widgetList){
