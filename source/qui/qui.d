@@ -662,7 +662,7 @@ private:
 
 	/// Returns: true if a widget is active widget
 	bool isActiveWidget(QWidget widget){
-		if (widget == activeWidget){
+		if (activeWidget && widget == activeWidget){
 			return true;
 		}
 		return false;
@@ -795,6 +795,7 @@ public:
 				if (activeWidgetIndex < registeredWidgets.length){
 					activeWidget = registeredWidgets[activeWidgetIndex];
 				}else{
+					activeWidget = null;
 					activeWidgetIndex = -1;
 				}
 			}else{
