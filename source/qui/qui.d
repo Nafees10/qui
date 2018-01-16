@@ -795,6 +795,20 @@ public:
 			widget.setTermInterface = termInterface;
 		}
 	}
+
+	/// makes a widget active, i.e, redirects keyboard input to a `widget`
+	/// 
+	/// Return: true on success, false on error, or if the widget isnt registered
+	bool makeActive(QWidget widget){
+		foreach (i, aWidget; registeredWidgets){
+			if (widget == aWidget){
+				activeWidgetIndex = i;
+				activeWidget = aWidget;
+				return true;
+			}
+		}
+		return false;
+	}
 	
 	override public void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
