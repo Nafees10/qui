@@ -24,7 +24,7 @@ private:
 	void drawMargins(Matrix display){
 		char[] emptyLine;
 		// top
-		emptyLine.length = this.size.width;
+		emptyLine.length = widgetSize.width;
 		emptyLine[] = mCharTop;
 		display.moveTo(0, 0);
 		for (uinteger i = 0; i < mTop; i ++){
@@ -32,22 +32,22 @@ private:
 		}
 		// bottom
 		emptyLine[] = mCharBottom;
-		display.moveTo(0, this.size.height - mBottom);
+		display.moveTo(0, widgetSize.height - mBottom);
 		for (uinteger i = 0; i < mBottom; i ++){
 			display.write(emptyLine, textColor, backgroundColor);
 		}
 		//left
 		emptyLine.length = mLeft;
 		emptyLine[] = mCharLeft;
-		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
+		for (uinteger i = 0, count = widgetSize.height-(mTop+mBottom); i < count; i ++){
 			display.moveTo(0, mTop+i);
 			display.write(emptyLine, textColor, backgroundColor);
 		}
 		// right
 		emptyLine.length = mRight;
 		emptyLine[] = mCharRight;
-		for (uinteger i = 0, count = this.size.height-(mTop+mBottom); i < count; i ++){
-			display.moveTo(this.size.width-(mRight), mTop+i);
+		for (uinteger i = 0, count = widgetSize.height-(mTop+mBottom); i < count; i ++){
+			display.moveTo(widgetSize.width-(mRight), mTop+i);
 			display.write(emptyLine, textColor, backgroundColor);
 		}
 	}
@@ -55,13 +55,13 @@ private:
 	void calculateMinSize(){
 		// first minHeight
 		uinteger minHeight = (childWidget !is null ? childWidget.size.minHeight : 0) + mTop + mBottom;
-		if (this.size.minHeight < minHeight){
-			this.size.minHeight = minHeight;
+		if (widgetSize.minHeight < minHeight){
+			widgetSize.minHeight = minHeight;
 		}
 		// then width
 		uinteger minWidth = (childWidget !is null ? childWidget.size.minWidth : 0) + mLeft + mRight;
-		if (this.size.minWidth < minWidth){
-			this.size.minWidth = minWidth;
+		if (widgetSize.minWidth < minWidth){
+			widgetSize.minWidth = minWidth;
 		}
 	}
 public:
@@ -101,8 +101,8 @@ public:
 		super.resizeEvent();
 		// resize and reposition childWidget if any
 		if (childWidget !is null){
-			childWidget.size.width = this.size.width - (mLeft + mRight);
-			childWidget.size.height = this.size.height - (mTop + mBottom);
+			childWidget.size.width = widgetSize.width - (mLeft + mRight);
+			childWidget.size.height = widgetSize.height - (mTop + mBottom);
 			childWidget.resizeEvent();
 
 			childWidget.position.x = this.position.x + mLeft;
@@ -268,11 +268,11 @@ public:
 		bool r = false;
 		if (needsUpdate){
 			r = true;
-			uinteger filled = ratioToRaw(done, max, this.size.width);
+			uinteger filled = ratioToRaw(done, max, widgetSize.width);
 			char[] bar;
-			bar.length = this.size.width;
+			bar.length = widgetSize.width;
 			bar[0 .. bar.length] = ' ';
-			for (uinteger i = 0; i < this.size.height; i++){
+			for (uinteger i = 0; i < widgetSize.height; i++){
 				display.write(bar[0 .. filled], barColor, barColor);
 				display.write(bar[filled .. bar.length], barColor, backgroundColor);
 			}
@@ -318,7 +318,7 @@ private:
 		if (cursorX > inputText.length){
 			cursorX = inputText.length;
 		}
-		uinteger w = this.size.width - widgetCaption.length;
+		uinteger w = widgetSize.width - widgetCaption.length;
 		//now calculate scrollX, if it needs to be increased
 		if ((scrollX + w < cursorX || scrollX + w >= cursorX)){
 			if (cursorX <= w){
@@ -338,8 +338,8 @@ private:
 	}
 	///shortens caption if too long
 	void shortenCaption(){
-		if (this.size.width - widgetCaption.length < 4){
-			widgetCaption.length = this.size.width - 4;
+		if (widgetSize.width - widgetCaption.length < 4){
+			widgetCaption.length = widgetSize.width - 4;
 		}
 	}
 public:
@@ -350,9 +350,9 @@ public:
 		widgetCaption = wCaption;
 		shortenCaption;
 		//specify min/max
-		this.size.minWidth = 1;
-		this.size.minHeight = 1;
-		this.size.maxHeight = 1;
+		widgetSize.minWidth = 1;
+		widgetSize.minHeight = 1;
+		widgetSize.maxHeight = 1;
 		// this widget wants Tab key
 		widgetWantsTab = true;
 		// and input too, obvious
@@ -371,11 +371,11 @@ public:
 		if (needsUpdate){
 			r = true;
 			//make sure there's enough space
-			if (this.size.width > widgetCaption.length){
+			if (widgetSize.width > widgetCaption.length){
 				//draw the caption
 				display.write(cast(char[])widgetCaption, captionTextColor, captionBackgroundColor);
 				//draw the inputText
-				uinteger width = this.size.width - widgetCaption.length;
+				uinteger width = widgetSize.width - widgetCaption.length;
 				//fit the line into screen, i.e check if only a part of it will be displayed
 				if (inputText.length >= width+scrollX){
 					//display only partial line
@@ -491,25 +491,23 @@ private:
 	// used by widget itseld to recalculate scrolling
 	void reScroll(){
 		//calculate scrollY first
-		if ((scrollY + this.size.height < cursorY || scrollY + this.size.height >= cursorY) && cursorY != 0){
-			if (cursorY <= this.size.height/2){
-				scrollY = 0;
-			}else{
-				scrollY = cursorY - (this.size.height/2);
-			}
+		scrollY = 0;
+		// scrollY + widgetSize.height  -->  last visible line+1
+		if (cursorY > scrollY + widgetSize.height || cursorY < scrollY){
+			scrollY = cursorY - widgetSize.height + 1;
 		}
 		//now time for scrollX
 		//check if is within length of line
-		uinteger len = widgetLines.read(cursorY).length;
+		uinteger len = readLine(cursorY).length;
 		if (cursorX > len){
 			cursorX = len;
 		}
 		//now calculate scrollX, if it needs to be increased
-		if (/*cursorX > this.size.width &&*/(scrollX + this.size.width < cursorX || scrollX + this.size.width >= cursorX)){
-			if (cursorX <= this.size.width/2){
+		if (scrollX + widgetSize.width < cursorX || scrollX + widgetSize.width >= cursorX){
+			if (cursorX <= widgetSize.width){
 				scrollX = 0;
 			}else{
-				scrollX = cursorX - (this.size.width/2);
+				scrollX = cursorX - widgetSize.width;
 			}
 		}
 	}
@@ -527,20 +525,59 @@ private:
 		cursorX = x;
 		cursorY = y;
 		
-		if (cursorY >= widgetLines.length){
-			cursorY = widgetLines.length-1;
+		if (cursorY > lineCount){
+			cursorY = lineCount-1;
 		}
-		if (cursorX >= widgetLines.read(cursorY).length){
-			cursorX = widgetLines.read(cursorY).length;
+		if (cursorX > readLine(cursorY).length){
+			cursorX = readLine(cursorY).length;
 		}
+	}
+	/// Reads a line from widgetLines
+	string readLine(uinteger index){
+		if (index == widgetLines.length){
+			return "";
+		}
+		return widgetLines.read(index);
+	}
+	/// overwrites a line
+	void overwriteLine(uinteger index, string line){
+		if (index == widgetLines.length){
+			widgetLines.add(line);
+		}else{
+			widgetLines.set(index,line);
+		}
+	}
+	/// deletes a line
+	void removeLine(uinteger index){
+		if (index < widgetLines.length){
+			widgetLines.remove(index);
+		}
+	}
+	/// inserts a line
+	void insertLine(uinteger index, string line){
+		if (index == widgetLines.length){
+			widgetLines.add(line);
+		}else{
+			widgetLines.insert(index, line);
+		}
+	}
+	/// adds a line
+	void addLine(string line){
+		widgetLines.add(line);
+	}
+	/// returns lines count
+	@property uinteger lineCount(){
+		return widgetLines.length+1;
 	}
 public:
 	// background and text colors
 	RGB backgroundColor, textColor;
 	this(bool readOnly = false){
 		widgetLines = new List!string;
-		scrollX, scrollY = 0;
-		cursorX, cursorY = 0;
+		scrollX = 0;
+		scrollY = 0;
+		cursorX = 0;
+		cursorY = 0;
 		writeProtected = readOnly;//cause if readOnly, then writeProtected = true also
 
 		// this widget wants Tab key
@@ -552,11 +589,9 @@ public:
 
 		textColor = DEFAULT_TEXT_COLOR;
 		backgroundColor = DEFAULT_BACK_COLOR;
-		// zero lines = wont work
-		widgetLines.add("");
 	}
 	~this(){
-		delete widgetLines;
+		.destroy(widgetLines);
 	}
 	
 	override bool update(Matrix display){
@@ -564,44 +599,35 @@ public:
 		if (needsUpdate){
 			r = true;
 			//check if there's lines to be displayed
-			uinteger count = widgetLines.length, i, linesWritten = 0;
-			char[] emptyLine;
-			emptyLine.length = this.size.width;
-			emptyLine[0 .. emptyLine.length] = ' ';
+			uinteger count = lineCount;
 			if (count > 0){
 				//write lines to memo
 				char[] line;
-				for (i = scrollY; i < count; i++){
+				for (uinteger i = scrollY; i < count; i++){
 					//echo current line
-					line = cast(char[])widgetLines.read(i);
+					line = cast(char[])readLine(i);
 					//fit the line into screen, i.e check if only a part of it will be displayed
-					if (line.length >= this.size.width+scrollX){
+					if (line.length >= widgetSize.width+scrollX){
 						//display only partial line
-						display.write(line[scrollX .. scrollX + this.size.width], textColor, backgroundColor);
+						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, backgroundColor);
 					}else{
 						//either the line is small enough to fit, or 0-length
 						if (line.length <= scrollX || line.length == 0){
 							//just write the bgColor
-							display.write(emptyLine, textColor, backgroundColor);
+							display.fillLine(' ', textColor, backgroundColor);
 						}else{
 							display.write(line[scrollX .. line.length], textColor, backgroundColor);
 							//write the bgColor
-							display.write(emptyLine[line.length - scrollX .. emptyLine.length], textColor, backgroundColor);
+							display.fillLine(' ',textColor,backgroundColor);
 						}
 					}
-					linesWritten ++;
 					//check if is at end
-					if (i-scrollY >= this.size.height){
+					if (i-scrollY >= widgetSize.height){
 						break;
 					}
 				}
 				//fill empty space with emptyLine
-				if (linesWritten < this.size.height){
-					count = this.size.height;
-					for (i = linesWritten; i < count; i++){
-						display.write(emptyLine,textColor, backgroundColor);
-					}
-				}
+				display.fillMatrix(' ',textColor,backgroundColor);
 			}
 			needsUpdate = false;
 		}
@@ -611,15 +637,14 @@ public:
 	
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
-		//calculate mouse position, relative to scroll and widgetPosition
+		//calculate mouse position, relative to scroll
 		mouse.x = mouse.x + scrollX;
 		mouse.y = mouse.y + scrollY;
 		if (mouse.mouseButton == mouse.Button.Left){
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);
-			
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
-			if (cursorY < widgetLines.length){
+			if (cursorY < lineCount){
 				needsUpdate = true;
 				moveCursor(cursorX, cursorY + 4);
 				reScroll();
@@ -642,7 +667,7 @@ public:
 		if (key.isChar){
 			if (!writeProtected){
 				needsUpdate = true;
-				string currentLine = widgetLines.read(cursorY);
+				string currentLine = readLine(cursorY);
 				//check if backspace
 				if (key.key == '\b'){
 					//make sure that it's not the first line, first line cannot be removed
@@ -651,18 +676,18 @@ public:
 						if (cursorX == 0){
 							cursorY --;
 							//if line's not empty, append it to previous line
-							cursorX = widgetLines.read(cursorY).length;
+							cursorX = readLine(cursorY).length;
 							if (currentLine != ""){
 								//else, append this line to previous
-								widgetLines.set(cursorY, widgetLines.read(cursorY)~currentLine);
+								overwriteLine(cursorY, readLine(cursorY)~currentLine);
 							}
-							widgetLines.remove(cursorY+1);
+							removeLine(cursorY+1);
 						}else{
-							widgetLines.set(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
+							overwriteLine(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
 							cursorX --;
 						}
 					}else if (cursorX > 0){
-						widgetLines.set(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
+						overwriteLine(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
 						cursorX --;
 					}
 					
@@ -670,36 +695,36 @@ public:
 					//insert a newline
 					//if is at end, just add it
 					bool atEnd = false;
-					if (cursorY >= widgetLines.length - 1){
+					if (cursorY >= lineCount - 1){
 						atEnd = true;
 					}
-					if (cursorX == widgetLines.read(cursorY).length){
+					if (cursorX == readLine(cursorY).length){
 						if (atEnd){
 							widgetLines.add("");
 						}else{
-							widgetLines.insert(cursorY + 1,"");
+							insertLine(cursorY + 1,"");
 						}
 					}else{
 						string[2] line;
-						line[0] = widgetLines.read(cursorY);
+						line[0] = readLine(cursorY);
 						line[1] = line[0][cursorX .. line[0].length];
 						line[0] = line[0][0 .. cursorX];
-						widgetLines.set(cursorY, line[0]);
+						overwriteLine(cursorY, line[0]);
 						if (atEnd){
 							widgetLines.add(line[1]);
 						}else{
-							widgetLines.insert(cursorY + 1, line[1]);
+							insertLine(cursorY + 1, line[1]);
 						}
 					}
 					cursorY ++;
 					cursorX = 0;
 				}else if (key.key == '\t'){
 					//convert it to 4 spaces
-					widgetLines.set(cursorY, cast(string)insertElement(cast(char[])currentLine,cast(char[])"    ",cursorX));
+					overwriteLine(cursorY, cast(string)insertElement(cast(char[])currentLine,cast(char[])"    ",cursorX));
 					cursorX += 4;
 				}else{
 					//insert that char
-					widgetLines.set(cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.key],cursorX));
+					overwriteLine(cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.key],cursorX));
 					cursorX ++;
 				}
 			}
@@ -707,19 +732,19 @@ public:
 			if (key.key == key.NonCharKey.Delete){
 				needsUpdate = true;
 				//check if is deleting \n
-				if (cursorX == widgetLines.read(cursorY).length && cursorY < widgetLines.length-1){
+				if (cursorX == readLine(cursorY).length && cursorY < lineCount-1){
 					//merge next line with this one
-					char[] line = cast(char[])widgetLines.read(cursorY)~widgetLines.read(cursorY+1);
-					widgetLines.set(cursorY, cast(string)line);
+					char[] line = cast(char[])readLine(cursorY)~readLine(cursorY+1);
+					overwriteLine(cursorY, cast(string)line);
 					//remove next line
-					widgetLines.remove(cursorY+1);
-				}else if (cursorX < widgetLines.read(cursorY).length){
-					char[] line = cast(char[])widgetLines.read(cursorY);
+					removeLine(cursorY+1);
+				}else if (cursorX < readLine(cursorY).length){
+					char[] line = cast(char[])readLine(cursorY);
 					line = line.deleteElement(cursorX);
-					widgetLines.set(cursorY, cast(string)line);
+					overwriteLine(cursorY, cast(string)line);
 				}
 			}else if (key.key == key.NonCharKey.DownArrow){
-				if (cursorY < widgetLines.length-1){
+				if (cursorY+1 < lineCount){
 					needsUpdate = true;
 					cursorY ++;
 				}
@@ -731,28 +756,28 @@ public:
 			}else if (key.key == key.NonCharKey.LeftArrow){
 				if ((cursorY >= 0 && cursorX > 0) || (cursorY > 0 && cursorX == 0)){
 					needsUpdate = true;
-					uinteger x, y;
 					if (cursorX == 0){
 						cursorY --;
-						cursorX = widgetLines.read(cursorY).length;
+						cursorX = readLine(cursorY).length;
 					}else{
 						cursorX --;
 					}
 				}
 			}else if (key.key == key.NonCharKey.RightArrow){
 				needsUpdate = true;
-				if (cursorX == widgetLines.read(cursorY).length){
-					if (cursorY < widgetLines.length-1){
+				if (cursorX == readLine(cursorY).length){
+					if (cursorY < lineCount){
 						cursorX = 0;
 						cursorY ++;
 						scrollX = 0;
-						
 					}
 				}else{
 					cursorX ++;
 				}
 			}
 		}
+		// I'll use this this time not to move the cursor, but to fix the cursor position
+		moveCursor(cursorX,cursorY);
 		reScroll();
 	}
 	
@@ -760,7 +785,7 @@ public:
 	///
 	///To modify the content, just modify it in the returned list
 	///
-	///class `List` is defined in `qui.lists.d`
+	///class `List` is defined in `utils.lists.d`
 	@property List!string lines(){
 		return widgetLines;
 	}
@@ -788,7 +813,7 @@ private:
 
 	
 	uinteger stringLineCount(string s){
-		uinteger width = this.size.width;
+		uinteger width = widgetSize.width;
 		uinteger i, widthTaken = 0, count = 1;
 		for (i = 0; i < s.length; i++){
 			widthTaken ++;
@@ -804,7 +829,7 @@ private:
 	}
 	string stripString(string s, uinteger height){
 		char[] r;
-		uinteger width = this.size.width;
+		uinteger width = widgetSize.width;
 		uinteger i, widthTaken = 0, count = 1;
 		for (i = 0; i < s.length; i++){
 			widthTaken ++;
@@ -849,13 +874,13 @@ public:
 			if (messages.length>0){
 				for (i=messages.length-1; i>=0; i--){
 					count += stringLineCount(messages[i]);
-					if (count > this.size.height){
+					if (count > widgetSize.height){
 						messages = messages[i+1 .. messages.length];
 						//try to insert part of the last message
 						uinteger thisCount = stringLineCount(messages[i]);
 						count -= thisCount;
-						if (count < this.size.height){
-							messages ~= [stripString(messages[i], this.size.height - count)];
+						if (count < widgetSize.height){
+							messages ~= [stripString(messages[i], widgetSize.height - count)];
 						}
 						break;
 					}
@@ -924,10 +949,10 @@ public:
 		bool r = false;
 		if (needsUpdate){
 			char[] row;
-			row.length = this.size.width;
+			row.length = widgetSize.width;
 			row[0 .. row.length] = ' ';
 			//write the caption too!
-			uinteger middle = this.size.height/2;
+			uinteger middle = widgetSize.height/2;
 			// the colors to use now, background, and text
 			RGB bgC, tC;
 			if (termInterface.isActiveWidget(this)){
@@ -937,9 +962,9 @@ public:
 				bgC = backgroundColor;
 				tC = textColor;
 			}
-			for (uinteger i = 0; i < this.size.height; i++){
+			for (uinteger i = 0; i < widgetSize.height; i++){
 				if (i == middle && widgetCaption != ""){
-					row = centerAlignText(cast(char[])caption, this.size.width);
+					row = centerAlignText(cast(char[])caption, widgetSize.width);
 					display.write(row, tC, bgC);
 					row[0 .. row.length] = ' ';
 					continue;
