@@ -1063,9 +1063,7 @@ public:
 		char[] toFillWith;
 		toFillWith.length = matrixWidth - xPosition;
 		toFillWith[] = c;
-		toUpdate.append(Display(xPosition,yPosition,bgColor,textColor,toFillWith.dup));
-		yPosition++;
-		xPosition = 0;
+		this.write(toFillWith, textColor, bgColor);
 	}
 
 	/// fill the left-over Matrix with a character
@@ -1076,9 +1074,7 @@ public:
 		char[] toFillWith;
 		toFillWith.length = cells;
 		toFillWith[] = c;
-		this.toUpdate.append(Display(xPosition,yPosition,bgColor,textColor,toFillWith.dup));
-		xPosition = 0;
-		yPosition = matrixWidth;
+		this.write(toFillWith, textColor, bgColor);
 	}
 	/// Changes the matrix's colors. Must be called before any writing has taken place
 	void setColors(RGB textColor, RGB bgColor){
