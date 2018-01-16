@@ -644,7 +644,7 @@ public:
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);
 		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
-			if (cursorY < lineCount){
+			if (cursorY+1 < lineCount){
 				needsUpdate = true;
 				moveCursor(cursorX, cursorY + 4);
 				reScroll();
@@ -732,7 +732,7 @@ public:
 			if (key.key == key.NonCharKey.Delete){
 				needsUpdate = true;
 				//check if is deleting \n
-				if (cursorX == readLine(cursorY).length && cursorY < lineCount-1){
+				if (cursorX == readLine(cursorY).length && cursorY+1 < lineCount){
 					//merge next line with this one
 					char[] line = cast(char[])readLine(cursorY)~readLine(cursorY+1);
 					overwriteLine(cursorY, cast(string)line);
@@ -766,7 +766,7 @@ public:
 			}else if (key.key == key.NonCharKey.RightArrow){
 				needsUpdate = true;
 				if (cursorX == readLine(cursorY).length){
-					if (cursorY < lineCount){
+					if (cursorY+1 < lineCount){
 						cursorX = 0;
 						cursorY ++;
 						scrollX = 0;
