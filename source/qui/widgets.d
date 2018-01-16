@@ -68,8 +68,8 @@ public:
 	/// background and text colors
 	RGB backgroundColor, textColor;
 	this (){
-		backgroundColor = hexToColor("000000");
-		textColor = hexToColor("00FF00");
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 		marginChar = ' ';
 		margin = 0;
 		// this widget doesnt want input, but it's child-widget may want, but child widget is registered separately, so 
@@ -233,8 +233,8 @@ public:
 	this(string wCaption = ""){
 		widgetCaption = wCaption;
 
-		textColor = hexToColor("00FF00");
-		backgroundColor = hexToColor("000000");
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 	}
 	
 	override bool update(Matrix display){
@@ -260,8 +260,8 @@ public:
 		max = totalAmount;
 		done = complete;
 
-		backgroundColor = hexToColor("000000");
-		barColor = hexToColor("00FF00");
+		barColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 	}
 	
 	override bool update(Matrix display){
@@ -360,10 +360,10 @@ public:
 		// and needs to show the cursor too
 		widgetShowCursor = true;
 
-		backgroundColor = hexToColor("404040");
-		textColor = hexToColor("00FF00");
-		captionBackgroundColor = hexToColor("000000");
-		captionTextColor = hexToColor("00FF00");
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
+		captionTextColor = DEFAULT_TEXT_COLOR;
+		captionBackgroundColor = DEFAULT_BACK_COLOR;
 	}
 
 	override bool update(Matrix display){
@@ -550,8 +550,8 @@ public:
 		// and the cursor should be visible
 		widgetShowCursor = true;
 
-		backgroundColor = hexToColor("404040");
-		textColor = hexToColor("00FF00");
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 		// zero lines = wont work
 		widgetLines.add("");
 	}
@@ -827,8 +827,8 @@ public:
 		max = maxLen;
 		logs = new LinkedList!string;
 
-		backgroundColor = hexToColor("404040");
-		textColor = hexToColor("00FF00");
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 	}
 	~this(){
 		logs.destroy;
@@ -913,11 +913,11 @@ public:
 		widgetCaption = caption;
 		widgetWantsInput = true;
 
-		backgroundColor = hexToColor("00FF00");
-		textColor = hexToColor("000000");
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 
-		activeBackgroundColor = hexToColor("006600");
-		activeTextColor = hexToColor("000000");
+		activeTextColor = DEFAULT_TEXT_COLOR;
+		activeBackgroundColor = DEFAULT_BACK_COLOR;
 	}
 	
 	override public bool update(Matrix display){

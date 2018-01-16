@@ -11,6 +11,9 @@ import utils.lists;
 import utils.misc;
 import std.conv : to;
 
+const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
+const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
+
 ///Mouse Click, or Ms Wheel scroll event
 ///
 ///The mouseEvent function is called with this.
@@ -670,8 +673,6 @@ private:
 	QWidget activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[KeyPress] keysToCatch;
-	/// colors
-	RGB textColor, bgColor;
 
 	/// Called by QTermInterface to position the cursor, only the activeWidget can change the cursorPos
 	/// 
@@ -758,6 +759,8 @@ private:
 		}
 	}
 public:
+	/// text color, and background color
+	RGB textColor, backgroundColor;
 	this(string caption = "QUI Text User Interface", LayoutDisplayType displayType = LayoutDisplayType.Vertical){
 		super(displayType);
 		//create terminal & input
@@ -765,6 +768,8 @@ public:
 		input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.allInputEvents);
 		terminal.showCursor();
 		//init vars
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
 		termInterface = QTermInterface(this);
 		widgetSize.height = terminal.height;
 		widgetSize.width = terminal.width;
@@ -773,7 +778,7 @@ public:
 		terminal.setTitle(widgetCaption);
 		//create display matrix
 		termDisplay = new Matrix(widgetSize.width, widgetSize.height);
-		termDisplay.setColors(textColor, bgColor);
+		termDisplay.setColors(textColor, backgroundColor);
 	}
 	~this(){
 		terminal.clear;
@@ -921,7 +926,7 @@ public:
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//change matrix size
 				termDisplay.changeSize(cast(uinteger)terminal.width, cast(uinteger)terminal.height);
-				termDisplay.setColors(textColor, bgColor);
+				termDisplay.setColors(textColor, backgroundColor);
 				//update self size
 				terminal.updateSize;
 				widgetSize.height = terminal.height;
