@@ -1057,6 +1057,29 @@ public:
 			yPosition = (c.length+toAdd)/matrixWidth;
 		}
 	}
+
+	/// writes the current line to the end, filling it with a char
+	void fillLine(char c, RGB textColor, RGB bgColor){
+		char[] toFillWith;
+		toFillWith.length = matrixWidth - xPosition;
+		toFillWith[] = c;
+		toUpdate.append(Display(xPosition,yPosition,bgColor,textColor,toFillWith.dup));
+		yPosition++;
+		xPosition = 0;
+	}
+
+	/// fill the left-over Matrix with a character
+	void fillMatrix(char c, RGB textColor, RGB bgColor){
+		//get available cells
+		uinteger cells = (matrixHeight - yPosition) * matrixWidth;// first get the whole area
+		cells -= xPosition;//subtract partial-lines
+		char[] toFillWith;
+		toFillWith.length = cells;
+		toFillWith[] = c;
+		this.toUpdate.append(Display(xPosition,yPosition,bgColor,textColor,toFillWith.dup));
+		xPosition = 0;
+		yPosition = matrixWidth;
+	}
 	/// Changes the matrix's colors. Must be called before any writing has taken place
 	void setColors(RGB textColor, RGB bgColor){
 		toUpdate.clear;// because it's contents are going to be overwritten, so why bother waste time writing them?
