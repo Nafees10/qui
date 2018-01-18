@@ -493,8 +493,8 @@ private:
 		//calculate scrollY first
 		scrollY = 0;
 		// scrollY + widgetSize.height  -->  last visible line+1
-		if (cursorY > scrollY + widgetSize.height || cursorY < scrollY){
-			scrollY = cursorY - widgetSize.height + 1;
+		if (cursorY >= scrollY + widgetSize.height || cursorY < scrollY){
+			scrollY = (cursorY - widgetSize.height) + 1;
 		}
 		//now time for scrollX
 		//check if is within length of line
@@ -504,7 +504,7 @@ private:
 		}
 		//now calculate scrollX, if it needs to be increased
 		if (scrollX + widgetSize.width < cursorX || scrollX + widgetSize.width >= cursorX){
-			if (cursorX <= widgetSize.width){
+			if (cursorX < widgetSize.width){
 				scrollX = 0;
 			}else{
 				scrollX = cursorX - widgetSize.width;
