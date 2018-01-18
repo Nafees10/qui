@@ -7,5 +7,17 @@
 	"dependencies": {
 		"utils": "~>0.1.6",
 		"arsd-official:terminal": "~>1.2.2"
-	}
+	},"configurations": [
+		{
+			"name": "default",
+			"targetType": "library",
+			"targetName": "qui"
+		},
+		{
+			"name": "demo",
+			"targetType": "executable",
+			"targetName": "quidemo",
+			"versions": ["demo"]
+		},
+	],
 }
