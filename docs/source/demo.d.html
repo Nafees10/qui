@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+        <title>demo source code</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="../style.css" />
+        <script src="../script.js" type="text/javascript"></script>
+
+	
+	<link rel="prefetch" href="../search-results.html" />
+</head>
+<body>
+	<div id="page-header">
+		<div id="logotype">
+		<span>Documentation</span>
+		<nav>
+			<a href="http://dlang.org/">Dlang.org</a>
+		</nav>
+		</div>
+
+		<form id="search" action="search-docs.html">
+			<input placeholder="Find a symbol name..." name="searchTerm" type="search" />
+			<input type="submit" value="Go" />
+		</form>
+	</div>
+	<div id="page-body">
+		<div id="page-content">
+		<pre class="d_code highlighted with-line-wrappers"><a id="L1" href="#L1" class="br">1 </a><span class="kwrd">module</span> <span class="hid">demo</span>;
+<a id="L2" href="#L2" class="br">2 </a><span class="kwrd">version</span>(<span class="hid">demo</span>){
+<a id="L3" href="#L3" class="br">3 </a>	<span class="kwrd">import</span> <span class="hid">qui.qui</span>;
+<a id="L4" href="#L4" class="br">4 </a>	<span class="kwrd">import</span> <span class="hid">qui.widgets</span>;
+<a id="L5" href="#L5" class="br">5 </a>	
+<a id="L6" href="#L6" class="br">6 </a>	<span class="type">void</span> <span class="hid">main</span> (){
+<a id="L7" href="#L7" class="br">7 </a>		<span class="hid">App</span> <span class="hid">appInstance</span> = <span class="kwrd">new</span> <span class="hid">App</span>();
+<a id="L8" href="#L8" class="br">8 </a>		<span class="hid">appInstance.run</span>();
+<a id="L9" href="#L9" class="br">9 </a>		<span class="com">// not doing this causes an exception</span>
+<a id="L10" href="#L10" class="br">10 </a>		.<span class="hid">destroy</span> (<span class="hid">appInstance</span>);
+<a id="L11" href="#L11" class="br">11 </a>	}
+<a id="L12" href="#L12" class="br">12 </a>	
+<a id="L13" href="#L13" class="br">13 </a>	<span class="kwrd">class</span> <span class="hid">App</span>{
+<a id="L14" href="#L14" class="br">14 </a>	<span class="kwrd">private</span>:
+<a id="L15" href="#L15" class="br">15 </a>		<a title="qui.qui.QTerminal" href="qui.qui.QTerminal.html" class="hid">QTerminal</a> <span class="hid">term</span>;
+<a id="L16" href="#L16" class="br">16 </a>		<span class="com">// to put a border around everything</span>
+<a id="L17" href="#L17" class="br">17 </a>		<a title="qui.widgets.ContainerWidget" href="qui.widgets.ContainerWidget.html" class="hid">ContainerWidget</a> <span class="hid">border</span>;
+<a id="L18" href="#L18" class="br">18 </a>		<span class="com">// because we want &gt;1 widgets in terminal, but ContainerWidget allows only one</span>
+<a id="L19" href="#L19" class="br">19 </a>		<a title="qui.qui.QLayout" href="qui.qui.QLayout.html" class="hid">QLayout</a> <span class="hid">mainLayout</span>;
+<a id="L20" href="#L20" class="br">20 </a>		<span class="com">// just a memo</span>
+<a id="L21" href="#L21" class="br">21 </a>		<a title="qui.widgets.LogWidget" href="qui.widgets.LogWidget.html" class="hid">LogWidget</a> <span class="hid">logs</span>;
+<a id="L22" href="#L22" class="br">22 </a>		<span class="com">// because we want buttons to be in a vertical order, but mainLayout is horizontal</span>
+<a id="L23" href="#L23" class="br">23 </a>		<a title="qui.qui.QLayout" href="qui.qui.QLayout.html" class="hid">QLayout</a> <span class="hid">buttonsContainer</span>;
+<a id="L24" href="#L24" class="br">24 </a>		<span class="com">// some buttons</span>
+<a id="L25" href="#L25" class="br">25 </a>		<a title="qui.widgets.ButtonWidget" href="qui.widgets.ButtonWidget.html" class="hid">ButtonWidget</a> <span class="hid">incButton</span>, <span class="hid">decButton</span>;
+<a id="L26" href="#L26" class="br">26 </a>		<span class="com">// just a progress bar</span>
+<a id="L27" href="#L27" class="br">27 </a>		<a title="qui.widgets.ProgressbarWidget" href="qui.widgets.ProgressbarWidget.html" class="hid">ProgressbarWidget</a> <span class="hid">progressBar</span>;
+<a id="L28" href="#L28" class="br">28 </a>	<span class="kwrd">public</span>:
+<a id="L29" href="#L29" class="br">29 </a>		<span class="kwrd">this</span>(){
+<a id="L30" href="#L30" class="br">30 </a>			<span class="hid">term</span> = <span class="kwrd">new</span> <a title="qui.qui.QTerminal" href="qui.qui.QTerminal.html" class="hid">QTerminal</a>(<span class="str">&quot;Dummy Caption&quot;</span>, <a title="qui.qui.LayoutDisplayType" href="qui.qui.LayoutDisplayType.html#Horizontal" class="hid">LayoutDisplayType.Horizontal</a>);
+<a id="L31" href="#L31" class="br">31 </a>			<span class="hid">border</span> = <span class="kwrd">new</span> <a title="qui.widgets.ContainerWidget" href="qui.widgets.ContainerWidget.html" class="hid">ContainerWidget</a>;
+<a id="L32" href="#L32" class="br">32 </a>			<span class="hid">border.margin</span> = <span class="num">2</span>;
+<a id="L33" href="#L33" class="br">33 </a>			<span class="hid">border.marginChar</span> = <span class="str">'O'</span>;
+<a id="L34" href="#L34" class="br">34 </a>			<span class="hid">mainLayout</span> = <span class="kwrd">new</span> <a title="qui.qui.QLayout" href="qui.qui.QLayout.html" class="hid">QLayout</a>(<a title="qui.qui.LayoutDisplayType" href="qui.qui.LayoutDisplayType.html#Horizontal" class="hid">LayoutDisplayType.Horizontal</a>);
+<a id="L35" href="#L35" class="br">35 </a>			
+<a id="L36" href="#L36" class="br">36 </a>			<span class="hid">logs</span> = <span class="kwrd">new</span> <a title="qui.widgets.LogWidget" href="qui.widgets.LogWidget.html" class="hid">LogWidget</a>();
+<a id="L37" href="#L37" class="br">37 </a>			
+<a id="L38" href="#L38" class="br">38 </a>			<span class="hid">buttonsContainer</span> = <span class="kwrd">new</span> <a title="qui.qui.QLayout" href="qui.qui.QLayout.html" class="hid">QLayout</a>(<a title="qui.qui.LayoutDisplayType" href="qui.qui.LayoutDisplayType.html#Vertical" class="hid">LayoutDisplayType.Vertical</a>);
+<a id="L39" href="#L39" class="br">39 </a>			<span class="hid">incButton</span> = <span class="kwrd">new</span> <a title="qui.widgets.ButtonWidget" href="qui.widgets.ButtonWidget.html" class="hid">ButtonWidget</a>(<span class="str">&quot;increase&quot;</span>);
+<a id="L40" href="#L40" class="br">40 </a>			<span class="hid">decButton</span> = <span class="kwrd">new</span> <a title="qui.widgets.ButtonWidget" href="qui.widgets.ButtonWidget.html" class="hid">ButtonWidget</a>(<span class="str">&quot;decrease&quot;</span>);
+<a id="L41" href="#L41" class="br">41 </a>			
+<a id="L42" href="#L42" class="br">42 </a>			<span class="hid">progressBar</span> = <span class="kwrd">new</span> <a title="qui.widgets.ProgressbarWidget" href="qui.widgets.ProgressbarWidget.html" class="hid">ProgressbarWidget</a>(<span class="num">100</span>, <span class="num">50</span>);
+<a id="L43" href="#L43" class="br">43 </a>			
+<a id="L44" href="#L44" class="br">44 </a>			<span class="com">// arrange them inside each other</span>
+<a id="L45" href="#L45" class="br">45 </a>			<span class="com">// buttons go inside the buttons container, to put them vertically</span>
+<a id="L46" href="#L46" class="br">46 </a>			<span class="hid">buttonsContainer.addWidget</span> ([<span class="hid">incButton</span>, <span class="hid">decButton</span>]);
+<a id="L47" href="#L47" class="br">47 </a>			<span class="com">// then they go in order: memo:buttons:progressBar</span>
+<a id="L48" href="#L48" class="br">48 </a>			<span class="hid">mainLayout.addWidget</span>([
+<a id="L49" href="#L49" class="br">49 </a>					<span class="hid">logs</span>,
+<a id="L50" href="#L50" class="br">50 </a>					<span class="hid">buttonsContainer</span>,
+<a id="L51" href="#L51" class="br">51 </a>					<span class="hid">progressBar</span>
+<a id="L52" href="#L52" class="br">52 </a>				]);
+<a id="L53" href="#L53" class="br">53 </a>			<span class="com">// and the whole container goes inside the form</span>
+<a id="L54" href="#L54" class="br">54 </a>			<span class="hid">border.widget</span> = <span class="hid">mainLayout</span>;
+<a id="L55" href="#L55" class="br">55 </a>			<span class="hid">term.addWidget</span>(<span class="hid">border</span>);
+<a id="L56" href="#L56" class="br">56 </a>			
+<a id="L57" href="#L57" class="br">57 </a>			<span class="com">// register custom events, to handle button presses</span>
+<a id="L58" href="#L58" class="br">58 </a>			<span class="hid">incButton.onMouseEvent</span> = &amp;<span class="hid">increaseButtonPress</span>;
+<a id="L59" href="#L59" class="br">59 </a>			<span class="hid">decButton.onMouseEvent</span> = &amp;<span class="hid">decreaseButtonPres</span>;
+<a id="L60" href="#L60" class="br">60 </a>		}
+<a id="L61" href="#L61" class="br">61 </a>		~<span class="kwrd">this</span>(){
+<a id="L62" href="#L62" class="br">62 </a>			<span class="com">// destroy them all, or (IDK why) it causes an exception at end</span>
+<a id="L63" href="#L63" class="br">63 </a>			.<span class="hid">destroy</span> (<span class="hid">progressBar</span>);
+<a id="L64" href="#L64" class="br">64 </a>			.<span class="hid">destroy</span> (<span class="hid">decButton</span>);
+<a id="L65" href="#L65" class="br">65 </a>			.<span class="hid">destroy</span> (<span class="hid">incButton</span>);
+<a id="L66" href="#L66" class="br">66 </a>			.<span class="hid">destroy</span> (<span class="hid">buttonsContainer</span>);
+<a id="L67" href="#L67" class="br">67 </a>			.<span class="hid">destroy</span> (<span class="hid">logs</span>);
+<a id="L68" href="#L68" class="br">68 </a>			.<span class="hid">destroy</span> (<span class="hid">mainLayout</span>);
+<a id="L69" href="#L69" class="br">69 </a>			.<span class="hid">destroy</span> (<span class="hid">border</span>);
+<a id="L70" href="#L70" class="br">70 </a>			.<span class="hid">destroy</span> (<span class="hid">term</span>);
+<a id="L71" href="#L71" class="br">71 </a>		}
+<a id="L72" href="#L72" class="br">72 </a>		<span class="type">void</span> <span class="hid">run</span>(){
+<a id="L73" href="#L73" class="br">73 </a>			<span class="hid">term.run</span>();
+<a id="L74" href="#L74" class="br">74 </a>		}
+<a id="L75" href="#L75" class="br">75 </a>		<span class="com">/// catch click from incButton</span>
+<a id="L76" href="#L76" class="br">76 </a>		<span class="type">void</span> <span class="hid">increaseButtonPress</span>(<a title="qui.qui.MouseClick" href="qui.qui.MouseClick.html" class="hid">MouseClick</a> <span class="hid">mouse</span>){
+<a id="L77" href="#L77" class="br">77 </a>			<span class="kwrd">if</span> (<span class="hid">progressBar.progress</span> - <span class="hid">progressBar.total</span> &lt; <span class="num">10</span>){
+<a id="L78" href="#L78" class="br">78 </a>				<span class="hid">progressBar.progress</span> = <span class="hid">progressBar.total</span>;
+<a id="L79" href="#L79" class="br">79 </a>			}<span class="kwrd">else</span>{
+<a id="L80" href="#L80" class="br">80 </a>				<span class="hid">progressBar.progress</span> = <span class="hid">progressBar.progress</span> + <span class="num">10</span>;
+<a id="L81" href="#L81" class="br">81 </a>			}
+<a id="L82" href="#L82" class="br">82 </a>			<span class="com">// add it to log</span>
+<a id="L83" href="#L83" class="br">83 </a>			<span class="hid">logs.add</span>(<span class="str">&quot;incButton pressed&quot;</span>);
+<a id="L84" href="#L84" class="br">84 </a>		}
+<a id="L85" href="#L85" class="br">85 </a>		<span class="com">/// catch click from decButton</span>
+<a id="L86" href="#L86" class="br">86 </a>		<span class="type">void</span> <span class="hid">decreaseButtonPres</span>(<a title="qui.qui.MouseClick" href="qui.qui.MouseClick.html" class="hid">MouseClick</a> <span class="hid">mouse</span>){
+<a id="L87" href="#L87" class="br">87 </a>			<span class="kwrd">if</span> (<span class="hid">progressBar.progress</span> &lt; <span class="num">10</span>){
+<a id="L88" href="#L88" class="br">88 </a>				<span class="hid">progressBar.progress</span> = <span class="num">0</span>;
+<a id="L89" href="#L89" class="br">89 </a>			}<span class="kwrd">else</span>{
+<a id="L90" href="#L90" class="br">90 </a>				<span class="hid">progressBar.progress</span> = <span class="hid">progressBar.progress</span> - <span class="num">10</span>;
+<a id="L91" href="#L91" class="br">91 </a>			}
+<a id="L92" href="#L92" class="br">92 </a>			<span class="com">// add it to log</span>
+<a id="L93" href="#L93" class="br">93 </a>			<span class="hid">logs.add</span>(<span class="str">&quot;decButton pressed&quot;</span>);
+<a id="L94" href="#L94" class="br">94 </a>		}
+<a id="L95" href="#L95" class="br">95 </a>	}
+<a id="L96" href="#L96" class="br">96 </a>}
+</pre></div>
+		<div id="page-nav">
+		<div id="source-navigation"><div class="list-holder"><ul><li><a href="#L1">demo</a><ul><li><a href="#L6">main</a></li><li><a href="#L13">App</a><ul><li><a href="#L15">term</a></li><li><a href="#L17">border</a></li><li><a href="#L19">mainLayout</a></li><li><a href="#L21">logs</a></li><li><a href="#L23">buttonsContainer</a></li><li><a href="#L25">incButton</a></li><li><a href="#L25">decButton</a></li><li><a href="#L27">progressBar</a></li><li><a href="#L29">this</a></li><li><a href="#L61">~this</a></li><li><a href="#L72">run</a></li><li><a href="../demo.App.increaseButtonPress.html" class="docs">[Docs] </a><a href="#L76">increaseButtonPress</a></li><li><a href="../demo.App.decreaseButtonPres.html" class="docs">[Docs] </a><a href="#L86">decreaseButtonPres</a></li></ul></li></ul></li></ul></div></div></div>
+	</div>
+	<div id="page-footer">Page generated by <a href="https://github.com/adamdruppe/adrdox">adrdox</a></div>
+</body>
+</html>
