@@ -5,8 +5,7 @@
 	"authors": ["nafees"],
 	"license":"MIT",
 	"dependencies": {
-		"utils": "~>0.1.6",
-		"arsd-official:terminal": "~>1.2.2"
+		"utils": "~>0.1.8"
 	},"configurations": [
 		{
 			"name": "default",
