@@ -30,7 +30,7 @@ version(demo){
 			term = new QTerminal("Dummy Caption", LayoutDisplayType.Horizontal);
 			border = new ContainerWidget;
 			border.margin = 2;
-			border.marginChar = 'O';
+			border.marginChar = ' ';
 			mainLayout = new QLayout(LayoutDisplayType.Horizontal);
 			
 			logs = new LogWidget();
