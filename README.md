@@ -66,5 +66,5 @@ public:
 	}
 }
 ```
-The result will be something like:
+The result will be something like:  
 ![alt text](http://imgur.com/vpokN5Ql.png "Screenshot")
