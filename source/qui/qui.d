@@ -969,6 +969,11 @@ public:
 	@property bool running(){
 		return isRunning;
 	}
+
+	/// overriding to prevent messing up of terminal
+	override public QTermInterface setTermInterface(QTermInterface newInterface) {
+		return termInterface;
+	}
 }
 
 /// Used to manage the characters on the terminal
