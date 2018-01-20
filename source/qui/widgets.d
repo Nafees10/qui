@@ -320,12 +320,10 @@ private:
 		}
 		uinteger w = widgetSize.width - widgetCaption.length;
 		//now calculate scrollX, if it needs to be increased
-		if ((scrollX + w < cursorX || scrollX + w >= cursorX)){
-			if (cursorX <= w){
-				scrollX = 0;
-			}else{
-				scrollX = cursorX - (w/2);
-			}
+		if (cursorX < w){
+			scrollX = 0;
+		}else{
+			scrollX = 1+(cursorX - w);
 		}
 	}
 	/// used by widget itself to set cursor
