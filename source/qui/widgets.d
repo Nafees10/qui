@@ -351,8 +351,6 @@ public:
 		widgetSize.minWidth = 1;
 		widgetSize.minHeight = 1;
 		widgetSize.maxHeight = 1;
-		// this widget wants Tab key
-		widgetWantsTab = true;
 		// and input too, obvious
 		widgetWantsInput = true;
 		// and needs to show the cursor too
@@ -523,7 +521,7 @@ private:
 		cursorX = x;
 		cursorY = y;
 		
-		if (cursorY > lineCount){
+		if (cursorY+1 > lineCount){
 			cursorY = lineCount-1;
 		}
 		if (cursorX > readLine(cursorY).length){
@@ -601,23 +599,21 @@ public:
 			if (count > 0){
 				//write lines to memo
 				char[] line;
+				uinteger w = widgetSize.width;
 				for (uinteger i = scrollY; i < count; i++){
 					//echo current line
 					line = cast(char[])readLine(i);
 					//fit the line into screen, i.e check if only a part of it will be displayed
-					if (line.length >= widgetSize.width+scrollX){
+					if (line.length >= w+scrollX){
 						//display only partial line
-						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, backgroundColor);
+						display.write(line[scrollX .. scrollX + w], textColor, backgroundColor);
 					}else{
 						//either the line is small enough to fit, or 0-length
-						if (line.length <= scrollX || line.length == 0){
-							//just write the bgColor
-							display.fillLine(' ', textColor, backgroundColor);
-						}else{
+						if (line.length > scrollX){
 							display.write(line[scrollX .. line.length], textColor, backgroundColor);
-							//write the bgColor
-							display.fillLine(' ',textColor,backgroundColor);
 						}
+						//write the bgColor
+						display.fillLine(' ',textColor,backgroundColor);
 					}
 					//check if is at end
 					if (i-scrollY >= widgetSize.height){
