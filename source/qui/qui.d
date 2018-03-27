@@ -980,6 +980,10 @@ public:
 	~this(){
 		terminal.clear;
 		delete termDisplay;
+		// terminate timers' threads
+		foreach (thread; timerThreads){
+			thread.send(TimerMessage(TimerMessage.Type.Terminate));
+		}
 	}
 	
 	override public void addWidget(QWidget widget){
