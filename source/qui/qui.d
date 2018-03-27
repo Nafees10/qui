@@ -10,6 +10,9 @@ import utils.baseconv;
 import utils.lists;
 import utils.misc;
 import std.conv : to;
+import core.time;
+import std.concurrency;
+import core.thread;
 
 const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
 const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
@@ -82,6 +85,12 @@ struct KeyPress{
 		}
 		return "{key:\""~to!string(cast(NonCharKey)key)~"\"}";
 	}
+}
+
+/// timer event, timerEvent (function) is called with this
+struct TimerEvent{
+	uinteger timerID; /// the ID assigned to this timer. This ID is needed to remove/disable this timer
+	Duration timerDuration; /// how frequently this timer will-be/is called
 }
 
 /// A 24 bit, RGB, color
@@ -166,6 +175,8 @@ alias KeyboardEventFunction = void delegate(KeyPress);
 alias ResizeEventFunction = void delegate(Size);
 /// activateEvent function
 alias ActivateEventFunction = void delegate(bool);
+/// timerEvent function
+alias TimerEventFunction = void delegate(TimerEvent);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -628,10 +639,24 @@ struct QTermInterface{
 			return term.registerKeyHandler(key, handlerWidget);
 		return false;
 	}
+	/// un-sets a "hotkey" that was set using `.setKeyHandler`
+	/// Returns: true on success, false if the key was never set
+	bool unsetKeyHandler(KeyPress key){
+		if (term)
+			return term.unregisterKeyHandler(key);
+		return false;
+	}
 	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
 	void registerWidget(QWidget newWidget){
 		if (term)
 			term.registerWidget(newWidget);
+	}
+	/// unregisteres a widget from terminal.
+	/// Returns: true on success, false if widget was never registered
+	bool unregisterWidget(QWidget widget){
+		if (term)
+			return term.unregisterWidget(widget);
+		return false;
 	}
 	/// forces an update of the terminal, only widgets that need update will be updated.
 	/// 
@@ -647,6 +672,40 @@ struct QTermInterface{
 			return term.isActiveWidget(widget);
 		}
 		return false;
+	}
+}
+
+/// messages timerThread and main thread send
+private struct TimerMessage{
+	/// types of messages
+	enum Type{
+		Trigger, /// timer -> main telling it to trigger that timer
+		Terminate, /// main -> timer telling it to terminate, and not trigger timer before doing so
+	}
+	/// stores the type
+	Type type;
+	/// stores the timer ID
+	uinteger id;
+	/// constructor
+	this (uinteger timerID, Type messageType){
+		id = timerID;
+		type = messageType;
+	}
+}
+
+/// the function that is launched in a separate thread to run a timer
+private void timerThread(uinteger id, Duration timerDuration){
+	bool isRunning = true;
+	while (isRunning){
+		receiveTimeout(timerDuration,
+			(TimerMessage msg){
+				if (msg.type == TimerMessage.Type.Terminate){
+					isRunning = false;
+				}
+			}
+		);
+		if (isRunning)
+			ownerTid.send(TimerMessage(id, TimerMessage.Type.Trigger));
 	}
 }
 
@@ -669,11 +728,12 @@ private:
 	QWidget[] registeredWidgets;
 	/// stores the index of the active widget, which is in `registeredWidgets`, <0 if none
 	integer activeWidgetIndex = -1;
-	// contains reference to the active widget, null if no active widget
+	/// contains reference to the active widget, null if no active widget
 	QWidget activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[KeyPress] keysToCatch;
-
+	/// stores the threads running timerEvents
+	Tid[uinteger] timerThreads;
 	/// Called by QTermInterface to position the cursor, only the activeWidget can change the cursorPos
 	/// 
 	/// Returns: true on success, false on failure
@@ -698,9 +758,30 @@ private:
 		}
 	}
 
+	/// unregisters a key with a widget. A certain key will only be caught by the activeWidget
+	/// Returns: true if successful, false if the key was never registered
+	bool unregisterKeyHandler(KeyPress key){
+		if (key in keysToCatch){
+			keysToCatch.remove(key);
+			return true;
+		}
+		return false;
+	}
+
 	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
 	void registerWidget(QWidget newWidget){
 		registeredWidgets ~= newWidget;
+	}
+
+	/// unregisters an already registered widget
+	/// Returns: true if successful, false if failed, or if its not registered
+	bool unregisterWidget(QWidget widget){
+		integer index = registeredWidgets.indexOf(widget);
+		if (index >= 0){
+			registeredWidgets = registeredWidgets.deleteElement(index);
+			return true;
+		}
+		return false;
 	}
 
 	/// Returns: true if a widget is active widget
