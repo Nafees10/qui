@@ -375,6 +375,10 @@ public:
 	@property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
 		return customActivateEvent = func;
 	}
+	/// use to change the custom timer event
+	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
+		return customTimerEvent = func;
+	}
 	
 	
 	//properties:
