@@ -16,6 +16,7 @@ import core.thread;
 
 const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
 const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
+const EVENT_CHECK_TIMEOUT = 25; // 25 milliseconds
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
@@ -85,12 +86,6 @@ struct KeyPress{
 		}
 		return "{key:\""~to!string(cast(NonCharKey)key)~"\"}";
 	}
-}
-
-/// timer event, timerEvent (function) is called with this
-struct TimerEvent{
-	uinteger timerID; /// the ID assigned to this timer. This ID is needed to remove/disable this timer
-	Duration timerDuration; /// how frequently this timer will-be/is called
 }
 
 /// A 24 bit, RGB, color
@@ -175,8 +170,8 @@ alias KeyboardEventFunction = void delegate(KeyPress);
 alias ResizeEventFunction = void delegate(Size);
 /// activateEvent function
 alias ActivateEventFunction = void delegate(bool);
-/// timerEvent function
-alias TimerEventFunction = void delegate(TimerEvent);
+/// timerEvent function (called with timerID:uinteger)
+alias TimerEventFunction = void delegate(uinteger);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -250,6 +245,17 @@ protected:
 	/// }
 	/// ```
 	ActivateEventFunction customActivateEvent;
+
+	/// custom timerEvent, if not null, it should be called before doing anything else in timerEvent
+	/// 
+	/// Like:
+	/// ```
+	/// override void timerEvent(uinteger timerID){
+	/// 	super.timerEvent(timerID);
+	/// 	// rest of the code for timerEvent here
+	/// }
+	/// ```
+	TimerEventFunction customTimerEvent;
 public:
 	/// Called by owner when mouse is clicked with cursor on this widget.
 	/// 
@@ -288,7 +294,7 @@ public:
 	/// Must be inherited, only if inherited, like:
 	/// ```
 	/// 	override void resizeEvent(){
-	/// 		super.resizeEvent(key);
+	/// 		super.resizeEvent();
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
@@ -305,7 +311,7 @@ public:
 	/// Must be inherited, only if inherited, like:
 	/// ```
 	/// 	override void activateEvent(){
-	/// 		super.activateEvent(key);
+	/// 		super.activateEvent();
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
@@ -313,6 +319,22 @@ public:
 	void activateEvent(bool isActive){
 		if (customActivateEvent){
 			customActivateEvent(isActive);
+		}
+	}
+
+	/// called by QTerminal when a timer, which is handled by this widget, is triggered
+	/// 
+	/// Must be inherited, only if inherited, like:
+	/// ```
+	/// 	override void timerEvent(uinteger timerID){
+	/// 		super.timerEvent(timerID);
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
+	/// `forceUpdate` is not required in this. if `forceUpdate` is called in this, it will have no effect
+	void timerEvent(uinteger timerID){
+		if (customTimerEvent){
+			customTimerEvent(timerID);
 		}
 	}
 
@@ -546,6 +568,7 @@ public:
 			widgetList = widgetList.deleteElement(index);
 			// unregister it
 			termInterface.unregisterWidget(widget);
+			resizeEvent();
 			return true;
 		}
 		return false;
@@ -573,6 +596,7 @@ public:
 			else
 				this.removeWidget(widget);
 		}
+		resizeEvent();
 		return r;
 	}
 	
@@ -687,6 +711,22 @@ struct QTermInterface{
 			return term.unregisterWidget(widget);
 		return false;
 	}
+	/// registers and starts a new timer, which will trigger a widget's timerEvent after every specific time
+	/// Returns: the timerID
+	/// Throws: Exception if terminal is not set to this interface yet
+	uinteger registerTimer(Duration time, QWidget handler){
+		if (term)
+			return term.registerTimer(time, handler);
+		else
+			throw new Exception ("QTerminal not assigned to QTermInterface, cannot register timer");
+	}
+	/// stops and unregisters a timer
+	/// Returns: true if removed, false if failed
+	bool stopTimer(uinteger timerID){
+		if (term)
+			return term.stopTimer(timerID);
+		return false;
+	}
 	/// forces an update of the terminal, only widgets that need update will be updated.
 	/// 
 	/// Returns: true if at least one widget was updated, otherwise, false
@@ -715,9 +755,14 @@ private struct TimerMessage{
 	Type type;
 	/// stores the timer ID
 	uinteger id;
-	/// constructor
+	/// constructor, for timer thread
 	this (uinteger timerID, Type messageType){
 		id = timerID;
+		type = messageType;
+	}
+	/// constructor, for main thread
+	this (Type messageType){
+		id = 0;
 		type = messageType;
 	}
 }
@@ -725,6 +770,7 @@ private struct TimerMessage{
 /// the function that is launched in a separate thread to run a timer
 private void timerThread(uinteger id, Duration timerDuration){
 	bool isRunning = true;
+	bool hibernating = false;
 	while (isRunning){
 		receiveTimeout(timerDuration,
 			(TimerMessage msg){
@@ -763,6 +809,8 @@ private:
 	QWidget[KeyPress] keysToCatch;
 	/// stores the threads running timerEvents
 	Tid[uinteger] timerThreads;
+	/// stores which widgets will be handling which timer events
+	QWidget[uinteger] timerHandlers;
 	/// Called by QTermInterface to position the cursor, only the activeWidget can change the cursorPos
 	/// 
 	/// Returns: true on success, false on failure
@@ -803,7 +851,7 @@ private:
 	}
 
 	/// unregisters an already registered widget
-	/// any keys which were being handled by this widget are also unregistered
+	/// any keys which were being handled by this widget are also unregistered, along with its timers
 	/// 
 	/// Returns: true if successful, false if failed, or if its not registered
 	bool unregisterWidget(QWidget widget){
@@ -816,6 +864,37 @@ private:
 					keysToCatch.remove(key);
 				}
 			}
+			// unregister & stop its timers
+			foreach (timerID, handler; timerHandlers){
+				if (handler == widget){
+					// do it using stopTimer
+					stopTimer(timerID);
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+	/// sets a Timer, that will call the timerEvent on a widget after every Duration passes
+	/// the timer is not very accurate, and if the terminal is being updated, the call will wait for the update to be over
+	/// Returns: the timer ID
+	uinteger registerTimer(Duration time, QWidget handler){
+		// get a id
+		uinteger id = 0;
+		while (id in timerThreads){
+			id ++;
+		}
+		timerThreads[id] = spawn(&timerThread, id, time);
+		timerHandlers[id] = handler;
+		return id;
+	}
+	/// stops a timer
+	/// Returns: true if stopped, else, false (if it doesnt exist)
+	bool stopTimer(uinteger timerID){
+		if (timerID in timerThreads){
+			timerThreads[timerID].send(TimerMessage(TimerMessage.Type.Terminate));
+			timerThreads.remove(timerID);
+			timerHandlers.remove(timerID);
 			return true;
 		}
 		return false;
@@ -1017,6 +1096,18 @@ public:
 		//draw the whole thing
 		updateDisplay();
 		while (isRunning){
+			// wait for event or timer to trigger
+			while (input.timedCheckForInput(0)){
+				// check timers
+				receiveTimeout(dur!"msecs"(EVENT_CHECK_TIMEOUT),
+					(TimerMessage msg){
+						if (msg.type == TimerMessage.Type.Trigger){
+							// trigger the event in the handler widget
+							timerHandlers[msg.id].timerEvent(msg.id);
+						}
+					}
+				);
+			}
 			event = input.nextEvent;
 			//check event type
 			if (event.type == event.Type.KeyboardEvent){
