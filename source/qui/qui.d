@@ -536,6 +536,20 @@ public:
 		//recalculate all widget's size to adjust
 		resizeEvent();
 	}
+	/// removes a widget from the widgetList
+	/// The widget is unregistered from the terminal, and any key's with this widget as handler are also unregistered
+	///
+	/// Returns: true if removed, false if it wasnt added
+	bool removeWidget(QWidget widget){
+		integer index = widgetList.indexOf(widget);
+		if (index >= 0){
+			widgetList = widgetList.deleteElement(index);
+			// unregister it
+			termInterface.unregisterWidget(widget);
+			return true;
+		}
+		return false;
+	}
 	/// adds (appends) widgets to the widgetList, and makes space for them
 	/// 
 	/// If there a widget is too large, it's marked as not visible
@@ -547,6 +561,19 @@ public:
 		widgetList ~= widgets.dup;
 		//resize
 		resizeEvent();
+	}
+	/// removes widgets from widgetList. They are unregistered along with any keys with were handling
+	/// 
+	/// Returns: true if removed, false if failed to
+	bool removeWidget(QWidget[] widgets){
+		bool r = true;
+		foreach (widget; widgets){
+			if (r)
+				r = this.removeWidget(widget);
+			else
+				this.removeWidget(widget);
+		}
+		return r;
 	}
 	
 	/// Recalculates size and position for all visible widgets
@@ -599,7 +626,7 @@ public:
 		return updated;
 	}
 
-	// override setTermInterface to change it for all child widgets as well
+	/// override setTermInterface to change it for all child widgets as well
 	/// 
 	/// **Should __NEVER__ be called from outside, only the owner should call this**
 	override public @property QTermInterface setTermInterface(QTermInterface newInterface){
@@ -652,6 +679,8 @@ struct QTermInterface{
 			term.registerWidget(newWidget);
 	}
 	/// unregisteres a widget from terminal.
+	/// any keys which were being handled by this widget are also unregistered
+	/// 
 	/// Returns: true on success, false if widget was never registered
 	bool unregisterWidget(QWidget widget){
 		if (term)
@@ -774,11 +803,19 @@ private:
 	}
 
 	/// unregisters an already registered widget
+	/// any keys which were being handled by this widget are also unregistered
+	/// 
 	/// Returns: true if successful, false if failed, or if its not registered
 	bool unregisterWidget(QWidget widget){
 		integer index = registeredWidgets.indexOf(widget);
 		if (index >= 0){
 			registeredWidgets = registeredWidgets.deleteElement(index);
+			// unregister keys
+			foreach (key, handler; keysToCatch){
+				if (handler == widget){
+					keysToCatch.remove(key);
+				}
+			}
 			return true;
 		}
 		return false;
