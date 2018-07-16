@@ -10,13 +10,9 @@ import utils.baseconv;
 import utils.lists;
 import utils.misc;
 import std.conv : to;
-import core.time;
-import std.concurrency;
-import core.thread;
 
 const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
 const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
-const EVENT_CHECK_TIMEOUT = 25; // 25 milliseconds
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
@@ -170,8 +166,6 @@ alias KeyboardEventFunction = void delegate(KeyPress);
 alias ResizeEventFunction = void delegate(Size);
 /// activateEvent function
 alias ActivateEventFunction = void delegate(bool);
-/// timerEvent function (called with timerID:uinteger)
-alias TimerEventFunction = void delegate(uinteger);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -245,17 +239,6 @@ protected:
 	/// }
 	/// ```
 	ActivateEventFunction customActivateEvent;
-
-	/// custom timerEvent, if not null, it should be called before doing anything else in timerEvent
-	/// 
-	/// Like:
-	/// ```
-	/// override void timerEvent(uinteger timerID){
-	/// 	super.timerEvent(timerID);
-	/// 	// rest of the code for timerEvent here
-	/// }
-	/// ```
-	TimerEventFunction customTimerEvent;
 public:
 	/// Called by owner when mouse is clicked with cursor on this widget.
 	/// 
@@ -294,7 +277,7 @@ public:
 	/// Must be inherited, only if inherited, like:
 	/// ```
 	/// 	override void resizeEvent(){
-	/// 		super.resizeEvent();
+	/// 		super.resizeEvent(key);
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
@@ -311,7 +294,7 @@ public:
 	/// Must be inherited, only if inherited, like:
 	/// ```
 	/// 	override void activateEvent(){
-	/// 		super.activateEvent();
+	/// 		super.activateEvent(key);
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
@@ -319,22 +302,6 @@ public:
 	void activateEvent(bool isActive){
 		if (customActivateEvent){
 			customActivateEvent(isActive);
-		}
-	}
-
-	/// called by QTerminal when a timer, which is handled by this widget, is triggered
-	/// 
-	/// Must be inherited, only if inherited, like:
-	/// ```
-	/// 	override void timerEvent(uinteger timerID){
-	/// 		super.timerEvent(timerID);
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	/// `forceUpdate` is not required in this. if `forceUpdate` is called in this, it will have no effect
-	void timerEvent(uinteger timerID){
-		if (customTimerEvent){
-			customTimerEvent(timerID);
 		}
 	}
 
@@ -374,10 +341,6 @@ public:
 	/// use to change the custom activate event
 	@property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
 		return customActivateEvent = func;
-	}
-	/// use to change the custom timer event
-	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
-		return customTimerEvent = func;
 	}
 	
 	
@@ -562,21 +525,6 @@ public:
 		//recalculate all widget's size to adjust
 		resizeEvent();
 	}
-	/// removes a widget from the widgetList
-	/// The widget is unregistered from the terminal, and any key's with this widget as handler are also unregistered
-	///
-	/// Returns: true if removed, false if it wasnt added
-	bool removeWidget(QWidget widget){
-		integer index = widgetList.indexOf(widget);
-		if (index >= 0){
-			widgetList = widgetList.deleteElement(index);
-			// unregister it
-			termInterface.unregisterWidget(widget);
-			resizeEvent();
-			return true;
-		}
-		return false;
-	}
 	/// adds (appends) widgets to the widgetList, and makes space for them
 	/// 
 	/// If there a widget is too large, it's marked as not visible
@@ -588,20 +536,6 @@ public:
 		widgetList ~= widgets.dup;
 		//resize
 		resizeEvent();
-	}
-	/// removes widgets from widgetList. They are unregistered along with any keys with were handling
-	/// 
-	/// Returns: true if removed, false if failed to
-	bool removeWidget(QWidget[] widgets){
-		bool r = true;
-		foreach (widget; widgets){
-			if (r)
-				r = this.removeWidget(widget);
-			else
-				this.removeWidget(widget);
-		}
-		resizeEvent();
-		return r;
 	}
 	
 	/// Recalculates size and position for all visible widgets
@@ -654,7 +588,7 @@ public:
 		return updated;
 	}
 
-	/// override setTermInterface to change it for all child widgets as well
+	// override setTermInterface to change it for all child widgets as well
 	/// 
 	/// **Should __NEVER__ be called from outside, only the owner should call this**
 	override public @property QTermInterface setTermInterface(QTermInterface newInterface){
@@ -694,42 +628,10 @@ struct QTermInterface{
 			return term.registerKeyHandler(key, handlerWidget);
 		return false;
 	}
-	/// un-sets a "hotkey" that was set using `.setKeyHandler`
-	/// Returns: true on success, false if the key was never set
-	bool unsetKeyHandler(KeyPress key){
-		if (term)
-			return term.unregisterKeyHandler(key);
-		return false;
-	}
 	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
 	void registerWidget(QWidget newWidget){
 		if (term)
 			term.registerWidget(newWidget);
-	}
-	/// unregisteres a widget from terminal.
-	/// any keys which were being handled by this widget are also unregistered
-	/// 
-	/// Returns: true on success, false if widget was never registered
-	bool unregisterWidget(QWidget widget){
-		if (term)
-			return term.unregisterWidget(widget);
-		return false;
-	}
-	/// registers and starts a new timer, which will trigger a widget's timerEvent after every specific time
-	/// Returns: the timerID
-	/// Throws: Exception if terminal is not set to this interface yet
-	uinteger registerTimer(Duration time, QWidget handler){
-		if (term)
-			return term.registerTimer(time, handler);
-		else
-			throw new Exception ("QTerminal not assigned to QTermInterface, cannot register timer");
-	}
-	/// stops and unregisters a timer
-	/// Returns: true if removed, false if failed
-	bool stopTimer(uinteger timerID){
-		if (term)
-			return term.stopTimer(timerID);
-		return false;
 	}
 	/// forces an update of the terminal, only widgets that need update will be updated.
 	/// 
@@ -745,46 +647,6 @@ struct QTermInterface{
 			return term.isActiveWidget(widget);
 		}
 		return false;
-	}
-}
-
-/// messages timerThread and main thread send
-private struct TimerMessage{
-	/// types of messages
-	enum Type{
-		Trigger, /// timer -> main telling it to trigger that timer
-		Terminate, /// main -> timer telling it to terminate, and not trigger timer before doing so
-	}
-	/// stores the type
-	Type type;
-	/// stores the timer ID
-	uinteger id;
-	/// constructor, for timer thread
-	this (uinteger timerID, Type messageType){
-		id = timerID;
-		type = messageType;
-	}
-	/// constructor, for main thread
-	this (Type messageType){
-		id = 0;
-		type = messageType;
-	}
-}
-
-/// the function that is launched in a separate thread to run a timer
-private void timerThread(uinteger id, Duration timerDuration){
-	bool isRunning = true;
-	bool hibernating = false;
-	while (isRunning){
-		receiveTimeout(timerDuration,
-			(TimerMessage msg){
-				if (msg.type == TimerMessage.Type.Terminate){
-					isRunning = false;
-				}
-			}
-		);
-		if (isRunning)
-			ownerTid.send(TimerMessage(id, TimerMessage.Type.Trigger));
 	}
 }
 
@@ -807,14 +669,11 @@ private:
 	QWidget[] registeredWidgets;
 	/// stores the index of the active widget, which is in `registeredWidgets`, <0 if none
 	integer activeWidgetIndex = -1;
-	/// contains reference to the active widget, null if no active widget
+	// contains reference to the active widget, null if no active widget
 	QWidget activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[KeyPress] keysToCatch;
-	/// stores the threads running timerEvents
-	Tid[uinteger] timerThreads;
-	/// stores which widgets will be handling which timer events
-	QWidget[uinteger] timerHandlers;
+
 	/// Called by QTermInterface to position the cursor, only the activeWidget can change the cursorPos
 	/// 
 	/// Returns: true on success, false on failure
@@ -839,69 +698,9 @@ private:
 		}
 	}
 
-	/// unregisters a key with a widget. A certain key will only be caught by the activeWidget
-	/// Returns: true if successful, false if the key was never registered
-	bool unregisterKeyHandler(KeyPress key){
-		if (key in keysToCatch){
-			keysToCatch.remove(key);
-			return true;
-		}
-		return false;
-	}
-
 	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
 	void registerWidget(QWidget newWidget){
 		registeredWidgets ~= newWidget;
-	}
-
-	/// unregisters an already registered widget
-	/// any keys which were being handled by this widget are also unregistered, along with its timers
-	/// 
-	/// Returns: true if successful, false if failed, or if its not registered
-	bool unregisterWidget(QWidget widget){
-		integer index = registeredWidgets.indexOf(widget);
-		if (index >= 0){
-			registeredWidgets = registeredWidgets.deleteElement(index);
-			// unregister keys
-			foreach (key, handler; keysToCatch){
-				if (handler == widget){
-					keysToCatch.remove(key);
-				}
-			}
-			// unregister & stop its timers
-			foreach (timerID, handler; timerHandlers){
-				if (handler == widget){
-					// do it using stopTimer
-					stopTimer(timerID);
-				}
-			}
-			return true;
-		}
-		return false;
-	}
-	/// sets a Timer, that will call the timerEvent on a widget after every Duration passes
-	/// the timer is not very accurate, and if the terminal is being updated, the call will wait for the update to be over
-	/// Returns: the timer ID
-	uinteger registerTimer(Duration time, QWidget handler){
-		// get a id
-		uinteger id = 0;
-		while (id in timerThreads){
-			id ++;
-		}
-		timerThreads[id] = spawn(&timerThread, id, time);
-		timerHandlers[id] = handler;
-		return id;
-	}
-	/// stops a timer
-	/// Returns: true if stopped, else, false (if it doesnt exist)
-	bool stopTimer(uinteger timerID){
-		if (timerID in timerThreads){
-			timerThreads[timerID].send(TimerMessage(TimerMessage.Type.Terminate));
-			timerThreads.remove(timerID);
-			timerHandlers.remove(timerID);
-			return true;
-		}
-		return false;
 	}
 
 	/// Returns: true if a widget is active widget
@@ -984,10 +783,6 @@ public:
 	~this(){
 		terminal.clear;
 		delete termDisplay;
-		// terminate timers' threads
-		foreach (thread; timerThreads){
-			thread.send(TimerMessage(TimerMessage.Type.Terminate));
-		}
 	}
 	
 	override public void addWidget(QWidget widget){
@@ -1104,18 +899,6 @@ public:
 		//draw the whole thing
 		updateDisplay();
 		while (isRunning){
-			// wait for event or timer to trigger
-			while (input.timedCheckForInput(0)){
-				// check timers
-				receiveTimeout(dur!"msecs"(EVENT_CHECK_TIMEOUT),
-					(TimerMessage msg){
-						if (msg.type == TimerMessage.Type.Trigger){
-							// trigger the event in the handler widget
-							timerHandlers[msg.id].timerEvent(msg.id);
-						}
-					}
-				);
-			}
 			event = input.nextEvent;
 			//check event type
 			if (event.type == event.Type.KeyboardEvent){

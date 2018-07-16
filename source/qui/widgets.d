@@ -320,10 +320,12 @@ private:
 		}
 		uinteger w = widgetSize.width - widgetCaption.length;
 		//now calculate scrollX, if it needs to be increased
-		if (cursorX < w){
-			scrollX = 0;
-		}else{
-			scrollX = 1+(cursorX - w);
+		if ((scrollX + w < cursorX || scrollX + w >= cursorX)){
+			if (cursorX <= w){
+				scrollX = 0;
+			}else{
+				scrollX = cursorX - (w/2);
+			}
 		}
 	}
 	/// used by widget itself to set cursor
@@ -351,6 +353,8 @@ public:
 		widgetSize.minWidth = 1;
 		widgetSize.minHeight = 1;
 		widgetSize.maxHeight = 1;
+		// this widget wants Tab key
+		widgetWantsTab = true;
 		// and input too, obvious
 		widgetWantsInput = true;
 		// and needs to show the cursor too
@@ -521,7 +525,7 @@ private:
 		cursorX = x;
 		cursorY = y;
 		
-		if (cursorY+1 > lineCount){
+		if (cursorY > lineCount){
 			cursorY = lineCount-1;
 		}
 		if (cursorX > readLine(cursorY).length){
@@ -599,21 +603,23 @@ public:
 			if (count > 0){
 				//write lines to memo
 				char[] line;
-				uinteger w = widgetSize.width;
 				for (uinteger i = scrollY; i < count; i++){
 					//echo current line
 					line = cast(char[])readLine(i);
 					//fit the line into screen, i.e check if only a part of it will be displayed
-					if (line.length >= w+scrollX){
+					if (line.length >= widgetSize.width+scrollX){
 						//display only partial line
-						display.write(line[scrollX .. scrollX + w], textColor, backgroundColor);
+						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, backgroundColor);
 					}else{
 						//either the line is small enough to fit, or 0-length
-						if (line.length > scrollX){
+						if (line.length <= scrollX || line.length == 0){
+							//just write the bgColor
+							display.fillLine(' ', textColor, backgroundColor);
+						}else{
 							display.write(line[scrollX .. line.length], textColor, backgroundColor);
+							//write the bgColor
+							display.fillLine(' ',textColor,backgroundColor);
 						}
-						//write the bgColor
-						display.fillLine(' ',textColor,backgroundColor);
 					}
 					//check if is at end
 					if (i-scrollY >= widgetSize.height){
