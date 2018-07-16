@@ -32,7 +32,7 @@ struct MouseClick{
 	/// the y-axis of mouse cursor, 0 means top-most
 	uinteger y;
 	/// Returns: a string representation of MouseClick, in JSON
-	string stringof(){
+	string tostring(){
 		return "{button:"~to!string(mouseButton)~",x:"~to!string(x)~",y:"~to!string(y)~"}";
 	}
 }
@@ -76,7 +76,7 @@ struct KeyPress{
 		PageDown = 0x22 + 0xF0000,
 	}
 	/// Returns: a string representation of KeyPress, in JSON
-	string stringof(){
+	string tostring(){
 		if (isChar){
 			return "{key:"~cast(char)key~'}';
 		}
@@ -151,7 +151,7 @@ struct Size{
 	/// maximum width & height. These are "applied" automatically when setting value using `width` or `height`
 	uinteger maxWidth = 0, maxHeight = 0;
 	/// Returns: a string representation of KeyPress, in JSON
-	string stringof(){
+	string tostring(){
 		return "{width:"~to!string(w)~",height:"~to!string(height)~
 			",minWidth:"~to!string(minWidth)~",maxWidth:"~to!string(maxWidth)~
 				",minHeight:"~to!string(minHeight)~",maxHeight:"~to!string(maxHeight)~"}";
