@@ -5,7 +5,7 @@
 +/
 module qui.widgets;
 
-import qui.qui;
+/*import qui.qui;
 import utils.misc;
 import utils.lists;
 
@@ -987,4 +987,4 @@ public:
 		super.keyboardEvent(key);
 		mouseEvent(MouseClick(MouseClick.Button.Left, 0, 0));
 	}
-}
+}*/
