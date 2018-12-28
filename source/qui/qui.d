@@ -271,6 +271,13 @@ protected:
 	/// }
 	/// ```
 	TimerEventFunction _customTimerEvent;
+
+	/// Called by QTerminal after `_termInterface` has been set and this widget is registered
+	/// 
+	/// In this function, the widget should set the keyHandlers (if needed) and any other thing before `QTerminal.run` is called
+	void init(){
+		// 404 - not found
+	}
 public:
 	/// Called by parent when mouse is clicked with cursor on this widget.
 	/// 
@@ -665,6 +672,14 @@ public:
 			_cursorPos.y = _restrictY2;
 		return _cursorPos;
 	}
+	/// sets position of cursor on terminal.
+	/// 
+	/// position is relative to caller widget's position.
+	/// 
+	/// Returns: true if successful, false if not
+	bool setCursorPos(QWidget caller, uinteger x, uinteger y){
+		return _qterminal.setCursorPos(x, y, caller);
+	}
 	/// Registers a keypress to a QWidget. When that key is pressed, the keyboardEvent of that widget will be called, regardless of _activeWidget
 	/// 
 	/// Returns: true if successfully set, false if not, for example if key is already registered
@@ -796,6 +811,7 @@ public:
 	void registerWidget(QWidget widget){
 		_regdWidgets ~= widget;
 		widget._termInterface = _termInterface;
+		widget.init();
 	}
 	/// registers widgets
 	/// 
@@ -803,8 +819,10 @@ public:
 	/// All means widgets added to QTerminal, and any QLayout and any other widget.
 	void registerWidget(QWidget[] widgets){
 		_regdWidgets = _regdWidgets ~ widgets.dup;
-		foreach (widget; widgets)
+		foreach (widget; widgets){
 			widget._termInterface = _termInterface;
+			widget.init();
+		}
 	}
 	
 	override public void mouseEvent(MouseClick mouse){
@@ -849,6 +867,17 @@ public:
 			_keysToCatch[key].keyboardEvent(key);
 		}else if (_activeWidget !is null){
 			_activeWidget.keyboardEvent (key);
+		}
+	}
+
+	override public void update(){
+		super.update;
+		// set the cursor
+		if (_activeWidget && _activeWidget.show && _activeWidget.showCursor){
+			_terminal.moveTo(cast(int)_cursor.x, cast(int)_cursor.y);
+			_terminal.showCursor;
+		}else{
+			_terminal.hideCursor();
 		}
 	}
 	
