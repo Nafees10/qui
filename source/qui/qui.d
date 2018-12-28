@@ -185,6 +185,8 @@ protected:
 	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true
 	/// if only required, for example, in text editors
 	bool _wantsTab = false;
+	/// whether the widget wants input
+	bool _wantsInput = false;
 	/// specifies if the widget needs to show the cursor
 	bool _showCursor = false;
 	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
@@ -299,6 +301,11 @@ public:
 		return _wantsTab;
 	}
 
+	/// Returns: true if the widget wants input
+	@property bool wantsInput(){
+		return _wantsInput;
+	}
+
 	/// Returns: whether the widget needs to show a cursor, only considered when this widget is active
 	@property bool showCursor(){
 		return _showCursor;
@@ -323,11 +330,6 @@ public:
 	
 	
 	//properties:
-
-	/// Returns: the position of this widget
-	@property Position position(){
-		return _position;
-	}
 	
 	/// size (width/height) of the widget. getter
 	@property uinteger sizeRatio(){
@@ -417,12 +419,12 @@ private:
 		foreach(widget; widgets){
 			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
-					widget.position.y = _position.y;
-					widget.position.x = previousSpace;
+					widget._position.y = _position.y;
+					widget._position.x = previousSpace;
 					previousSpace += widget.size.width;
 				}else{
-					widget.position.x = _position.x;
-					widget.position.y = previousSpace;
+					widget._position.x = _position.x;
+					widget._position.y = previousSpace;
 					previousSpace += widget.size.height;
 				}
 			}
@@ -484,6 +486,22 @@ public:
 			widget.resizeEvent(size);
 		}
 	}
+
+	/// Redirects the mouseEvent to the appropriate widget
+	override public void mouseEvent(MouseClick mouse) {
+		super.mouseEvent(mouse);
+		foreach (widget; _widgets){
+			if (mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
+				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
+				// make it active, and call it's mouseEvent
+				if (_termInterface._qterminal.makeActive(widget))
+					widget.mouseEvent(mouse);
+				break;
+			}
+		}
+	}
+
+	/// called by owner widget to update
 	override void update(){
 		// TODO implement QLayout.update();
 	}
@@ -527,7 +545,7 @@ public:
 	}
 	/// Returns: true if the caller widget is _activeWidget
 	bool isActive(QWidget caller){
-		return _qterminal.is_activeWidget(caller);
+		return _qterminal.isActive(caller);
 	}
 	/// Sets color
 	/// 
@@ -609,52 +627,6 @@ public:
 	}
 }
 
-/// Provides interface to the QTerminal for widgets
-/*struct QTermInterface{
-	/// the terminal to provide interface to
-	private QTerminal term;
-	/// constructor
-	this (QTerminal terminal){
-		term = terminal;
-	}
-	/// called to set position of the cursor
-	/// 
-	/// Returns: true on success, false on failure, probably because caller isnt _activeWidget
-	bool setCursorPos(Position cursorPos, QWidget callerWidget){
-		if (term)
-			return term.setCursorPos(cursorPos.x, cursorPos.y, callerWidget);
-		return false;
-	}
-	/// used to set "hotkey", so each a key is pressed, a specific widget's keyboardEvent will be triggered
-	/// 
-	/// Returns: true on success, false on failure, probably because the key is already registered
-	bool setKeyHandler(KeyPress key, QWidget handlerWidget){
-		if (term)
-			return term.registerKeyHandler(key, handlerWidget);
-		return false;
-	}
-	/// registers a new widget with the terminal. For a widget to be active, it must be registered first
-	void registerWidget(QWidget newWidget){
-		if (term)
-			term.registerWidget(newWidget);
-	}
-	/// forces an update of the terminal, only widgets that need update will be updated.
-	/// 
-	/// Returns: true if at least one widget was updated, otherwise, false
-	bool forceUpdate(){
-		if (term)
-			return term.updateDisplay;
-		return false;
-	}
-	/// Returns: true if a widget is active widget
-	bool is_activeWidget(QWidget widget){
-		if (term){
-			return term.is_activeWidget(widget);
-		}
-		return false;
-	}
-}*/
-
 /// A terminal (as the name says).
 /// 
 /// All widgets, receives events, runs UI loop...
@@ -666,11 +638,9 @@ private:
 	RealTimeConsoleInput _input;
 	/// stores the position of the cursor on terminal
 	Position _cursor;
-	/// used to terminate the run-loop
-	bool _running = false;
 	/// array containing registered widgets
-	QWidget[] _widgets;
-	/// stores the index of the active widget, which is in `_widgets`, it will be `>_widgets.length` if none is active
+	QWidget[] _regdWidgets;
+	/// stores the index of the active widget, which is in `_regdWidgets`, it will be -1 if none is active
 	integer _activeWidgetIndex = -1;
 	// contains reference to the active widget, null if no active widget
 	QWidget _activeWidget;
@@ -684,8 +654,8 @@ private:
 	/// Returns: true on success, false on failure
 	bool setCursorPos(uinteger x, uinteger y, QWidget callerWidget){
 		if (_activeWidget && callerWidget == _activeWidget){
-			_cursor.x = _activeWidget.position.x + x;
-			_cursor.y = _activeWidget.position.y + y;
+			_cursor.x = _activeWidget._position.x + x;
+			_cursor.y = _activeWidget._position.y + y;
 			return true;
 		}
 		return false;
@@ -693,9 +663,9 @@ private:
 
 	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
 	/// 
-	/// Returns:  true on success, false on failure, which can occur because that key is already registered
+	/// Returns:  true on success, false on failure, which can occur because that key is already registered, or if widget is not registered
 	bool registerKeyHandler(KeyPress key, QWidget widget){
-		if (key in _keysToCatch){
+		if (key in _keysToCatch || _regdWidgets.hasElement(widget)){
 			return false;
 		}else{
 			_keysToCatch[key] = widget;
@@ -704,12 +674,50 @@ private:
 	}
 
 	/// Returns: true if a widget is active widget
-	bool is_activeWidget(QWidget widget){
+	bool isActive(QWidget widget){
 		if (_activeWidget && widget == _activeWidget){
 			return true;
 		}
 		return false;
 	}
+
+	/// makes a widget active, i.e, redirects keyboard input to a `widget`
+	/// 
+	/// Return: true on success, false on error, or if the widget isn't registered
+	bool makeActive(QWidget widget){
+		QWidget lastActiveWidget = _activeWidget;
+		foreach (i, aWidget; _regdWidgets){
+			if (widget == aWidget){
+				_activeWidgetIndex = i;
+				_activeWidget = aWidget;
+				if (lastActiveWidget != _activeWidget){
+					if (lastActiveWidget)
+						lastActiveWidget.activateEvent(false);
+					_activeWidget.activateEvent(true);
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/// ditto
+	bool makeActive(uinteger widgetIndex){
+		if (_activeWidgetIndex == widgetIndex)
+			return true;
+		if (_activeWidgetIndex >= 0)
+			_activeWidget.activateEvent(false);
+		if (widgetIndex < _regdWidgets.length){
+			_activeWidgetIndex = widgetIndex;
+			_activeWidget = _regdWidgets[widgetIndex];
+			_activeWidget.activateEvent(true);
+			return true;
+		}
+		_activeWidget = null;
+		_activeWidgetIndex = -1;
+		return false;
+	}
+
 	/// Use this instead of `update` to forcefully update the terminal
 	/// 
 	/// returns true if at least one widget was updated, false if nothing was updated
@@ -742,53 +750,24 @@ public:
 		_terminal.clear;
 		.destroy(_termInterface);
 	}
-
-	/// makes a widget active, i.e, redirects keyboard input to a `widget`
-	/// 
-	/// Return: true on success, false on error, or if the widget isn't registered
-	bool makeActive(QWidget widget){
-		foreach (i, aWidget; _widgets){
-			if (widget == aWidget){
-				_activeWidgetIndex = i;
-				_activeWidget = aWidget;
-				return true;
-			}
-		}
-		return false;
-	}
 	
 	override public void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
-		QWidget last_activeWidget = _activeWidget;
-		_activeWidget = null;
-		_activeWidgetIndex = -1;
 		foreach (i, widget; _widgets){
-			if (widget.show){
+			if (widget.show && widget.wantsInput){
 				Position p = widget._position;
 				Size s = widget._size;
-				//check x-axis
-				if (mouse.x >= p.x && mouse.x < p.x + s.width){
-					//check y-axis
-					if (mouse.y >= p.y && mouse.y < p.y + s.height){
-						//mark this widget as active
-						_activeWidget = widget;
-						_activeWidgetIndex = i;
-						// make mouse position relative to widget position, not 0:0
-						mouse.x = mouse.x - _activeWidget._position.x;
-						mouse.y = mouse.y - _activeWidget._position.y;
-						//call mouseEvent
-						widget.mouseEvent(mouse);
-						break;
-					}
+				//check x-y-axis
+				if (mouse.x >= p.x && mouse.x < p.x + s.width && mouse.y >= p.y && mouse.y < p.y + s.height){
+					//mark this widget as active
+					makeActive(i);
+					// make mouse position relative to widget position, not 0:0
+					mouse.x = mouse.x - _activeWidget._position.x;
+					mouse.y = mouse.y - _activeWidget._position.y;
+					//call mouseEvent
+					widget.mouseEvent(mouse);
+					break;
 				}
-			}
-		}
-		if (_activeWidget != last_activeWidget){
-			if (last_activeWidget){
-				last_activeWidget.activateEvent(false);
-			}
-			if (_activeWidget){
-				_activeWidget.activateEvent(true);
 			}
 		}
 	}
@@ -797,36 +776,17 @@ public:
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
 		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (_activeWidgetIndex < 0 || !_activeWidget.wantsTab))){
-			QWidget last_activeWidget = _activeWidget;
+			QWidget lastActiveWidget = _activeWidget;
 			// make the next widget active
-			if (_widgets.length > 0){
-				_activeWidgetIndex ++;
-				if (_activeWidgetIndex > _widgets.length){
-					_activeWidgetIndex = 0;
-				}
+			if (_regdWidgets.length > 0){
+				uinteger newIndex = _activeWidgetIndex + 1;
 				// see if it wants input, case no, switch to some other widget
-				for (;_activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-					if (_widgets[_activeWidgetIndex].show){
+				for (;newIndex < _regdWidgets.length; newIndex ++){
+					if (_widgets[newIndex].show && _widgets[newIndex].wantsInput){
 						break;
 					}
 				}
-				if (_activeWidgetIndex < _widgets.length){
-					_activeWidget = _widgets[_activeWidgetIndex];
-				}else{
-					_activeWidget = null;
-					_activeWidgetIndex = -1;
-				}
-			}else{
-				_activeWidgetIndex = -1;
-				_activeWidget = null;
-			}
-			if (_activeWidget != last_activeWidget){
-				if (last_activeWidget){
-					last_activeWidget.activateEvent(false);
-				}
-				if (_activeWidget){
-					_activeWidget.activateEvent(true);
-				}
+				makeActive(newIndex);
 			}
 		}else if (key in _keysToCatch){
 			// this is a registered key, only a specific widget catches it
@@ -890,11 +850,6 @@ public:
 				break;
 			}
 		}
-	}
-	
-	///returns: true if UI loop is running
-	@property bool running(){
-		return _running;
 	}
 }
 
