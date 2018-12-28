@@ -5,6 +5,7 @@
 module qui.qui;
 
 import arsd.terminal;
+import std.datetime.stopwatch;
 //import std.stdio;
 import utils.baseconv;
 import utils.lists;
@@ -13,6 +14,7 @@ import std.conv : to;
 
 const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
 const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
+const ushort TIMER_MSECS = 500;
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
@@ -184,6 +186,8 @@ alias KeyboardEventFunction = void delegate(QWidget, KeyPress);
 alias ResizeEventFunction = void delegate(QWidget, Size);
 /// activateEvent function
 alias ActivateEventFunction = void delegate(QWidget, bool);
+/// TimerEvent function
+alias TimerEventFunction = void delegate(QWidget);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -250,12 +254,23 @@ protected:
 	/// 
 	/// Override like this:
 	/// ```
-	/// override void activateEvent(){
-	/// 	super.activateEvent();
+	/// override void activateEvent(bool activated){
+	/// 	super.activateEvent(activated);
 	/// 	// rest of the code for resize here
 	/// }
 	/// ```
 	ActivateEventFunction _customActivateEvent;
+
+	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
+	/// 
+	/// Override like this:
+	/// ```
+	/// override void timerEvent(){
+	/// 	super.timerEvent();
+	/// 	// rest of code for timerEvent here
+	/// }
+	/// ```
+	TimerEventFunction _customTimerEvent;
 public:
 	/// Called by parent when mouse is clicked with cursor on this widget.
 	/// 
@@ -267,9 +282,8 @@ public:
 	/// 	}
 	/// ```
 	void mouseEvent(MouseClick mouse){
-		if (_customMouseEvent !is null){
+		if (_customMouseEvent !is null)
 			_customMouseEvent(this, mouse);
-		}
 	}
 	
 	/// Called by parent when key is pressed and this widget is active.
@@ -282,9 +296,8 @@ public:
 	/// 	}
 	/// ```
 	void keyboardEvent(KeyPress key){
-		if (_customKeyboardEvent !is null){
+		if (_customKeyboardEvent !is null)
 			_customKeyboardEvent(this, key);
-		}
 	}
 
 	/// Called by parent when widget size is changed.
@@ -297,24 +310,36 @@ public:
 	/// 	}
 	/// ```
 	void resizeEvent(Size size){
-		if (_customResizeEvent !is null){
+		if (_customResizeEvent !is null)
 			_customResizeEvent(this, size);
-		}
 	}
 
 	/// called by QTerminal right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
 	/// 
 	/// Must be inherited, only if inherited, like:
 	/// ```
-	/// 	override void activateEvent(){
-	/// 		super.activateEvent(key);
+	/// 	override void activateEvent(bool activated){
+	/// 		super.activateEvent(activated);
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
 	void activateEvent(bool isActive){
-		if (_customActivateEvent){
+		if (_customActivateEvent)
 			_customActivateEvent(this, isActive);
-		}
+	}
+
+	/// called by QTerminal every 500ms, not accurate
+	/// 
+	/// Must be inherited, only if inherited, like:
+	/// ```
+	/// 	override void timerEvent(){
+	/// 		super.timerEvent();
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
+	void timerEvent(){
+		if (_customTimerEvent)
+			_customTimerEvent(this);
 	}
 
 	/// Returns: whether the widget is receiving the Tab key press or not
@@ -347,6 +372,10 @@ public:
 	/// use to change the custom activate event
 	@property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
 		return _customActivateEvent = func;
+	}
+	/// use to change the custom timer event
+	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
+		return _customTimerEvent = func;
 	}
 	
 	
@@ -825,36 +854,45 @@ public:
 	
 	/// starts the UI loop
 	void run(){
-		InputEvent event;
+		// the stop watch, to count how much time has passed after each timerEvent
+		StopWatch sw = StopWatch(AutoStart.no);
 		//resize all widgets
 		resizeEvent(_size);
 		//draw the whole thing
 		update();
+		sw.start;
 		while (true){
-			event = _input.nextEvent;
-			//check event type
-			if (event.type == event.Type.KeyboardEvent){
-				KeyPress kPress;
-				kPress.key = event.get!(event.Type.KeyboardEvent).which;
-				this.keyboardEvent(kPress);
-			}else if (event.type == event.Type.MouseEvent){
-				this.mouseEvent(MouseClick(event.get!(event.Type.MouseEvent)));
-			}else if (event.type == event.Type.SizeChangedEvent){
-				//update self size
-				_terminal.updateSize;
-				_size.height = _terminal.height;
-				_size.width = _terminal.width;
-				// fill empty, apply color
-				_termInterface.setColors(textColor, backgroundColor);
-				_termInterface.fill(' ');
-				//call size change on all widgets
-				resizeEvent(_size);
-			}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
-				//die here
-				_terminal.clear;
-				break;
+			if (sw.peek.total!"msecs" >= TIMER_MSECS){
+				foreach (widget; _regdWidgets)
+					widget.timerEvent;
+				sw.reset;
 			}
-			update;
+			if (_input.timedCheckForInput(cast(int)(TIMER_MSECS - sw.peek.total!"msecs"))){
+				InputEvent event = _input.nextEvent;
+				//check event type
+				if (event.type == event.Type.KeyboardEvent){
+					KeyPress kPress;
+					kPress.key = event.get!(event.Type.KeyboardEvent).which;
+					this.keyboardEvent(kPress);
+				}else if (event.type == event.Type.MouseEvent){
+					this.mouseEvent(MouseClick(event.get!(event.Type.MouseEvent)));
+				}else if (event.type == event.Type.SizeChangedEvent){
+					//update self size
+					_terminal.updateSize;
+					_size.height = _terminal.height;
+					_size.width = _terminal.width;
+					// fill empty, apply color
+					_termInterface.setColors(textColor, backgroundColor);
+					_termInterface.fill(' ');
+					//call size change on all widgets
+					resizeEvent(_size);
+				}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
+					//die here
+					_terminal.clear;
+					break;
+				}
+				update;
+			}
 		}
 	}
 }
