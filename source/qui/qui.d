@@ -92,7 +92,7 @@ public import arsd.terminal : RGB;
 
 /// Used to store position for widgets
 struct Position{
-	uinteger x, y;
+	uinteger x = 0, y = 0;
 	/// Returns: a string representation of Position
 	string tostring(){
 		return "{x:"~to!string(x)~",y:"~to!string(y)~"}";
@@ -446,23 +446,15 @@ public:
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
-		widget._termInterface = this._termInterface;
 		//add it to array
 		_widgets ~= widget;
-		//recalculate all widget's size to adjust
-		resizeEvent(_size);
 	}
 	/// adds (appends) widgets to the widgetList, and makes space for them
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget[] widgets){
-		foreach(widget; widgets){
-			widget._termInterface = _termInterface;
-		}
 		// add to array
 		_widgets ~= widgets.dup;
-		//resize
-		resizeEvent(_size);
 	}
 	
 	/// Recalculates size and position for all visible widgets
@@ -491,7 +483,8 @@ public:
 	override public void mouseEvent(MouseClick mouse) {
 		super.mouseEvent(mouse);
 		foreach (widget; _widgets){
-			if (mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
+			if (widget.show && widget.wantsInput &&
+				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
 				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
 				// make it active, and call it's mouseEvent
 				if (_termInterface._qterminal.makeActive(widget))
@@ -503,7 +496,10 @@ public:
 
 	/// called by owner widget to update
 	override void update(){
-		// TODO implement QLayout.update();
+		foreach(widget; _widgets){
+			_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
+			widget.update();
+		}
 	}
 }
 
@@ -717,14 +713,6 @@ private:
 		_activeWidgetIndex = -1;
 		return false;
 	}
-
-	/// Use this instead of `update` to forcefully update the terminal
-	/// 
-	/// returns true if at least one widget was updated, false if nothing was updated
-	bool updateDisplay(){
-		// TODO implement QTerminal.updateDisplay();
-		return false;
-	}
 public:
 	/// text color, and background color
 	RGB textColor, backgroundColor;
@@ -749,6 +737,24 @@ public:
 	~this(){
 		_terminal.clear;
 		.destroy(_termInterface);
+	}
+
+	/// registers a widget
+	/// 
+	/// **All** widgets that are to be present on terminal must be registered.  
+	/// All means widgets added to QTerminal, and any QLayout and any other widget.
+	void registerWidget(QWidget widget){
+		_regdWidgets ~= widget;
+		widget._termInterface = _termInterface;
+	}
+	/// registers widgets
+	/// 
+	/// **All** widgets that are to be present on terminal must be registered.  
+	/// All means widgets added to QTerminal, and any QLayout and any other widget.
+	void registerWidget(QWidget[] widgets){
+		_regdWidgets = _regdWidgets ~ widgets.dup;
+		foreach (widget; widgets)
+			widget._termInterface = _termInterface;
 	}
 	
 	override public void mouseEvent(MouseClick mouse){
@@ -796,6 +802,10 @@ public:
 		}
 	}
 
+	override public void update(){
+		super.update;
+	}
+
 	
 	/// starts the UI loop
 	void run(){
@@ -803,7 +813,7 @@ public:
 		//resize all widgets
 		resizeEvent(_size);
 		//draw the whole thing
-		updateDisplay();
+		update();
 		while (true){
 			event = _input.nextEvent;
 			//check event type
@@ -843,7 +853,7 @@ public:
 				_termInterface.fill(' ');
 				//call size change on all widgets
 				resizeEvent(_size);
-				updateDisplay;
+				update;
 			}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
 				//die here
 				_terminal.clear;
