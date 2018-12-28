@@ -35,6 +35,27 @@ struct MouseClick{
 	string tostring(){
 		return "{button:"~to!string(button)~",x:"~to!string(x)~",y:"~to!string(y)~"}";
 	}
+	/// constructor, to construct from arsd's MouseEvent
+	this (MouseEvent mEvent){
+		x = mEvent.x;
+		y = mEvent.y;
+		switch (mEvent.buttons){
+			case MouseEvent.Button.Left:
+				button = Button.Left;
+				break;
+			case MouseEvent.Button.Right:
+				button = Button.Right;
+				break;
+			case MouseEvent.Button.ScrollUp:
+				button = Button.ScrollUp;
+				break;
+			case MouseEvent.Button.ScrollDown:
+				button = Button.ScrollDown;
+				break;
+			default:
+				break;
+		}
+	}
 }
 
 ///Key press event, keyboardEvent function is called with this
@@ -801,11 +822,6 @@ public:
 			_activeWidget.keyboardEvent (key);
 		}
 	}
-
-	override public void update(){
-		super.update;
-	}
-
 	
 	/// starts the UI loop
 	void run(){
@@ -822,27 +838,7 @@ public:
 				kPress.key = event.get!(event.Type.KeyboardEvent).which;
 				this.keyboardEvent(kPress);
 			}else if (event.type == event.Type.MouseEvent){
-				MouseEvent mEvent = event.get!(event.Type.MouseEvent);
-				MouseClick mPos;
-				mPos.x = mEvent.x;
-				mPos.y = mEvent.y;
-				switch (mEvent.buttons){
-					case MouseEvent.Button.Left:
-						mPos.button = mPos.Button.Left;
-						break;
-					case MouseEvent.Button.Right:
-						mPos.button = mPos.Button.Right;
-						break;
-					case MouseEvent.Button.ScrollUp:
-						mPos.button = mPos.Button.ScrollUp;
-						break;
-					case MouseEvent.Button.ScrollDown:
-						mPos.button = mPos.Button.ScrollDown;
-						break;
-					default:
-						continue;
-				}
-				this.mouseEvent(mPos);
+				this.mouseEvent(MouseClick(event.get!(event.Type.MouseEvent)));
 			}else if (event.type == event.Type.SizeChangedEvent){
 				//update self size
 				_terminal.updateSize;
@@ -853,12 +849,12 @@ public:
 				_termInterface.fill(' ');
 				//call size change on all widgets
 				resizeEvent(_size);
-				update;
 			}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
 				//die here
 				_terminal.clear;
 				break;
 			}
+			update;
 		}
 	}
 }
