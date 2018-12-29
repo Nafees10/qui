@@ -951,9 +951,9 @@ public:
 			if (!eventTriggered){
 				foreach(widget; _requestingUpdate)
 					widget.update;
-				_requestingUpdate = [];
 				showCursor;
 			}
+			_requestingUpdate = [];
 		}
 	}
 }
