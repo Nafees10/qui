@@ -12,6 +12,8 @@ import utils.lists;
 import utils.misc;
 import std.conv : to;
 
+import qui.utils;
+
 const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
 const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
 const ushort TIMER_MSECS = 500;
@@ -924,75 +926,4 @@ public:
 			}
 		}
 	}
-}
-
-//misc functions:
-///Center-aligns text, returns that in an char[] with width as length. The empty part filled with ' '
-char[] centerAlignText(char[] text, uinteger width, char fill = ' '){
-	char[] r;
-	if (text.length < width){
-		r.length = width;
-		uinteger offset = (width - text.length)/2;
-		r[0 .. offset] = fill;
-		r[offset .. offset+text.length][] = text;
-		r[offset+text.length .. r.length] = fill;
-	}else{
-		r = text[0 .. width];
-	}
-	return r;
-}
-///
-unittest{
-	assert((cast(char[])"qwr").centerAlignText(7) == "  qwr  ");
-}
-
-///used to calculate height/width using sizeRation
-uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
-	uinteger r;
-	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
-	return r;
-}
-
-///Converts hex color code to RGB
-RGB hexToColor(string hex){
-	RGB r;
-	uinteger den = hexToDenary(hex);
-	//min val for red in denary = 65536
-	//min val for green in denary = 256
-	//the remaining value is blue
-	if (den >= 65536){
-		r.r = cast(ubyte)((den / 65536));
-		den -= r.r*65536;
-	}
-	if (den >= 256){
-		r.g = cast(ubyte)((den / 256));
-		den -= r.g*256;
-	}
-	r.b = cast(ubyte)den;
-	return r;
-}
-///
-unittest{
-	RGB c;
-	c.r = 10;
-	c.g = 15;
-	c.b = 0;
-	assert("0A0F00".hexToColor == c);
-}
-
-///Converts RGB to hex color code
-string colorToHex(RGB col){
-	uinteger den;
-	den = col.b;
-	den += col.g*256;
-	den += col.r*65536;
-	return denaryToHex(den);
-}
-///
-unittest{
-	RGB c;
-	c.r = 10;
-	c.g = 8;
-	c.b = 12;
-	assert(c.colorToHex == "A080C");
 }
