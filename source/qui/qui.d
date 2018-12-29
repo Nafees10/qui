@@ -217,7 +217,7 @@ protected:
 	/// specifies if the widget needs to show the cursor
 	bool _showCursor = false;
 	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
-	QTermInterface _termInterface;
+	QTermInterface _termInterface = null;
 	
 	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
 	/// 

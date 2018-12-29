@@ -52,7 +52,8 @@ public:
 		_caption = newCaption;
 		calculateMaxXOffset;
 		// request update
-		_termInterface.requestUpdate(this);
+		if (_termInterface)
+			_termInterface.requestUpdate(this);
 		return _caption;
 	}
 
@@ -70,7 +71,8 @@ public:
 			else
 				xOffset --;
 			// request update
-			_termInterface.requestUpdate(this);
+			if (_termInterface)
+				_termInterface.requestUpdate(this);
 		}
 	}
 
