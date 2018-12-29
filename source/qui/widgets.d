@@ -1,255 +1,92 @@
 /++
 	Some widgets that are included in the package.
-	
-	
 +/
 module qui.widgets;
 
-/*import qui.qui;
+import qui.qui;
+import qui.utils;
 import utils.misc;
 import utils.lists;
-
-/// To contain another widget in "margins"
-/// 
-/// set margins using the `marginLeft/Right/Top/Bottom` properties, or simply using `margin` - default margins are zero
-/// set the character to write in margin using `marginCharTop/Bottom/Left/Right` or just `marginChar` - default is space character
-class ContainerWidget : QWidget{
-private:
-	QWidget childWidget; // the widget to be "contained"
-	bool childWidgetIsActive;
-	uinteger mTop, mBottom, mLeft, mRight; // margins
-	char mCharTop, mCharBottom, mCharLeft, mCharRight;
-
-	/// called by `update` to draw margins
-	void drawMargins(Matrix display){
-		char[] emptyLine;
-		// top
-		emptyLine.length = widgetSize.width;
-		emptyLine[] = mCharTop;
-		display.moveTo(0, 0);
-		for (uinteger i = 0; i < mTop; i ++){
-			display.write(emptyLine, textColor, backgroundColor);
-		}
-		// bottom
-		emptyLine[] = mCharBottom;
-		display.moveTo(0, widgetSize.height - mBottom);
-		for (uinteger i = 0; i < mBottom; i ++){
-			display.write(emptyLine, textColor, backgroundColor);
-		}
-		//left
-		emptyLine.length = mLeft;
-		emptyLine[] = mCharLeft;
-		for (uinteger i = 0, count = widgetSize.height-(mTop+mBottom); i < count; i ++){
-			display.moveTo(0, mTop+i);
-			display.write(emptyLine, textColor, backgroundColor);
-		}
-		// right
-		emptyLine.length = mRight;
-		emptyLine[] = mCharRight;
-		for (uinteger i = 0, count = widgetSize.height-(mTop+mBottom); i < count; i ++){
-			display.moveTo(widgetSize.width-(mRight), mTop+i);
-			display.write(emptyLine, textColor, backgroundColor);
-		}
-	}
-	/// called by margin-changing-properties to calculate new minHeight & minWidth to fit the widget in
-	void calculateMinSize(){
-		// first minHeight
-		uinteger minHeight = (childWidget !is null ? childWidget.size.minHeight : 0) + mTop + mBottom;
-		if (widgetSize.minHeight < minHeight){
-			widgetSize.minHeight = minHeight;
-		}
-		// then width
-		uinteger minWidth = (childWidget !is null ? childWidget.size.minWidth : 0) + mLeft + mRight;
-		if (widgetSize.minWidth < minWidth){
-			widgetSize.minWidth = minWidth;
-		}
-	}
-public:
-	/// background and text colors
-	RGB backgroundColor, textColor;
-	this (){
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
-		marginChar = ' ';
-		margin = 0;
-		// this widget doesnt want input, but it's child-widget may want, but child widget is registered separately, so 
-		// this widget does not want input
-		widgetWantsInput = false;
-	}
-
-	override bool update(Matrix display){
-		if (needsUpdate || (childWidget !is null && childWidget.visible && childWidget.needsUpdate)){
-			// then the widget
-			Matrix wDisplay = new Matrix(childWidget.size.width, childWidget.size.height);
-			if (childWidget.update(wDisplay)){
-				display.insert(wDisplay, mLeft, mTop);
-			}
-			.destroy(wDisplay);
-			// draw the margins, only if "this" widget needs update, meaning: only if it resized or something messed up margins
-			if (needsUpdate){
-				drawMargins(display);
-				needsUpdate = false;
-			}
-
-			return true;
-		}else{
-			return false;
-		}
-	}
-
-	override public void resizeEvent(){
-		super.resizeEvent();
-		// resize and reposition childWidget if any
-		if (childWidget !is null){
-			childWidget.size.width = widgetSize.width - (mLeft + mRight);
-			childWidget.size.height = widgetSize.height - (mTop + mBottom);
-			childWidget.resizeEvent();
-
-			childWidget.position.x = this.position.x + mLeft;
-			childWidget.position.y = this.position.y + mTop;
-		}
-	}
-
-	/// overriding to change termInterface of child-widget too
-	override public @property QTermInterface setTermInterface(QTermInterface newInterface) {
-		auto r = super.setTermInterface(newInterface);
-		childWidget.setTermInterface (termInterface);
-		return r;
-	}
-	// properties
-	/// the widget to be contained
-	@property QWidget widget(){
-		return childWidget;
-	}
-	/// the widget to be contained
-	@property QWidget widget(QWidget newVal){
-		childWidget = newVal;
-		childWidget.setTermInterface = termInterface;
-		return childWidget;
-	}
-	/// top margin
-	@property uinteger marginTop(){
-		return mTop;
-	}
-	/// top margin
-	@property uinteger marginTop(uinteger newVal){
-		mTop = newVal;
-		calculateMinSize;
-		return mTop;
-	}
-	/// bottom margin
-	@property uinteger marginBottom(){
-		return mBottom;
-	}
-	/// bottom margin
-	@property uinteger marginBottom(uinteger newVal){
-		mBottom = newVal;
-		calculateMinSize;
-		return mBottom;
-	}
-	/// left margin
-	@property uinteger marginLeft(){
-		return mLeft;
-	}
-	/// left margin
-	@property uinteger marginLeft(uinteger newVal){
-		mLeft = newVal;
-		calculateMinSize;
-		return mLeft;
-	}
-	/// right margin
-	@property uinteger marginRight(){
-		return mRight;
-	}
-	/// right margin
-	@property uinteger marginRight(uinteger newVal){
-		mRight = newVal;
-		calculateMinSize;
-		return mRight;
-	}
-	/// to change value of all margins
-	@property uinteger margin(uinteger newVal){
-		mTop = newVal;
-		mBottom = newVal;
-		mLeft = newVal;
-		mRight = newVal;
-		calculateMinSize;
-		return newVal;
-	}
-	/// the char that is written in space occupied by top margin
-	@property char marginCharTop(){
-		return mCharTop;
-	}
-	/// the char that is written in space occupied by top margin
-	@property char marginCharTop(char newVal){
-		needsUpdate = true;
-		return mCharTop = newVal;
-	}
-	/// the char that is written in space occupied by bottom margin
-	@property char marginCharBottom(){
-		return mCharBottom;
-	}
-	/// the char that is written in space occupied by bottom margin
-	@property char marginCharBottom(char newVal){
-		needsUpdate = true;
-		return mCharBottom = newVal;
-	}
-	/// the char that is written in space occupied by left margin
-	@property char marginCharLeft(){
-		return mCharLeft;
-	}
-	/// the char that is written in space occupied by left margin
-	@property char marginCharLeft(char newVal){
-		needsUpdate = true;
-		return mCharLeft = newVal;
-	}
-	/// the char that is written in space occupied by top margin
-	@property char marginCharRight(){
-		return mCharRight;
-	}
-	/// the char that is written in space occupied by top margin
-	@property char marginCharRight(char newVal){
-		needsUpdate = true;
-		return mCharRight = newVal;
-	}
-	/// to set the character written in each margin (top, bottom, left, & right)
-	@property char marginChar(char newVal){
-		needsUpdate = true;
-		mCharTop = newVal;
-		mCharBottom = newVal;
-		mCharLeft = newVal;
-		mCharRight = newVal;
-		return newVal;
-	}
-}
 
 ///Displays some text
 ///
 ///And it can't handle new-line characters
 class TextLabelWidget : QWidget{
+private:
+	/// number of chars not displayed on left
+	uinteger xOffset = 0;
+	/// max xOffset
+	uinteger maxXOffset;
+	/// the text to display
+	string _caption;
+	/// if in the last timerEvent, xOffset was increased
+	bool increasedXOffset = true;
+
+	/// calculates the maxXOffset, and changes xOffset if it's above it
+	void calculateMaxXOffset(){
+		if (_caption.length <= size.width){
+			maxXOffset = 0;
+			xOffset = 0;
+		}else{
+			maxXOffset = _caption.length - size.width;
+			if (xOffset > maxXOffset)
+				xOffset = maxXOffset;
+		}
+	}
 public:
 	/// text and background colors
 	RGB textColor, backgroundColor;
-	this(string wCaption = ""){
-		widgetCaption = wCaption;
-
+	/// constructor
+	this(string newCaption = ""){
+		this.caption = newCaption;
 		textColor = DEFAULT_TEXT_COLOR;
 		backgroundColor = DEFAULT_BACK_COLOR;
 	}
-	
-	override bool update(Matrix display){
-		if (needsUpdate){
-			display.write(cast(char[])widgetCaption, textColor, backgroundColor);
-			needsUpdate = false;
-			return true;
-		}else{
-			return false;
+
+	/// the text to display
+	@property string caption(){
+		return _caption;
+	}
+	/// ditto
+	@property string caption(string newCaption){
+		_caption = newCaption;
+		calculateMaxXOffset;
+		// request update
+		_termInterface.requestUpdate(this);
+		return _caption;
+	}
+
+	override public void timerEvent(){
+		super.timerEvent;
+		if (maxXOffset > 0){
+			if (xOffset == maxXOffset){
+				xOffset --;
+				increasedXOffset = false;
+			}else if (xOffset == 0){
+				xOffset ++;
+				increasedXOffset = true;
+			}else if (increasedXOffset)
+				xOffset ++;
+			else
+				xOffset --;
+			// request update
+			_termInterface.requestUpdate(this);
 		}
+	}
+
+	override public void resizeEvent(Size size){
+		super.resizeEvent(size);
+		calculateMaxXOffset;
+	}
+	
+	override void update(){
+		_termInterface.setColors(textColor, backgroundColor);
+		_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, size.width));
 	}
 }
 
 /// Displays a left-to-right progress bar.
-class ProgressbarWidget : QWidget{
+/*class ProgressbarWidget : QWidget{
 private:
 	uinteger max, done;
 public:
