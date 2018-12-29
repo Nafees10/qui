@@ -688,6 +688,10 @@ public:
 	bool setKeyHandler(KeyPress key, QWidget handlerWidget){
 		return _qterminal.registerKeyHandler(key, handlerWidget);
 	}
+	/// adds a request to QTerminal so right after it's done with `timerEvent`s, this widget's update will be called
+	void requestUpdate(QWidget widget){
+		_qterminal.requestUpdate(widget);
+	}
 }
 
 /// A terminal (as the name says).
@@ -709,6 +713,8 @@ private:
 	QWidget _activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[KeyPress] _keysToCatch;
+	/// list of widgets requesting early `update();`
+	QWidget[] _requestingUpdate;
 
 	/// Called by QTermInterface to position the cursor, only the _activeWidget can change the cursorPos
 	/// 
@@ -779,6 +785,22 @@ private:
 		_activeWidget = null;
 		_activeWidgetIndex = -1;
 		return false;
+	}
+
+	/// adds a widget to `_requestingUpdate`, so it'll be updated right after `timerEvent`s are done with
+	void requestUpdate(QWidget widget){
+		_requestingUpdate ~= widget;
+	}
+
+	/// Sets position of cursor if requested by an activeWidget.
+	/// only used by QTerminal itself, called right after updating is done
+	void showCursor(){
+		if (_activeWidget && _activeWidget.show && _activeWidget.showCursor){
+			_terminal.moveTo(cast(int)_cursor.x, cast(int)_cursor.y);
+			_terminal.showCursor;
+		}else{
+			_terminal.hideCursor();
+		}
 	}
 public:
 	/// text color, and background color
@@ -875,12 +897,7 @@ public:
 	override public void update(){
 		super.update;
 		// set the cursor
-		if (_activeWidget && _activeWidget.show && _activeWidget.showCursor){
-			_terminal.moveTo(cast(int)_cursor.x, cast(int)_cursor.y);
-			_terminal.showCursor;
-		}else{
-			_terminal.hideCursor();
-		}
+		showCursor;
 	}
 	
 	/// starts the UI loop
@@ -898,7 +915,14 @@ public:
 					widget.timerEvent;
 				sw.reset;
 			}
+			// take a look at _requestingUpdate
+			int timeout = cast(int)(TIMER_MSECS - sw.peek.total!"msecs");
+			bool eventTriggered = false;
+			// because timeout is given 0, if there's event, update will be called
+			if (_requestingUpdate.length > 0)
+				timeout = 0;
 			if (_input.timedCheckForInput(cast(int)(TIMER_MSECS - sw.peek.total!"msecs"))){
+				eventTriggered = true;
 				InputEvent event = _input.nextEvent;
 				//check event type
 				if (event.type == event.Type.KeyboardEvent){
@@ -923,6 +947,12 @@ public:
 					break;
 				}
 				update;
+			}
+			if (!eventTriggered){
+				foreach(widget; _requestingUpdate)
+					widget.update;
+				_requestingUpdate = [];
+				showCursor;
 			}
 		}
 	}
