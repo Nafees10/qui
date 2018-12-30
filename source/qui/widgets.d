@@ -147,182 +147,121 @@ public:
 		return _progress;
 	}
 }
-/*
+
 /// To get single-line input from keyboard
 class EditLineWidget : QWidget{
 private:
-	char[] inputText;
-	uinteger cursorX;
-	uinteger scrollX = 0;//amount of chars that won't be displayed because of not enough space
-	
+	/// text that's been input-ed
+	char[] _text;
+	/// position of cursor
+	uinteger _x;
+	/// how many chars wont be displayed on left
+	uinteger _scrollX;
+
+	// TODO: fix this, the scrolling is awful
+	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
 		//check if is within length of line
-		if (cursorX > inputText.length){
-			cursorX = inputText.length;
+		if (_x > _text.length){
+			_x = _text.length;
 		}
-		uinteger w = widgetSize.width - widgetCaption.length;
+		uinteger w = _size.width;
 		//now calculate scrollX, if it needs to be increased
-		if ((scrollX + w < cursorX || scrollX + w >= cursorX)){
-			if (cursorX <= w){
-				scrollX = 0;
+		if ((_scrollX + w < _x || _scrollX + w >= _x)){
+			if (_x <= w){
+				_scrollX = 0;
 			}else{
-				scrollX = cursorX - (w/2);
+				_scrollX = _x - (w/2);
 			}
 		}
 	}
-	/// used by widget itself to set cursor
-	void setCursor(){
-		termInterface.setCursorPos(
-			Position(
-				(cursorX - scrollX)+widgetCaption.length, // x
-				0), // y
-			this);
+protected:
+	/// override resize to re-scroll
+	override void resizeEvent(Size size){
+		super.resizeEvent(size);
+		reScroll;
 	}
-	///shortens caption if too long
-	void shortenCaption(){
-		if (widgetSize.width - widgetCaption.length < 4){
-			widgetCaption.length = widgetSize.width - 4;
-		}
-	}
-public:
-	/// background, text, caption, and caption's background colors
-	RGB backgroundColor, textColor, captionTextColor, captionBackgroundColor;
-	this(string wCaption = "", string inputTxt = ""){
-		inputText = cast(char[])inputTxt;
-		widgetCaption = wCaption;
-		shortenCaption;
-		//specify min/max
-		widgetSize.minWidth = 1;
-		widgetSize.minHeight = 1;
-		widgetSize.maxHeight = 1;
-		// this widget wants Tab key
-		widgetWantsTab = true;
-		// and input too, obvious
-		widgetWantsInput = true;
-		// and needs to show the cursor too
-		widgetShowCursor = true;
-
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
-		captionTextColor = DEFAULT_TEXT_COLOR;
-		captionBackgroundColor = DEFAULT_BACK_COLOR;
-	}
-
-	override bool update(Matrix display){
-		bool r = false;
-		if (needsUpdate){
-			r = true;
-			//make sure there's enough space
-			if (widgetSize.width > widgetCaption.length){
-				//draw the caption
-				display.write(cast(char[])widgetCaption, captionTextColor, captionBackgroundColor);
-				//draw the inputText
-				uinteger width = widgetSize.width - widgetCaption.length;
-				//fit the line into screen, i.e check if only a part of it will be displayed
-				if (inputText.length >= width+scrollX){
-					//display only partial line
-					display.write(inputText[scrollX .. scrollX + width], textColor, backgroundColor);
-				}else{
-					char[] emptyLine;
-					emptyLine.length = width;
-					emptyLine[] = ' ';
-					//either the line is small enough to fit, or 0-length
-					if (inputText.length <= scrollX || inputText.length == 0){
-						//just write the bgColor
-						display.write(emptyLine, textColor, backgroundColor);
-					}else{
-						display.write(inputText[scrollX .. inputText.length], textColor, backgroundColor);
-						//write the bgColor
-						display.write(emptyLine[inputText.length - scrollX .. emptyLine.length], textColor, backgroundColor);
-					}
-				}
-			}else{
-				// be sad, there's not enough space to draw
-				if (this.widgetSize.width >= 2){
-					display.write(cast(char[])":(", textColor, backgroundColor);
-				}
-			}
-			needsUpdate = false;
-		}
-		setCursor();
-		return r;
-	}
-	
 	override void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
-		if (mouse.mouseButton == mouse.Button.Left){
-			needsUpdate = true;
-			//move cursor to that pos
-			if (mouse.x > widgetCaption.length && mouse.x < widgetCaption.length + inputText.length){
-				cursorX = mouse.x - (widgetCaption.length + scrollX);
-			}
+		if (mouse.button == MouseClick.Button.Left){
+			_x = mouse.x + _scrollX;
 		}
 		reScroll;
 	}
 	override void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
 		if (key.isChar){
-			needsUpdate = true;
 			//insert that key
-			if (key.key != '\b' && key.key != '\n'){
-				if (cursorX == inputText.length){
-					//insert at end
-					inputText ~= cast(char)key.key;
-				}else{
-					inputText = inputText.insertElement([cast(char)key.key], cursorX);
-				}
-				cursorX ++;
-			}else if (key.key == '\b'){
+			if (key.key == '\b'){
 				//backspace
-				if (cursorX > 0){
-					if (cursorX == inputText.length){
-						inputText.length --;
+				if (_x > 0){
+					if (_x == _text.length){
+						_text.length --;
 					}else{
-						inputText = inputText.deleteElement(cursorX-1);
+						_text = _text.deleteElement(_x-1);
 					}
-					cursorX --;
+					_x --;
 				}
+			}else if (key.key != '\n'){
+				if (_x == _text.length){
+					//insert at end
+					_text ~= cast(char)key.key;
+				}else{
+					_text = _text.insertElement([cast(char)key.key], _x);
+				}
+				_x ++;
 			}
 		}else{
-			if (key.key == key.NonCharKey.LeftArrow && cursorX > 0){
-				needsUpdate = true;
-				cursorX --;
-			}else if (key.key == key.NonCharKey.RightArrow && cursorX < inputText.length){
-				needsUpdate = true;
-				cursorX ++;
-			}else if (key.key == key.NonCharKey.Delete && cursorX < inputText.length){
-				inputText = inputText.deleteElement(cursorX);
+			if (key.key == key.NonCharKey.LeftArrow && _x > 0){
+				_x --;
+			}else if (key.key == key.NonCharKey.RightArrow && _x < _text.length){
+				_x ++;
+			}else if (key.key == key.NonCharKey.Delete && _x < _text.length){
+				_text = _text.deleteElement(_x);
 			}
 		}
 		reScroll;
 	}
+	override protected void update(){
+		super.update;
+		_termInterface.setColors(textColor, backgroundColor);
+		_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width));
+		// set cursor position
+		_termInterface.setCursorPos(this, _x - _scrollX, 0);
+	}
+public:
+	/// background, text, caption, and caption's background colors
+	RGB backgroundColor, textColor;
+	this(string text = ""){
+		this.text = text;
+		//specify min/max
+		_size.minHeight = 1;
+		_size.maxHeight = 1;
+		// don't want tab key by default
+		_wantsTab = false;
+		// and input too, obvious
+		_wantsInput = true;
+		// and needs to show the cursor too
+		_showCursor = true;
+
+		textColor = DEFAULT_TEXT_COLOR;
+		backgroundColor = DEFAULT_BACK_COLOR;
+	}
+
 	///The text that has been input-ed.
 	@property string text(){
-		return cast(string)inputText;
+		return cast(string)_text.dup;
 	}
 	///The text that has been input-ed.
 	@property string text(string newText){
-		inputText = cast(char[])newText;
-		// force an update
-		termInterface.forceUpdate();
-		return cast(string)inputText;
-	}
-	/// caption of the widget. setter
-	override @property string caption(string newCaption){
-		needsUpdate = true;
-		widgetCaption = newCaption;
-		shortenCaption;
-		// force an update
-		termInterface.forceUpdate();
-		return widgetCaption;
-	}
-	/// override resize to shorten caption
-	override void resizeEvent(){
-		super.resizeEvent;
-		shortenCaption;
+		_text = cast(char[])newText.dup;
+		// request update
+		if (_termInterface)
+			_termInterface.requestUpdate(this);
+		return cast(string)newText;
 	}
 }
-
+/*
 /// Can be used as a simple text editor, or to just display text
 class MemoWidget : QWidget{
 private:
