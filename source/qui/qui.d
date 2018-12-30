@@ -190,6 +190,8 @@ alias ResizeEventFunction = void delegate(QWidget, Size);
 alias ActivateEventFunction = void delegate(QWidget, bool);
 /// TimerEvent function
 alias TimerEventFunction = void delegate(QWidget);
+/// Init function
+alias InitFunction = void delegate(QWidget);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -218,67 +220,31 @@ protected:
 	bool _showCursor = false;
 	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
 	QTermInterface _termInterface = null;
-	
+
+	/// custom onInit event, if not null, it should be called before doing anything else in init();
+	InitFunction _customInitEvent;
 	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
-	/// 
-	/// Override like this:
-	/// ```
-	/// override void mouseEvent(MouseClick mouse){
-	/// 	super.mouseEvent(mouse);
-	/// 	// rest of the code for mouse event here
-	/// }
-	/// ```
 	MouseEventFuction _customMouseEvent;
-	
 	/// custom keyboard event, if not null, it should be called before doing anything else in keyboardEvent.
-	/// 
-	/// Override like this:
-	/// ```
-	/// override void keyboardEvent(KeyPress key){
-	/// 	super.keyboardEvent(key);
-	/// 	// rest of the code for keyboard event here
-	/// }
-	/// ```
 	KeyboardEventFunction _customKeyboardEvent;
-
 	/// custom resize event, if not null, it should be called before doing anything else in the resizeEvent
-	/// 
-	/// Override like this:
-	/// ```
-	/// override void resizeEvent(Size size){
-	/// 	super.resizeEvent(size);
-	/// 	// the rest of the code for resizeEvent here
-	/// }
-	/// ```
 	ResizeEventFunction _customResizeEvent;
-
 	/// custom onActivate event, if not null, it should be called before doing anything else in activateEvent
-	/// 
-	/// Override like this:
-	/// ```
-	/// override void activateEvent(bool activated){
-	/// 	super.activateEvent(activated);
-	/// 	// rest of the code for resize here
-	/// }
-	/// ```
 	ActivateEventFunction _customActivateEvent;
-
 	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
-	/// 
-	/// Override like this:
-	/// ```
-	/// override void timerEvent(){
-	/// 	super.timerEvent();
-	/// 	// rest of code for timerEvent here
-	/// }
-	/// ```
 	TimerEventFunction _customTimerEvent;
-
 	/// Called by QTerminal after `_termInterface` has been set and this widget is registered
 	/// 
-	/// In this function, the widget should set the keyHandlers (if needed) and any other thing before `QTerminal.run` is called
+	/// Must be inherited like:
+	/// ```
+	/// 	override void init(){
+	/// 		super.mouseEvent(mouse);
+	/// 		// code to handle this event here
+	/// 	}
+	/// ```
 	void init(){
-		// 404 - not found
+		if (_customInitEvent)
+			_customInitEvent(this);
 	}
 public:
 	/// Called by parent when mouse is clicked with cursor on this widget.
