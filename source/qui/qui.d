@@ -349,6 +349,10 @@ public:
 	@property bool wantsTab(){
 		return _wantsTab;
 	}
+	/// ditto
+	@property bool wantsTab(bool newStatus){
+		return _wantsTab = newStatus;
+	}
 	/// Returns: true if the widget wants input
 	@property bool wantsInput(){
 		return _wantsInput;
