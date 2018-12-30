@@ -233,6 +233,10 @@ protected:
 	ActivateEventFunction _customActivateEvent;
 	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
 	TimerEventFunction _customTimerEvent;
+
+	/// Called by parent to update this widget
+	abstract void update();
+
 	/// Called by QTerminal after `_termInterface` has been set and this widget is registered
 	/// 
 	/// Must be inherited like:
@@ -246,7 +250,7 @@ protected:
 		if (_customInitEvent)
 			_customInitEvent(this);
 	}
-public:
+
 	/// Called by parent when mouse is clicked with cursor on this widget.
 	/// 
 	/// Must be inherited like:
@@ -316,26 +320,11 @@ public:
 		if (_customTimerEvent)
 			_customTimerEvent(this);
 	}
-
-	/// Returns: whether the widget is receiving the Tab key press or not
-	@property bool wantsTab(){
-		return _wantsTab;
+public:
+	/// use to change the custom init event
+	@property InitFunction onInitEvent(InitFunction func){
+		return _customInitEvent = func;
 	}
-
-	/// Returns: true if the widget wants input
-	@property bool wantsInput(){
-		return _wantsInput;
-	}
-
-	/// Returns: whether the widget needs to show a cursor, only considered when this widget is active
-	@property bool showCursor(){
-		return _showCursor;
-	}
-	
-	/// Called by parent to update this widget
-	abstract void update();
-	
-	//event properties
 	/// use to change the custom mouse event
 	@property MouseEventFuction onMouseEvent(MouseEventFuction func){
 		return _customMouseEvent = func;
@@ -343,6 +332,10 @@ public:
 	/// use to change the custom keyboard event
 	@property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
 		return _customKeyboardEvent = func;
+	}
+	/// use to change the custom resize event
+	@property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
+		return _customResizeEvent = func;
 	}
 	/// use to change the custom activate event
 	@property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
@@ -352,19 +345,26 @@ public:
 	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
 	}
-	
-	
-	//properties:
-	
-	/// size (width/height) of the widget. getter
+	/// Returns: whether the widget is receiving the Tab key press or not
+	@property bool wantsTab(){
+		return _wantsTab;
+	}
+	/// Returns: true if the widget wants input
+	@property bool wantsInput(){
+		return _wantsInput;
+	}
+	/// Returns: whether the widget needs to show a cursor, only considered when this widget is active
+	@property bool showCursor(){
+		return _showCursor;
+	}
+	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
 	@property uinteger sizeRatio(){
 		return _sizeRatio;
 	}
-	/// size (width/height) of the widget. setter
+	/// ditto
 	@property uinteger sizeRatio(uinteger newRatio){
 		return _sizeRatio = newRatio;
 	}
-	
 	/// visibility of the widget. getter
 	@property bool show(){
 		return _show;
@@ -455,6 +455,51 @@ private:
 			}
 		}
 	}
+protected:
+	/// Recalculates size and position for all visible widgets
+	/// If a widget is too large to fit in, it's visibility is marked false
+	override void resizeEvent(Size size){
+		super.resizeEvent(_size);
+		uinteger ratioTotal;
+		foreach(w; _widgets){
+			if (w._show){
+				ratioTotal += w._sizeRatio;
+			}
+		}
+		if (_type == QLayout.Type.Horizontal){
+			recalculateWidgetsSize!(QLayout.Type.Horizontal)(_widgets, _size.width, ratioTotal);
+			recalculateWidgetsPosition!(QLayout.Type.Horizontal)(_widgets);
+		}else{
+			recalculateWidgetsSize!(QLayout.Type.Vertical)(_widgets, _size.height, ratioTotal);
+			recalculateWidgetsPosition!(QLayout.Type.Vertical)(_widgets);
+		}
+		foreach (widget; _widgets){
+			widget.resizeEvent(size);
+		}
+	}
+	
+	/// Redirects the mouseEvent to the appropriate widget
+	override public void mouseEvent(MouseClick mouse) {
+		super.mouseEvent(mouse);
+		foreach (widget; _widgets){
+			if (widget._show && widget._wantsInput &&
+				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
+				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
+				// make it active, and call it's mouseEvent
+				if (_termInterface._qterminal.makeActive(widget))
+					widget.mouseEvent(mouse);
+				break;
+			}
+		}
+	}
+	
+	/// called by owner widget to update
+	override void update(){
+		foreach(widget; _widgets){
+			_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
+			widget.update();
+		}
+	}
 	
 public:
 	/// Layout type
@@ -480,51 +525,6 @@ public:
 	void addWidget(QWidget[] widgets){
 		// add to array
 		_widgets ~= widgets.dup;
-	}
-	
-	/// Recalculates size and position for all visible widgets
-	/// If a widget is too large to fit in, it's visibility is marked false
-	override void resizeEvent(Size size){
-		super.resizeEvent(_size);
-		uinteger ratioTotal;
-		foreach(w; _widgets){
-			if (w._show){
-				ratioTotal += w._sizeRatio;
-			}
-		}
-		if (_type == QLayout.Type.Horizontal){
-			recalculateWidgetsSize!(QLayout.Type.Horizontal)(_widgets, _size.width, ratioTotal);
-			recalculateWidgetsPosition!(QLayout.Type.Horizontal)(_widgets);
-		}else{
-			recalculateWidgetsSize!(QLayout.Type.Vertical)(_widgets, _size.height, ratioTotal);
-			recalculateWidgetsPosition!(QLayout.Type.Vertical)(_widgets);
-		}
-		foreach (widget; _widgets){
-			widget.resizeEvent(size);
-		}
-	}
-
-	/// Redirects the mouseEvent to the appropriate widget
-	override public void mouseEvent(MouseClick mouse) {
-		super.mouseEvent(mouse);
-		foreach (widget; _widgets){
-			if (widget._show && widget._wantsInput &&
-				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
-				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
-				// make it active, and call it's mouseEvent
-				if (_termInterface._qterminal.makeActive(widget))
-					widget.mouseEvent(mouse);
-				break;
-			}
-		}
-	}
-
-	/// called by owner widget to update
-	override void update(){
-		foreach(widget; _widgets){
-			_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
-			widget.update();
-		}
 	}
 }
 
@@ -768,6 +768,59 @@ private:
 			_terminal.hideCursor();
 		}
 	}
+
+protected:
+	override public void mouseEvent(MouseClick mouse){
+		super.mouseEvent(mouse);
+		foreach (i, widget; _widgets){
+			if (widget._show && widget._wantsInput){
+				Position p = widget._position;
+				Size s = widget._size;
+				//check x-y-axis
+				if (mouse.x >= p.x && mouse.x < p.x + s.width && mouse.y >= p.y && mouse.y < p.y + s.height){
+					//mark this widget as active
+					makeActive(i);
+					// make mouse position relative to widget position, not 0:0
+					mouse.x = mouse.x - _activeWidget._position.x;
+					mouse.y = mouse.y - _activeWidget._position.y;
+					//call mouseEvent
+					widget.mouseEvent(mouse);
+					break;
+				}
+			}
+		}
+	}
+	
+	override public void keyboardEvent(KeyPress key){
+		super.keyboardEvent(key);
+		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
+		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (_activeWidgetIndex < 0 || !_activeWidget._wantsTab))){
+			QWidget lastActiveWidget = _activeWidget;
+			// make the next widget active
+			if (_regdWidgets.length > 0){
+				uinteger newIndex = _activeWidgetIndex + 1;
+				// see if it wants input, case no, switch to some other widget
+				for (;newIndex < _regdWidgets.length; newIndex ++){
+					if (_widgets[newIndex]._show && _widgets[newIndex]._wantsInput){
+						break;
+					}
+				}
+				makeActive(newIndex);
+			}
+		}else if (key in _keysToCatch){
+			// this is a registered key, only a specific widget catches it
+			_keysToCatch[key].keyboardEvent(key);
+		}else if (_activeWidget !is null){
+			_activeWidget.keyboardEvent (key);
+		}
+	}
+	
+	override public void update(){
+		super.update;
+		// set the cursor
+		showCursor;
+	}
+
 public:
 	/// text color, and background color
 	RGB textColor, backgroundColor;
@@ -813,57 +866,6 @@ public:
 			widget._termInterface = _termInterface;
 			widget.init();
 		}
-	}
-	
-	override public void mouseEvent(MouseClick mouse){
-		super.mouseEvent(mouse);
-		foreach (i, widget; _widgets){
-			if (widget._show && widget._wantsInput){
-				Position p = widget._position;
-				Size s = widget._size;
-				//check x-y-axis
-				if (mouse.x >= p.x && mouse.x < p.x + s.width && mouse.y >= p.y && mouse.y < p.y + s.height){
-					//mark this widget as active
-					makeActive(i);
-					// make mouse position relative to widget position, not 0:0
-					mouse.x = mouse.x - _activeWidget._position.x;
-					mouse.y = mouse.y - _activeWidget._position.y;
-					//call mouseEvent
-					widget.mouseEvent(mouse);
-					break;
-				}
-			}
-		}
-	}
-
-	override public void keyboardEvent(KeyPress key){
-		super.keyboardEvent(key);
-		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (_activeWidgetIndex < 0 || !_activeWidget._wantsTab))){
-			QWidget lastActiveWidget = _activeWidget;
-			// make the next widget active
-			if (_regdWidgets.length > 0){
-				uinteger newIndex = _activeWidgetIndex + 1;
-				// see if it wants input, case no, switch to some other widget
-				for (;newIndex < _regdWidgets.length; newIndex ++){
-					if (_widgets[newIndex]._show && _widgets[newIndex]._wantsInput){
-						break;
-					}
-				}
-				makeActive(newIndex);
-			}
-		}else if (key in _keysToCatch){
-			// this is a registered key, only a specific widget catches it
-			_keysToCatch[key].keyboardEvent(key);
-		}else if (_activeWidget !is null){
-			_activeWidget.keyboardEvent (key);
-		}
-	}
-
-	override public void update(){
-		super.update;
-		// set the cursor
-		showCursor;
 	}
 	
 	/// starts the UI loop

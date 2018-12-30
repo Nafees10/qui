@@ -33,6 +33,36 @@ private:
 				xOffset = maxXOffset;
 		}
 	}
+protected:
+	override protected void timerEvent(){
+		super.timerEvent;
+		if (maxXOffset > 0){
+			if (xOffset == maxXOffset){
+				xOffset --;
+				increasedXOffset = false;
+			}else if (xOffset == 0){
+				xOffset ++;
+				increasedXOffset = true;
+			}else if (increasedXOffset)
+				xOffset ++;
+			else
+				xOffset --;
+			// request update
+			if (_termInterface)
+				_termInterface.requestUpdate(this);
+		}
+	}
+	
+	override protected void resizeEvent(Size size){
+		super.resizeEvent(size);
+		calculateMaxXOffset;
+	}
+	
+	override protected void update(){
+		_termInterface.setColors(textColor, backgroundColor);
+		_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, size.width));
+	}
+
 public:
 	/// text and background colors
 	RGB textColor, backgroundColor;
@@ -55,35 +85,6 @@ public:
 		if (_termInterface)
 			_termInterface.requestUpdate(this);
 		return _caption;
-	}
-
-	override public void timerEvent(){
-		super.timerEvent;
-		if (maxXOffset > 0){
-			if (xOffset == maxXOffset){
-				xOffset --;
-				increasedXOffset = false;
-			}else if (xOffset == 0){
-				xOffset ++;
-				increasedXOffset = true;
-			}else if (increasedXOffset)
-				xOffset ++;
-			else
-				xOffset --;
-			// request update
-			if (_termInterface)
-				_termInterface.requestUpdate(this);
-		}
-	}
-
-	override public void resizeEvent(Size size){
-		super.resizeEvent(size);
-		calculateMaxXOffset;
-	}
-	
-	override void update(){
-		_termInterface.setColors(textColor, backgroundColor);
-		_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, size.width));
 	}
 }
 
