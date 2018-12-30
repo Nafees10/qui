@@ -404,22 +404,22 @@ private:
 		do{
 			repeat = false;
 			foreach(i, widget; widgets){
-				if (widget.show){
+				if (widget._show){
 					// calculate width or height
-					uinteger newSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
+					uinteger newSpace = ratioToRaw(widget._sizeRatio, totalRatio, totalSpace);
 					uinteger calculatedSpace = newSpace;
 					//apply size
 					static if (T == QLayout.Type.Horizontal){
-						widget.size.height = _size.height;
-						widget.size.width = newSpace;
-						newSpace = widget.size.width;
+						widget._size.height = _size.height;
+						widget._size.width = newSpace;
+						newSpace = widget._size.width;
 					}else{
-						widget.size.width = _size.width;
-						widget.size.height = newSpace;
-						newSpace = widget.size.height;
+						widget._size.width = _size.width;
+						widget._size.height = newSpace;
+						newSpace = widget._size.height;
 					}
 					if (newSpace != calculatedSpace){
-						totalRatio -= widget.sizeRatio;
+						totalRatio -= widget._sizeRatio;
 						totalSpace -= newSpace;
 						widgets = widgets.dup.deleteElement(i);
 						repeat = true;
@@ -428,7 +428,7 @@ private:
 					// check if there's enough space to contain that widget
 					if (newSpace > totalSpace){
 						newSpace = 0;
-						widget.show = false;
+						widget._show = false;
 					}
 				}
 			}
@@ -442,15 +442,15 @@ private:
 		uinteger previousSpace = (T == QLayout.Type.Horizontal ? _position.x : _position.y);
 		uinteger fixedPoint = (T == QLayout.Type.Horizontal ? _position.y : _position.x);
 		foreach(widget; widgets){
-			if (widget.show){
+			if (widget._show){
 				static if (T == QLayout.Type.Horizontal){
 					widget._position.y = _position.y;
 					widget._position.x = previousSpace;
-					previousSpace += widget.size.width;
+					previousSpace += widget._size.width;
 				}else{
 					widget._position.x = _position.x;
 					widget._position.y = previousSpace;
-					previousSpace += widget.size.height;
+					previousSpace += widget._size.height;
 				}
 			}
 		}
@@ -488,8 +488,8 @@ public:
 		super.resizeEvent(_size);
 		uinteger ratioTotal;
 		foreach(w; _widgets){
-			if (w.show){
-				ratioTotal += w.sizeRatio;
+			if (w._show){
+				ratioTotal += w._sizeRatio;
 			}
 		}
 		if (_type == QLayout.Type.Horizontal){
@@ -508,7 +508,7 @@ public:
 	override public void mouseEvent(MouseClick mouse) {
 		super.mouseEvent(mouse);
 		foreach (widget; _widgets){
-			if (widget.show && widget.wantsInput &&
+			if (widget._show && widget._wantsInput &&
 				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
 				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
 				// make it active, and call it's mouseEvent
@@ -761,7 +761,7 @@ private:
 	/// Sets position of cursor if requested by an activeWidget.
 	/// only used by QTerminal itself, called right after updating is done
 	void showCursor(){
-		if (_activeWidget && _activeWidget.show && _activeWidget.showCursor){
+		if (_activeWidget && _activeWidget._show && _activeWidget._showCursor){
 			_terminal.moveTo(cast(int)_cursor.x, cast(int)_cursor.y);
 			_terminal.showCursor;
 		}else{
@@ -818,7 +818,7 @@ public:
 	override public void mouseEvent(MouseClick mouse){
 		super.mouseEvent(mouse);
 		foreach (i, widget; _widgets){
-			if (widget.show && widget.wantsInput){
+			if (widget._show && widget._wantsInput){
 				Position p = widget._position;
 				Size s = widget._size;
 				//check x-y-axis
@@ -839,14 +839,14 @@ public:
 	override public void keyboardEvent(KeyPress key){
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (_activeWidgetIndex < 0 || !_activeWidget.wantsTab))){
+		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (_activeWidgetIndex < 0 || !_activeWidget._wantsTab))){
 			QWidget lastActiveWidget = _activeWidget;
 			// make the next widget active
 			if (_regdWidgets.length > 0){
 				uinteger newIndex = _activeWidgetIndex + 1;
 				// see if it wants input, case no, switch to some other widget
 				for (;newIndex < _regdWidgets.length; newIndex ++){
-					if (_widgets[newIndex].show && _widgets[newIndex].wantsInput){
+					if (_widgets[newIndex]._show && _widgets[newIndex]._wantsInput){
 						break;
 					}
 				}
