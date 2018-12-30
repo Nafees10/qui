@@ -8,9 +8,11 @@ import qui.utils;
 import utils.misc;
 import utils.lists;
 
-///Displays some text
+/// Displays some text
 ///
-///And it can't handle new-line characters
+/// And it can't handle new-line characters
+///
+/// If the text doesn't fit in width, it will move left-right
 class TextLabelWidget : QWidget{
 private:
 	/// number of chars not displayed on left
@@ -28,7 +30,7 @@ private:
 			maxXOffset = 0;
 			xOffset = 0;
 		}else{
-			maxXOffset = _caption.length - size.width;
+			maxXOffset = _caption.length - _size.width;
 			if (xOffset > maxXOffset)
 				xOffset = maxXOffset;
 		}
@@ -60,7 +62,7 @@ protected:
 	
 	override protected void update(){
 		_termInterface.setColors(textColor, backgroundColor);
-		_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, size.width));
+		_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, _size.width));
 	}
 
 public:
@@ -89,63 +91,63 @@ public:
 }
 
 /// Displays a left-to-right progress bar.
-/*class ProgressbarWidget : QWidget{
+/// 
+/// Can also display text (just like TextLabelWidget)
+class ProgressbarWidget : TextLabelWidget{
 private:
-	uinteger max, done;
+	uinteger _max, _progress;
+protected:
+	override protected void update(){
+		// if caption fits in width, center align it
+		string text;
+		if (_caption.length < _size.width)
+			text = centerAlignText(_caption, _size.width);
+		else
+			text = _caption.scrollHorizontal(xOffset, _size.width);
+		// number of chars to be colored in barColor
+		uinteger fillCharCount = (_progress * _size.width) / _max;
+		// write till _progress
+		_termInterface.setColors(backgroundColor, barColor); // text will be displayed in bgColor, and background will be barColor
+		_termInterface.write(cast(char[])text[0 .. fillCharCount]);
+		// write the empty bar
+		_termInterface.setColors(barColor, backgroundColor);
+		_termInterface.write(cast(char[])text[fillCharCount .. text.length]);
+	}
 public:
 	/// background color, and bar's color
 	RGB backgroundColor, barColor;
-	this(uinteger totalAmount = 100, uinteger complete = 0){
-		widgetCaption = null;
-		max = totalAmount;
-		done = complete;
+	this(uinteger max = 100, uinteger progress = 0){
+		_caption = null;
+		this.max = max;
+		this.progress = progress;
 
 		barColor = DEFAULT_TEXT_COLOR;
 		backgroundColor = DEFAULT_BACK_COLOR;
 	}
-	
-	override bool update(Matrix display){
-		bool r = false;
-		if (needsUpdate){
-			r = true;
-			uinteger filled = ratioToRaw(done, max, widgetSize.width);
-			char[] bar;
-			bar.length = widgetSize.width;
-			bar[0 .. bar.length] = ' ';
-			for (uinteger i = 0; i < widgetSize.height; i++){
-				display.write(bar[0 .. filled], barColor, barColor);
-				display.write(bar[filled .. bar.length], barColor, backgroundColor);
-			}
-			needsUpdate = false;
-		}
-		return r;
-	}
 	/// The 'total', or the max-progress. getter
-	@property uinteger total(){
-		return max;
+	@property uinteger max(){
+		return _max;
 	}
 	/// The 'total' or the max-progress. setter
-	@property uinteger total(uinteger newTotal){
-		needsUpdate = true;
-		max = newTotal;
-		// force an update
-		termInterface.forceUpdate();
-		return max;
+	@property uinteger max(uinteger newMax){
+		_max = newMax;
+		if (_termInterface)
+			_termInterface.requestUpdate(this);
+		return _max;
 	}
 	/// the amount of progress. getter
 	@property uinteger progress(){
-		return done;
+		return _progress;
 	}
 	/// the amount of progress. setter
 	@property uinteger progress(uinteger newProgress){
-		needsUpdate = true;
-		done = newProgress;
-		// force an update
-		termInterface.forceUpdate();
-		return done;
+		_progress = newProgress;
+		if (_termInterface)
+			_termInterface.requestUpdate(this);
+		return _progress;
 	}
 }
-
+/*
 /// To get single-line input from keyboard
 class EditLineWidget : QWidget{
 private:
