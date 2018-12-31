@@ -56,7 +56,22 @@ unittest{
 	assert("0123456789".scrollHorizontal(-5,6) == "     0");
 	assert("0123456789".scrollHorizontal(-1,11) == " 0123456789");
 	assert("0123456789".scrollHorizontal(-5,10) == "     01234");
+}
 
+/// Adjusts offset (aka _scrollX or _scrollY) in scrolling so the selected character is visible TODO: test this
+/// 
+/// Arguemnts:
+/// * `selected` is the character on which the cursor is
+/// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
+/// * `offset` is the variable storing the offset (_xOffset or _yOffset)
+void adjustScrollingOffset(uinteger selected, uinteger size, ref uinteger offset){
+	if (selected <= offset){
+		// scroll back
+		offset = selected;
+	}else if (selected >= offset + size){
+		// scroll ahead
+		offset = selected - size;
+	}
 }
 
 /// Center-aligns text
