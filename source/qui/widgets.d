@@ -165,7 +165,8 @@ private:
 		if (_x > _text.length){
 			_x = _text.length;
 		}
-		uinteger w = _size.width;
+		adjustScrollingOffset(_x, _size.width, _scrollX);
+		/*uinteger w = _size.width;
 		//now calculate scrollX, if it needs to be increased
 		if ((_scrollX + w < _x || _scrollX + w >= _x)){
 			if (_x <= w){
@@ -173,7 +174,7 @@ private:
 			}else{
 				_scrollX = _x - (w/2);
 			}
-		}
+		}*/
 	}
 protected:
 	/// override resize to re-scroll
@@ -222,8 +223,7 @@ protected:
 		}
 		reScroll;
 	}
-	override protected void update(){
-		super.update;
+	override void update(){
 		_termInterface.setColors(textColor, backgroundColor);
 		_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width));
 		// set cursor position
