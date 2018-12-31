@@ -784,6 +784,8 @@ protected:
 				if (mouse.x >= p.x && mouse.x < p.x + s.width && mouse.y >= p.y && mouse.y < p.y + s.height){
 					//mark this widget as active
 					makeActive(i);
+					if (_activeWidgetIndex == -1)
+						makeActive(0);
 					// make mouse position relative to widget position, not 0:0
 					mouse.x = mouse.x - _activeWidget._position.x;
 					mouse.y = mouse.y - _activeWidget._position.y;
@@ -810,6 +812,8 @@ protected:
 					}
 				}
 				makeActive(newIndex);
+				if (_activeWidgetIndex == -1)
+					makeActive(0);
 			}
 		}else if (key in _keysToCatch){
 			// this is a registered key, only a specific widget catches it
