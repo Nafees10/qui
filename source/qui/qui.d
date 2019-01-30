@@ -906,7 +906,13 @@ public:
 					kPress.key = event.get!(event.Type.KeyboardEvent).which;
 					this.keyboardEvent(kPress);
 				}else if (event.type == event.Type.MouseEvent){
-					this.mouseEvent(MouseClick(event.get!(event.Type.MouseEvent)));
+					// only button clicks & scroll are events, hovering is not (at least yet)
+					MouseEvent mEvent = event.get!(event.Type.MouseEvent);
+					if (mEvent.buttons == MouseEvent.Button.None){
+						continue;
+					}else{
+						this.mouseEvent(MouseClick(mEvent));
+					}
 				}else if (event.type == event.Type.SizeChangedEvent){
 					//update self size
 					_terminal.updateSize;
