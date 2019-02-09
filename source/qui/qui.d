@@ -4,24 +4,29 @@
 +/
 module qui.qui;
 
-import arsd.terminal;
 import std.datetime.stopwatch;
-//import std.stdio;
-import utils.baseconv;
-import utils.lists;
+import std.concurrency;
 import utils.misc;
 import std.conv : to;
+import termbox;
 
 import qui.utils;
 
-const RGB DEFAULT_TEXT_COLOR = hexToColor("00FF00");
-const RGB DEFAULT_BACK_COLOR = hexToColor("000000");
+/// How much time between each timer event
 const ushort TIMER_MSECS = 500;
+/// If a widget registers itself as keyHandler for either of these keys, the keyboardEvent for _activeWidget will also be called 
+/// when these keys are tirggered, along with handler's keyboardEvent
+const UNCATCHABLE_KEYS = [Key.space, Key.backspace, Key.tab];
+
+/// Available colors are in this enum
+public import termbox : Color;
+/// Availabe Keys (keyboard) for input
+public import termbox : Key;
 
 ///Mouse Click, or Ms Wheel scroll event
 ///
 ///The mouseEvent function is called with this.
-struct MouseClick{
+struct MouseEvent{
 	///Types of buttons
 	enum Button{
 		Left,/// Left mouse button
@@ -39,81 +44,47 @@ struct MouseClick{
 	string tostring(){
 		return "{button:"~to!string(button)~",x:"~to!string(x)~",y:"~to!string(y)~"}";
 	}
-	/// constructor, to construct from arsd's MouseEvent
-	this (MouseEvent mEvent){
-		x = mEvent.x;
-		y = mEvent.y;
-		switch (mEvent.buttons){
-			case MouseEvent.Button.Left:
-				button = Button.Left;
-				break;
-			case MouseEvent.Button.Right:
-				button = Button.Right;
-				break;
-			case MouseEvent.Button.ScrollUp:
-				button = Button.ScrollUp;
-				break;
-			case MouseEvent.Button.ScrollDown:
-				button = Button.ScrollDown;
-				break;
-			default:
-				break;
-		}
-	}
 }
 
 ///Key press event, keyboardEvent function is called with this
-///
-///A note: backspace (`\b`) and enter (`\n`) are not included in KeyPress.NonCharKey
-struct KeyPress{
-	dchar key;/// stores which key was pressed
-
-	/// Returns true if the key was a character.
+struct KeyboardEvent{
+	/// which character was entered
 	/// 
-	/// A note: Enter/Return ('\n') is not included in KeyPress.NonCharKey
-	bool isChar(){
-		return !(key >= NonCharKey.min && key <= NonCharKey.max);
-	}
-	/// Types of non-character keys
-	enum NonCharKey{
-		Escape = 0x1b + 0xF0000,
-		F1 = 0x70 + 0xF0000,
-		F2 = 0x71 + 0xF0000,
-		F3 = 0x72 + 0xF0000,
-		F4 = 0x73 + 0xF0000,
-		F5 = 0x74 + 0xF0000,
-		F6 = 0x75 + 0xF0000,
-		F7 = 0x76 + 0xF0000,
-		F8 = 0x77 + 0xF0000,
-		F9 = 0x78 + 0xF0000,
-		F10 = 0x79 + 0xF0000,
-		F11 = 0x7A + 0xF0000,
-		F12 = 0x7B + 0xF0000,
-		LeftArrow = 0x25 + 0xF0000,
-		RightArrow = 0x27 + 0xF0000,
-		UpArrow = 0x26 + 0xF0000,
-		DownArrow = 0x28 + 0xF0000,
-		Insert = 0x2d + 0xF0000,
-		Delete = 0x2e + 0xF0000,
-		Home = 0x24 + 0xF0000,
-		End = 0x23 + 0xF0000,
-		PageUp = 0x21 + 0xF0000,
-		PageDown = 0x22 + 0xF0000,
+	/// if the character is present in enum `Key` as well, then it's value will be in `KeyboardEvent.key` as well
+	dchar charKey;
+	/// which key was pressed, only valid if `charKey == 0`, or if reported char is also present in enum `Key`
+	Key key;
+	/// Returns: true if the pressed key is not a character
+	/// 
+	/// Enter (`\n`), Tab (`\t`), backsace (`\b`) are considered characters too
+	@property bool isChar(){
+		if (charKey)
+			return true;
+		return false;
 	}
 	/// Returns: a string representation of KeyPress, in JSON
 	string tostring(){
 		if (isChar){
-			return "{key:"~cast(char)key~'}';
+			return "{charKey:"~cast(char)~'}';
 		}
-		return "{key:\""~to!string(cast(NonCharKey)key)~"\"}";
+		return "{key:"~to!string(key)~'}';
+	}
+	/// constructor to construct from termbox.Event
+	private this(Event e){
+		this.charKey = e.ch;
+		if (this.charKey == 0){
+			this.key = cast(Key)e.key;
+			if (this.key == Key.space)
+				charKey = cast(dchar)' ';
+			else if (this.key == Key.backspace)
+				charKey = cast(dchar)'\b';
+			else if (this.key == Key.tab)
+				charKey = cast(dchar)'\t';
+			else if (this.key == Key.enter)
+				charKey = cast(dchar)'\n';
+		}
 	}
 }
-
-/// A 24 bit, RGB, color
-/// 
-/// `r` represents amount of red, `g` is green, and `b` is blue.
-/// the `a` is ignored
-public import arsd.terminal : RGB;
 
 /// Used to store position for widgets
 struct Position{
@@ -181,9 +152,9 @@ struct Size{
 }
 
 /// mouseEvent function
-alias MouseEventFuction = void delegate(QWidget, MouseClick);
+alias MouseEventFuction = void delegate(QWidget, MouseEvent);
 ///keyboardEvent function
-alias KeyboardEventFunction = void delegate(QWidget, KeyPress);
+alias KeyboardEventFunction = void delegate(QWidget, KeyboardEvent);
 /// resizeEvent function
 alias ResizeEventFunction = void delegate(QWidget, Size);
 /// activateEvent function
@@ -260,7 +231,7 @@ protected:
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
-	void mouseEvent(MouseClick mouse){
+	void mouseEvent(MouseEvent mouse){
 		if (_customMouseEvent !is null)
 			_customMouseEvent(this, mouse);
 	}
@@ -274,7 +245,7 @@ protected:
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
-	void keyboardEvent(KeyPress key){
+	void keyboardEvent(KeyboardEvent key){
 		if (_customKeyboardEvent !is null)
 			_customKeyboardEvent(this, key);
 	}
@@ -483,7 +454,7 @@ protected:
 	}
 	
 	/// Redirects the mouseEvent to the appropriate widget
-	override public void mouseEvent(MouseClick mouse) {
+	override public void mouseEvent(MouseEvent mouse) {
 		super.mouseEvent(mouse);
 		foreach (widget; _widgets){
 			if (widget._show && widget._wantsInput &&
@@ -534,12 +505,12 @@ public:
 
 class QTermInterface{
 private:
-	/// The Terminal to use
-	Terminal* _terminal;
 	/// The QTerminal
 	QTerminal _qterminal;
 	/// The current position of cursor, i.e where the next character will be written
 	Position _cursorPos;
+	/// The position that cursor will be moved to when its done drawing
+	Position _postUpdateCursorPos;
 	/// X coordinates of area where writing is allowed
 	uinteger _restrictX1, _restrictX2;
 	/// Y coordinates of area where writing is allowed
@@ -551,22 +522,13 @@ private:
 	/// 
 	/// Returns: true if restricted, false if not restricted, because the area specified is outside terminal, or width || height == 0
 	bool restrictWrite(uinteger x, uinteger y, uinteger width, uinteger height){
-		if (x + width >= _terminal.width || y + height >= _terminal.height || width == 0 || height == 0)
+		if (x + width >= _qterminal._size.width || y + height >= _qterminal._size.height || width == 0 || height == 0)
 			return false;
-		_restrictX1 = x;
-		_restrictX2 = x + width;
-		_restrictY1 = y;
-		_restrictY2 = y + height;
-		
-		_terminal.moveTo(cast(int)x, cast(int)y);
-		_cursorPos.x = x;
-		_cursorPos.y = y;
-		return true;
+		// TODO implement restrictWrite
 	}
 public:
 	this(QTerminal term){
 		_qterminal = term;
-		_terminal = &(term._terminal);
 	}
 	/// Returns: true if the caller widget is _activeWidget
 	bool isActive(QWidget caller){
@@ -575,8 +537,8 @@ public:
 	/// Sets color
 	/// 
 	/// Returs: true if successful, false if not
-	bool setColors(RGB foreground, RGB background){
-		return _terminal.setTrueColor(foreground, background);
+	bool setColors(Color foreground, Color background){
+		// TODO implement setColors
 	}
 	/// Writes characters on terminal
 	/// 
@@ -584,50 +546,11 @@ public:
 	/// 
 	/// Returns: true if successful, false if not, or if there was not space for some characters (or all)
 	bool write(char[] c){
-		// fix cursor position
-		if (_cursorPos.x >= _restrictX2){
-			_cursorPos.x = _restrictX1;
-			_cursorPos.y ++;
-		}
-		// can write? is there space?
-		if (_cursorPos.y >= _restrictY2){
-			return false;
-		}
-		// divide c into lines if it overflows one line
-		char[][] lines = [];
-		if (c.length > _restrictX2 - _cursorPos.x){
-			lines = [c[0 .. _restrictX2 - _cursorPos.x]];
-			c = c[_restrictX2 - _cursorPos.x .. c.length].dup;
-		}
-		lines = lines ~ c.divideArray(_restrictX2 - _restrictX1);
-		foreach (line; lines){
-			_terminal.write(line);
-			_cursorPos.x += line.length;
-			if (_cursorPos.x >= _restrictX2){
-				_cursorPos.y ++;
-				_cursorPos.x = _restrictX1;
-			}
-			if (_cursorPos.y >= _restrictY2)
-				return false;
-			_terminal.moveTo(cast(int)(_cursorPos.x), cast(int)(_cursorPos.y));
-		}
-		return true;
+		// TODO implement write
 	}
 	/// Fills the terminal, or restricted area, with a character
 	void fill(char c){
-		char[] line;
-		line.length = _restrictX2 - _restrictX1;
-		line[] = c;
-		// set position
-		_cursorPos.x = _restrictX1;
-		_cursorPos.y = _restrictY2;
-		_terminal.moveTo(cast(int)_cursorPos.x, cast(int)_cursorPos.y);
-		// start writing
-		for (; _cursorPos.y <= _restrictY1;){
-			_terminal.write(line);
-			_cursorPos.y ++;
-			_terminal.moveTo(cast(int)_cursorPos.x, cast(int)_cursorPos.y);
-		}
+		// TODO implement fill
 	}
 	/// the position of next write
 	/// 
@@ -642,6 +565,7 @@ public:
 			_cursorPos.x = _restrictX2;
 		if (_cursorPos.y > _restrictY2)
 			_cursorPos.y = _restrictY2;
+		// TODO implement setting the _cursorPos
 		return _cursorPos;
 	}
 	/// sets position of cursor on terminal.
@@ -650,12 +574,18 @@ public:
 	/// 
 	/// Returns: true if successful, false if not
 	bool setCursorPos(QWidget caller, uinteger x, uinteger y){
-		return _qterminal.setCursorPos(x, y, caller);
+		if (_qterminal.isActive(caller)){
+			_postUpdateCursorPos.x = _qterminal._activeWidget._position.x + x;
+			_postUpdateCursorPos.y = _qterminal._activeWidget._position.y + y;
+			// TODO implement setting _postUpdateCursorPos
+			return true;
+		}
+		return false;
 	}
 	/// Registers a keypress to a QWidget. When that key is pressed, the keyboardEvent of that widget will be called, regardless of _activeWidget
 	/// 
 	/// Returns: true if successfully set, false if not, for example if key is already registered
-	bool setKeyHandler(KeyPress key, QWidget handlerWidget){
+	bool setKeyHandler(Key key, QWidget handlerWidget){
 		return _qterminal.registerKeyHandler(key, handlerWidget);
 	}
 	/// adds a request to QTerminal so right after it's done with `timerEvent`s, this widget's update will be called
@@ -671,8 +601,6 @@ public:
 /// Name in theme: 'terminal';
 class QTerminal : QLayout{
 private:
-	Terminal _terminal;
-	RealTimeConsoleInput _input;
 	/// stores the position of the cursor on terminal
 	Position _cursor;
 	/// array containing registered widgets
@@ -682,7 +610,7 @@ private:
 	// contains reference to the active widget, null if no active widget
 	QWidget _activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
-	QWidget[KeyPress] _keysToCatch;
+	QWidget[Key] _keysToCatch;
 	/// list of widgets requesting early `update();`
 	QWidget[] _requestingUpdate;
 
@@ -703,7 +631,7 @@ private:
 	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
 	/// 
 	/// Returns:  true on success, false on failure, which can occur because that key is already registered, or if widget is not registered
-	bool registerKeyHandler(KeyPress key, QWidget widget){
+	bool registerKeyHandler(Key key, QWidget widget){
 		if (key in _keysToCatch || _regdWidgets.hasElement(widget)){
 			return false;
 		}else{
@@ -766,15 +694,55 @@ private:
 	/// only used by QTerminal itself, called right after updating is done
 	void showCursor(){
 		if (_activeWidget && _activeWidget._show && _activeWidget._showCursor){
-			_terminal.moveTo(cast(int)_cursor.x, cast(int)_cursor.y);
-			_terminal.showCursor;
+			// todo implement show/hide cursor
 		}else{
-			_terminal.hideCursor();
+			// hide
 		}
 	}
 
+	/// Reads InputEvent[] and calls appropriate functions to address those events
+	/// 
+	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
+	bool readEvents(Event[] events){
+		foreach (event; events){
+			if (event.type == EventType.key){
+				if (event.key == Key.ctrlC){
+					break;
+				}
+				KeyboardEvent kPress = KeyboardEvent(event);
+				this.keyboardEvent(kPress);
+			}else if (event.type == EventType.mouse){
+				// only button clicks & scroll are events, hovering is not (at least yet)
+				MouseEvent mEvent;
+				mEvent.x = event.x;
+				mEvent.y = event.y;
+				if (event.key == Key.mouseLeft)
+					mEvent.button = MouseEvent.Button.Left;
+				else if (event.key == Key.mouseRight)
+					mEvent.button = MouseEvent.Button.Right;
+				else if (event.key == Key.mouseWheelUp)
+					mEvent.button = MouseEvent.Button.ScrollUp;
+				else if (event.key == Key.mouseWheelDown)
+					mEvent.button = MouseEvent.Button.ScrollDown;
+				else
+					continue;
+				this.mouseEvent(mEvent);
+			}else if (event.type == EventType.resize){
+				//update self size
+				_size.height = event.h;
+				_size.width = event.w;
+				// fill empty, apply color
+				_termInterface.setColors(textColor, backgroundColor);
+				_termInterface.fill(' ');
+				//call size change on all widgets
+				resizeEvent(_size);
+			}
+		}
+		return true;
+	}
+
 protected:
-	override public void mouseEvent(MouseClick mouse){
+	override public void mouseEvent(MouseEvent mouse){
 		super.mouseEvent(mouse);
 		foreach (i, widget; _widgets){
 			if (widget._show && widget._wantsInput){
@@ -797,10 +765,10 @@ protected:
 		}
 	}
 	
-	override public void keyboardEvent(KeyPress key){
+	override public void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == KeyPress.NonCharKey.Escape || (key.key == '\t' && (_activeWidgetIndex < 0 || !_activeWidget._wantsTab))){
+		if (key.key == Key.esc || (key.charKey == '\t' && (_activeWidgetIndex < 0 || !_activeWidget._wantsTab))){
 			QWidget lastActiveWidget = _activeWidget;
 			// make the next widget active
 			if (_regdWidgets.length > 0){
@@ -815,9 +783,12 @@ protected:
 				if (_activeWidgetIndex == -1)
 					makeActive(0);
 			}
-		}else if (key in _keysToCatch){
+		}else if (key.key in _keysToCatch){
 			// this is a registered key, only a specific widget catches it
-			_keysToCatch[key].keyboardEvent(key);
+			// check if it's in UNCATCHABLE_KEYS, if yes, the call _activeWidget's keyboard event too
+			if (UNCATCHABLE_KEYS.hasElement(key.key))
+				_activeWidget.keyboardEvent(key);
+			_keysToCatch[key.key].keyboardEvent(key);
 		}else if (_activeWidget !is null){
 			_activeWidget.keyboardEvent (key);
 		}
@@ -831,7 +802,7 @@ protected:
 
 public:
 	/// text color, and background color
-	RGB textColor, backgroundColor;
+	Color textColor, backgroundColor;
 	this(string caption = "QUI Text User Interface", QLayout.Type displayType = QLayout.Type.Vertical){
 		super(displayType);
 		//create terminal & input
@@ -851,7 +822,7 @@ public:
 		_termInterface.fill(' ');
 	}
 	~this(){
-		_terminal.clear;
+		// TODO terminate the other thread
 		.destroy(_termInterface);
 	}
 
@@ -893,44 +864,16 @@ public:
 			}
 			// take a look at _requestingUpdate
 			int timeout = cast(int)(TIMER_MSECS - sw.peek.total!"msecs");
-			bool eventTriggered = false;
 			// because timeout is given 0, if there's event, update will be called
 			if (_requestingUpdate.length > 0)
 				timeout = 0;
-			if (_input.timedCheckForInput(cast(int)(TIMER_MSECS - sw.peek.total!"msecs"))){
-				eventTriggered = true;
-				InputEvent event = _input.nextEvent;
-				//check event type
-				if (event.type == event.Type.KeyboardEvent){
-					KeyPress kPress;
-					kPress.key = event.get!(event.Type.KeyboardEvent).which;
-					this.keyboardEvent(kPress);
-				}else if (event.type == event.Type.MouseEvent){
-					// only button clicks & scroll are events, hovering is not (at least yet)
-					MouseEvent mEvent = event.get!(event.Type.MouseEvent);
-					if (mEvent.buttons == MouseEvent.Button.None){
-						continue;
-					}else{
-						this.mouseEvent(MouseClick(mEvent));
-					}
-				}else if (event.type == event.Type.SizeChangedEvent){
-					//update self size
-					_terminal.updateSize;
-					_size.height = _terminal.height;
-					_size.width = _terminal.width;
-					// fill empty, apply color
-					_termInterface.setColors(textColor, backgroundColor);
-					_termInterface.fill(' ');
-					//call size change on all widgets
-					resizeEvent(_size);
-				}else if (event.type == event.Type.UserInterruptionEvent || event.type == event.Type.HangupEvent){
-					//die here
-					_terminal.clear;
+			if (_input.timedCheckForInput(cast(int)(cast(long)TIMER_MSECS - sw.peek.total!"msecs"))){
+				// go through the events
+				if (!readEvents(_input.readNextEvents))
 					break;
-				}
 				update;
-			}
-			if (!eventTriggered){
+			}else{
+				// if no events triggered, then just update the widgets that want to be updated
 				foreach(widget; _requestingUpdate)
 					widget.update;
 				showCursor;
@@ -938,4 +881,25 @@ public:
 			_requestingUpdate = [];
 		}
 	}
+}
+
+/// used to contain messages sent to the terminalIOThread
+private struct IOMessage{
+	enum Type{
+		UpdateProperties, /// updates terminal's properties. The new properties are in `newProperties`
+		UpdateWriteProperties, /// updates writing properties. New properties in `newWriteProperties`
+		UpdateCursorProperties, /// updates cursor properties. New properties in `newCursorProperties`
+		Write, /// write on terminal. text to write in `writeChar`
+		CheckEvent, /// stop receiving messages, wait for event, then send it
+		Fill, /// fill the terminal with a space character. bg and fg colors will be used from last received writeProperties
+		Terminate, /// shutdown termbox and terminate the terminalIOThread
+	}
+}
+
+/// runs in a separate thread, receives input from termbox, and writes to termbox
+private void terminalIOThread(){
+	// init termbox
+	init();
+	// TODO receive commands from ownerTid and do them
+	shutdown();
 }
