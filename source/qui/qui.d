@@ -886,13 +886,59 @@ public:
 /// used to contain messages sent to the terminalIOThread
 private struct IOMessage{
 	enum Type{
-		UpdateProperties, /// updates terminal's properties. The new properties are in `newProperties`
-		UpdateWriteProperties, /// updates writing properties. New properties in `newWriteProperties`
-		UpdateCursorProperties, /// updates cursor properties. New properties in `newCursorProperties`
-		Write, /// write on terminal. text to write in `writeChar`
+		//UpdateProperties, /// updates terminal's properties. The new properties are in `newProperties`
+		UpdateWriteLocation, /// updates writing properties. New area's coordinates are `restrict..`
+		UpdateCursorPosition, /// updates cursor properties. New position in `cursorPos`, and whether to show or not in `showCursor`
+		Write, /// write on terminal. text to write in `writeChar`, fg and bg color in `fg` and `bg`
+		Flush, /// flush 
 		CheckEvent, /// stop receiving messages, wait for event, then send it
 		Fill, /// fill the terminal with a space character. bg and fg colors will be used from last received writeProperties
 		Terminate, /// shutdown termbox and terminate the terminalIOThread
+	}
+	union{
+		struct{
+			/// restrict writing b/w these two. x1 is inclusive, x2 is not
+			uinteger restrictX1, restrictX2;
+			/// restrict writing b/w these two. y1 is inclusive, y2 is not
+			uinteger restrictY1, restrictY2;
+		}
+		struct{
+			/// cursor location
+			Position cursorPos;
+			/// show cursor or not
+			bool showCursor;
+		}
+		struct{
+			/// Background & foreground color
+			Color bg, fg;
+			/// text to write
+			string writeChar;
+		}
+	}
+	/// Type of message
+	Type type;
+	/// constructor
+	this (uinteger restrictX1, uinteger restrictX2, uinteger restrictY1, uinteger restrictY2){
+		this.type = Type.UpdateWriteLocation;
+		this.restrictX1 = restrictX1;
+		this.restrictX2 = restrictX2;
+		this.restrictY1 = restrictY1;
+		this.restrictY2 = restrictY2;
+	}
+	/// ditto
+	this (Position cursorPos, bool showCursor){
+		this.cursorPos = cursorPos;
+		this.showCursor = showCursor;
+	}
+	/// ditto
+	this (char[] c, Color fg, Color bg){
+		this.writeChar = cast(string)(c.dup);
+		this.fg = fg;
+		this.bg = bg;
+	}
+	/// ditto
+	this (Type type){
+		this.type = type;
 	}
 }
 
