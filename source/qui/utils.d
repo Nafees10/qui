@@ -7,7 +7,6 @@ module qui.utils;
 import utils.baseconv;
 import utils.misc;
 import std.conv : to;
-import arsd.terminal : RGB;
 
 /// To scroll a line, by an xOffset
 /// 
@@ -102,52 +101,4 @@ uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total)
 	uinteger r;
 	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
 	return r;
-}
-
-/// Converts hex color code to RGB
-/// 
-/// Returns: the color in `arsd.terminal.RGB`
-RGB hexToColor(string hex){
-	RGB r;
-	uinteger den = hexToDenary(hex);
-	//min val for red in denary = 65536
-	//min val for green in denary = 256
-	//the remaining value is blue
-	if (den >= 65536){
-		r.r = cast(ubyte)((den / 65536));
-		den -= r.r*65536;
-	}
-	if (den >= 256){
-		r.g = cast(ubyte)((den / 256));
-		den -= r.g*256;
-	}
-	r.b = cast(ubyte)den;
-	return r;
-}
-///
-unittest{
-	RGB c;
-	c.r = 10;
-	c.g = 15;
-	c.b = 0;
-	assert("0A0F00".hexToColor == c);
-}
-
-/// Converts `arsd.terminal.RGB` to hex color code
-/// 
-/// Returns: the hex color code in string
-string colorToHex(RGB col){
-	uinteger den;
-	den = col.b;
-	den += col.g*256;
-	den += col.r*65536;
-	return denaryToHex(den);
-}
-///
-unittest{
-	RGB c;
-	c.r = 10;
-	c.g = 8;
-	c.b = 12;
-	assert(c.colorToHex == "A080C");
 }
