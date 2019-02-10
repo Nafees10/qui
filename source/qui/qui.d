@@ -812,7 +812,7 @@ protected:
 public:
 	/// text color, and background color
 	Color textColor, backgroundColor;
-	this(string caption = "QUI Text User Interface", QLayout.Type displayType = QLayout.Type.Vertical){
+	this(QLayout.Type displayType = QLayout.Type.Vertical){
 		super(displayType);
 		init();
 		setInputMode(InputMode.esc | InputMode.mouse);
@@ -871,10 +871,10 @@ public:
 			int timeout = cast(int)(TIMER_MSECS - sw.peek.total!"msecs");
 			if (_requestingUpdate.length > 0)
 				timeout = 0;
-			Event* ePtr;
-			if (peekEvent(ePtr, timeout)){
+			Event event;
+			if (peekEvent(&event, timeout)){
 				// go through the events
-				if (!readEvents(*ePtr))
+				if (!readEvents(event))
 					break;
 				update;
 			}else{
@@ -884,9 +884,9 @@ public:
 					foreach(widget; _requestingUpdate)
 						widget.update;
 					_termInterface.updateFinished;
-					_requestingUpdate = [];
 				}
 			}
+			_requestingUpdate = [];
 		}
 	}
 }
