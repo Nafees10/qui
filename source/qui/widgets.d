@@ -24,6 +24,9 @@ private:
 	/// if in the last timerEvent, xOffset was increased
 	bool increasedXOffset = true;
 
+	/// whether this widget needs to update or not
+	bool needsUpdate = true;
+
 	/// calculates the maxXOffset, and changes xOffset if it's above it
 	void calculateMaxXOffset(){
 		if (_caption.length <= size.width){
@@ -52,27 +55,31 @@ protected:
 			// request update
 			if (_termInterface)
 				_termInterface.requestUpdate(this);
+			needsUpdate = true;
 		}
 	}
 	
 	override protected void resizeEvent(Size size){
 		super.resizeEvent(size);
+		needsUpdate = true;
 		calculateMaxXOffset;
 	}
 	
 	override protected void update(){
-		_termInterface.setColors(textColor, backgroundColor);
-		_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, _size.width));
+		if (needsUpdate){
+			needsUpdate = false;
+			_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
+		}
 	}
 
 public:
 	/// text and background colors
-	RGB textColor, backgroundColor;
+	Color textColor, backgroundColor;
 	/// constructor
 	this(string newCaption = ""){
 		this.caption = newCaption;
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
 	}
 
 	/// the text to display
@@ -86,6 +93,7 @@ public:
 		// request update
 		if (_termInterface)
 			_termInterface.requestUpdate(this);
+		needsUpdate = true;
 		return _caption;
 	}
 }
@@ -98,31 +106,32 @@ private:
 	uinteger _max, _progress;
 protected:
 	override protected void update(){
-		// if caption fits in width, center align it
-		string text;
-		if (_caption.length < _size.width)
-			text = centerAlignText(_caption, _size.width);
-		else
-			text = _caption.scrollHorizontal(xOffset, _size.width);
-		// number of chars to be colored in barColor
-		uinteger fillCharCount = (_progress * _size.width) / _max;
-		// write till _progress
-		_termInterface.setColors(backgroundColor, barColor); // text will be displayed in bgColor, and background will be barColor
-		_termInterface.write(cast(char[])text[0 .. fillCharCount]);
-		// write the empty bar
-		_termInterface.setColors(barColor, backgroundColor);
-		_termInterface.write(cast(char[])text[fillCharCount .. text.length]);
+		if (needsUpdate){
+			needsUpdate = false;
+			// if caption fits in width, center align it
+			string text;
+			if (_caption.length < _size.width)
+				text = centerAlignText(_caption, _size.width);
+			else
+				text = _caption.scrollHorizontal(xOffset, _size.width);
+			// number of chars to be colored in barColor
+			uinteger fillCharCount = (_progress * _size.width) / _max;
+			// write till _progress
+			_termInterface.write(cast(char[])text[0 .. fillCharCount], backgroundColor, barColor);
+			// write the empty bar
+			_termInterface.write(cast(char[])text[fillCharCount .. text.length], barColor, backgroundColor);
+		}
 	}
 public:
 	/// background color, and bar's color
-	RGB backgroundColor, barColor;
+	Color backgroundColor, barColor;
 	this(uinteger max = 100, uinteger progress = 0){
 		_caption = null;
 		this.max = max;
 		this.progress = progress;
 
-		barColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
+		barColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
 	}
 	/// The 'total', or the max-progress. getter
 	@property uinteger max(){
@@ -133,6 +142,7 @@ public:
 		_max = newMax;
 		if (_termInterface)
 			_termInterface.requestUpdate(this);
+		needsUpdate = true;
 		return _max;
 	}
 	/// the amount of progress. getter
@@ -144,6 +154,7 @@ public:
 		_progress = newProgress;
 		if (_termInterface)
 			_termInterface.requestUpdate(this);
+		needsUpdate = true;
 		return _progress;
 	}
 }
@@ -166,15 +177,6 @@ private:
 			_x = _text.length;
 		}
 		adjustScrollingOffset(_x, _size.width, _scrollX);
-		/*uinteger w = _size.width;
-		//now calculate scrollX, if it needs to be increased
-		if ((_scrollX + w < _x || _scrollX + w >= _x)){
-			if (_x <= w){
-				_scrollX = 0;
-			}else{
-				_scrollX = _x - (w/2);
-			}
-		}*/
 	}
 protected:
 	/// override resize to re-scroll
@@ -182,14 +184,14 @@ protected:
 		super.resizeEvent(size);
 		reScroll;
 	}
-	override void mouseEvent(MouseClick mouse){
+	override void mouseEvent(MouseEvent mouse){
 		super.mouseEvent(mouse);
-		if (mouse.button == MouseClick.Button.Left){
+		if (mouse.button == MouseEvent.Button.Left){
 			_x = mouse.x + _scrollX;
 		}
 		reScroll;
 	}
-	override void keyboardEvent(KeyPress key){
+	override void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		if (key.isChar){
 			//insert that key
@@ -213,25 +215,24 @@ protected:
 				_x ++;
 			}
 		}else{
-			if (key.key == key.NonCharKey.LeftArrow && _x > 0){
+			if (key.key == Key.arrowLeft && _x > 0){
 				_x --;
-			}else if (key.key == key.NonCharKey.RightArrow && _x < _text.length){
+			}else if (key.key == Key.arrowRight && _x < _text.length){
 				_x ++;
-			}else if (key.key == key.NonCharKey.Delete && _x < _text.length){
+			}else if (key.key == Key.del && _x < _text.length){
 				_text = _text.deleteElement(_x);
 			}
 		}
 		reScroll;
 	}
 	override void update(){
-		_termInterface.setColors(textColor, backgroundColor);
-		_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width));
+		_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
 		// set cursor position
 		_termInterface.setCursorPos(this, _x - _scrollX, 0);
 	}
 public:
 	/// background, text, caption, and caption's background colors
-	RGB backgroundColor, textColor;
+	Color backgroundColor, textColor;
 	this(string text = ""){
 		this.text = text;
 		//specify min/max
@@ -241,11 +242,9 @@ public:
 		_wantsTab = false;
 		// and input too, obvious
 		_wantsInput = true;
-		// and needs to show the cursor too
-		_showCursor = true;
 
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
 	}
 
 	///The text that has been input-ed.
