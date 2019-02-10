@@ -5,7 +5,6 @@
 module qui.qui;
 
 import std.datetime.stopwatch;
-import std.concurrency;
 import utils.misc;
 import std.conv : to;
 import termbox;
@@ -17,6 +16,10 @@ const ushort TIMER_MSECS = 500;
 /// If a widget registers itself as keyHandler for either of these keys, the keyboardEvent for _activeWidget will also be called 
 /// when these keys are tirggered, along with handler's keyboardEvent
 const UNCATCHABLE_KEYS = [Key.space, Key.backspace, Key.tab];
+/// the default foreground color
+const Color DEFAULT_FG = Color.green;
+/// the default background color
+const Color DEFAULT_BG = Color.black;
 
 /// Available colors are in this enum
 public import termbox : Color;
@@ -88,7 +91,7 @@ struct KeyboardEvent{
 
 /// Used to store position for widgets
 struct Position{
-	uinteger x = 0, y = 0;
+	integer x = 0, y = 0;
 	/// Returns: a string representation of Position
 	string tostring(){
 		return "{x:"~to!string(x)~",y:"~to!string(y)~"}";
@@ -187,8 +190,6 @@ protected:
 	bool _wantsTab = false;
 	/// whether the widget wants input
 	bool _wantsInput = false;
-	/// specifies if the widget needs to show the cursor
-	bool _showCursor = false;
 	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
 	QTermInterface _termInterface = null;
 
@@ -327,10 +328,6 @@ public:
 	/// Returns: true if the widget wants input
 	@property bool wantsInput(){
 		return _wantsInput;
-	}
-	/// Returns: whether the widget needs to show a cursor, only considered when this widget is active
-	@property bool showCursor(){
-		return _showCursor;
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
 	@property uinteger sizeRatio(){
@@ -524,7 +521,26 @@ private:
 	bool restrictWrite(uinteger x, uinteger y, uinteger width, uinteger height){
 		if (x + width >= _qterminal._size.width || y + height >= _qterminal._size.height || width == 0 || height == 0)
 			return false;
-		// TODO implement restrictWrite
+		_restrictX1 = x;
+		_restrictX2 = x + width;
+		_restrictY1 = y;
+		_restrictY2 = y + height;
+		// move to position
+		setCursor(cast(int)x, cast(int)y);
+		_cursorPos = Position(x, y);
+		return true;
+	}
+	/// called by QTerminal after all updating is finished, and right before checking for more events
+	void updateFinished(){
+		// set cursor position
+		setCursor(cast(int)_postUpdateCursorPos.x, cast(int)_postUpdateCursorPos.y);
+		// flush
+		flush();
+	}
+	/// called by QTerminal right before starting to update widgets
+	void updateStarted(){
+		// set cursor position to (-1,-1), so if not set, its not visible
+		_postUpdateCursorPos = Position(-1,-1);
 	}
 public:
 	this(QTerminal term){
@@ -534,23 +550,30 @@ public:
 	bool isActive(QWidget caller){
 		return _qterminal.isActive(caller);
 	}
-	/// Sets color
-	/// 
-	/// Returs: true if successful, false if not
-	bool setColors(Color foreground, Color background){
-		// TODO implement setColors
-	}
 	/// Writes characters on terminal
 	/// 
 	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped
-	/// 
-	/// Returns: true if successful, false if not, or if there was not space for some characters (or all)
-	bool write(char[] c){
-		// TODO implement write
+	void write(char[] c, Color fg, Color bg){
+		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
+			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
+				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(c[i]), fg, bg);
+				i ++;
+			}
+			if (_cursorPos.x >= _restrictX2){
+				_cursorPos.x = _restrictX1;
+				_cursorPos.y ++;
+			}
+		}
 	}
 	/// Fills the terminal, or restricted area, with a character
-	void fill(char c){
-		// TODO implement fill
+	void fill(char c, Color fg, Color bg){
+		_cursorPos = Position(_restrictX1, _restrictY1);
+		dchar dC = to!dchar(c);
+		for (; _cursorPos.y < _restrictY2; _cursorPos.y ++){
+			for (; _cursorPos.x < _restrictX2; _cursorPos.x ++){
+				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)dC, fg, bg);
+			}
+		}
 	}
 	/// the position of next write
 	/// 
@@ -565,10 +588,10 @@ public:
 			_cursorPos.x = _restrictX2;
 		if (_cursorPos.y > _restrictY2)
 			_cursorPos.y = _restrictY2;
-		// TODO implement setting the _cursorPos
+		setCursor(cast(int)_cursorPos.x, cast(int)_cursorPos.y);
 		return _cursorPos;
 	}
-	/// sets position of cursor on terminal.
+	/// sets position of cursor on terminal, after updating is done
 	/// 
 	/// position is relative to caller widget's position.
 	/// 
@@ -577,7 +600,6 @@ public:
 		if (_qterminal.isActive(caller)){
 			_postUpdateCursorPos.x = _qterminal._activeWidget._position.x + x;
 			_postUpdateCursorPos.y = _qterminal._activeWidget._position.y + y;
-			// TODO implement setting _postUpdateCursorPos
 			return true;
 		}
 		return false;
@@ -690,53 +712,40 @@ private:
 		_requestingUpdate ~= widget;
 	}
 
-	/// Sets position of cursor if requested by an activeWidget.
-	/// only used by QTerminal itself, called right after updating is done
-	void showCursor(){
-		if (_activeWidget && _activeWidget._show && _activeWidget._showCursor){
-			// todo implement show/hide cursor
-		}else{
-			// hide
-		}
-	}
-
 	/// Reads InputEvent[] and calls appropriate functions to address those events
 	/// 
 	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
-	bool readEvents(Event[] events){
-		foreach (event; events){
-			if (event.type == EventType.key){
-				if (event.key == Key.ctrlC){
-					break;
-				}
-				KeyboardEvent kPress = KeyboardEvent(event);
-				this.keyboardEvent(kPress);
-			}else if (event.type == EventType.mouse){
-				// only button clicks & scroll are events, hovering is not (at least yet)
-				MouseEvent mEvent;
-				mEvent.x = event.x;
-				mEvent.y = event.y;
-				if (event.key == Key.mouseLeft)
-					mEvent.button = MouseEvent.Button.Left;
-				else if (event.key == Key.mouseRight)
-					mEvent.button = MouseEvent.Button.Right;
-				else if (event.key == Key.mouseWheelUp)
-					mEvent.button = MouseEvent.Button.ScrollUp;
-				else if (event.key == Key.mouseWheelDown)
-					mEvent.button = MouseEvent.Button.ScrollDown;
-				else
-					continue;
-				this.mouseEvent(mEvent);
-			}else if (event.type == EventType.resize){
-				//update self size
-				_size.height = event.h;
-				_size.width = event.w;
-				// fill empty, apply color
-				_termInterface.setColors(textColor, backgroundColor);
-				_termInterface.fill(' ');
-				//call size change on all widgets
-				resizeEvent(_size);
+	bool readEvents(Event event){
+		if (event.type == EventType.key){
+			if (event.key == Key.ctrlC){
+				return false;
 			}
+			KeyboardEvent kPress = KeyboardEvent(event);
+			this.keyboardEvent(kPress);
+		}else if (event.type == EventType.mouse){
+			// only button clicks & scroll are events, hovering is not (at least yet)
+			MouseEvent mEvent;
+			mEvent.x = event.x;
+			mEvent.y = event.y;
+			if (event.key == Key.mouseLeft)
+				mEvent.button = MouseEvent.Button.Left;
+			else if (event.key == Key.mouseRight)
+				mEvent.button = MouseEvent.Button.Right;
+			else if (event.key == Key.mouseWheelUp)
+				mEvent.button = MouseEvent.Button.ScrollUp;
+			else if (event.key == Key.mouseWheelDown)
+				mEvent.button = MouseEvent.Button.ScrollDown;
+			else
+				return true;
+			this.mouseEvent(mEvent);
+		}else if (event.type == EventType.resize){
+			//update self size
+			_size.height = event.h;
+			_size.width = event.w;
+			// fill empty, apply color
+			_termInterface.fill(' ', textColor, backgroundColor);
+			//call size change on all widgets
+			resizeEvent(_size);
 		}
 		return true;
 	}
@@ -795,9 +804,9 @@ protected:
 	}
 	
 	override public void update(){
+		_termInterface.updateStarted;
 		super.update;
-		// set the cursor
-		showCursor;
+		_termInterface.updateFinished;
 	}
 
 public:
@@ -805,24 +814,20 @@ public:
 	Color textColor, backgroundColor;
 	this(string caption = "QUI Text User Interface", QLayout.Type displayType = QLayout.Type.Vertical){
 		super(displayType);
-		//create terminal & input
-		_terminal = Terminal(ConsoleOutputType.cellular);
-		_input = RealTimeConsoleInput(&_terminal, ConsoleInputFlags.allInputEvents);
-		_terminal.showCursor();
-		//init vars
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
+		init();
+		setInputMode(InputMode.esc | InputMode.mouse);
+
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
+		_size.width = width();
+		_size.height = height();
+
 		_termInterface = new QTermInterface(this);
-		_size.height = _terminal.height;
-		_size.width = _terminal.width;
-		//set caption
-		_terminal.setTitle(caption);
 		//fill it with space, to set color
-		_termInterface.setColors(textColor, backgroundColor);
-		_termInterface.fill(' ');
+		_termInterface.fill(' ', textColor, backgroundColor);
 	}
 	~this(){
-		// TODO terminate the other thread
+		shutdown();
 		.destroy(_termInterface);
 	}
 
@@ -864,88 +869,24 @@ public:
 			}
 			// take a look at _requestingUpdate
 			int timeout = cast(int)(TIMER_MSECS - sw.peek.total!"msecs");
-			// because timeout is given 0, if there's event, update will be called
 			if (_requestingUpdate.length > 0)
 				timeout = 0;
-			if (_input.timedCheckForInput(cast(int)(cast(long)TIMER_MSECS - sw.peek.total!"msecs"))){
+			Event* ePtr;
+			if (peekEvent(ePtr, timeout)){
 				// go through the events
-				if (!readEvents(_input.readNextEvents))
+				if (!readEvents(*ePtr))
 					break;
 				update;
 			}else{
 				// if no events triggered, then just update the widgets that want to be updated
-				foreach(widget; _requestingUpdate)
-					widget.update;
-				showCursor;
+				if (_requestingUpdate.length){
+					_termInterface.updateStarted;
+					foreach(widget; _requestingUpdate)
+						widget.update;
+					_termInterface.updateFinished;
+					_requestingUpdate = [];
+				}
 			}
-			_requestingUpdate = [];
 		}
 	}
-}
-
-/// used to contain messages sent to the terminalIOThread
-private struct IOMessage{
-	enum Type{
-		//UpdateProperties, /// updates terminal's properties. The new properties are in `newProperties`
-		UpdateWriteLocation, /// updates writing properties. New area's coordinates are `restrict..`
-		UpdateCursorPosition, /// updates cursor properties. New position in `cursorPos`, and whether to show or not in `showCursor`
-		Write, /// write on terminal. text to write in `writeChar`, fg and bg color in `fg` and `bg`
-		Flush, /// flush 
-		CheckEvent, /// stop receiving messages, wait for event, then send it
-		Fill, /// fill the terminal with a space character. bg and fg colors will be used from last received writeProperties
-		Terminate, /// shutdown termbox and terminate the terminalIOThread
-	}
-	union{
-		struct{
-			/// restrict writing b/w these two. x1 is inclusive, x2 is not
-			uinteger restrictX1, restrictX2;
-			/// restrict writing b/w these two. y1 is inclusive, y2 is not
-			uinteger restrictY1, restrictY2;
-		}
-		struct{
-			/// cursor location
-			Position cursorPos;
-			/// show cursor or not
-			bool showCursor;
-		}
-		struct{
-			/// Background & foreground color
-			Color bg, fg;
-			/// text to write
-			string writeChar;
-		}
-	}
-	/// Type of message
-	Type type;
-	/// constructor
-	this (uinteger restrictX1, uinteger restrictX2, uinteger restrictY1, uinteger restrictY2){
-		this.type = Type.UpdateWriteLocation;
-		this.restrictX1 = restrictX1;
-		this.restrictX2 = restrictX2;
-		this.restrictY1 = restrictY1;
-		this.restrictY2 = restrictY2;
-	}
-	/// ditto
-	this (Position cursorPos, bool showCursor){
-		this.cursorPos = cursorPos;
-		this.showCursor = showCursor;
-	}
-	/// ditto
-	this (char[] c, Color fg, Color bg){
-		this.writeChar = cast(string)(c.dup);
-		this.fg = fg;
-		this.bg = bg;
-	}
-	/// ditto
-	this (Type type){
-		this.type = type;
-	}
-}
-
-/// runs in a separate thread, receives input from termbox, and writes to termbox
-private void terminalIOThread(){
-	// init termbox
-	init();
-	// TODO receive commands from ownerTid and do them
-	shutdown();
 }
