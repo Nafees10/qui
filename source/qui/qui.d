@@ -68,7 +68,7 @@ struct KeyboardEvent{
 	/// Returns: a string representation of KeyPress, in JSON
 	string tostring(){
 		if (isChar){
-			return "{charKey:"~cast(char)~'}';
+			return "{charKey:"~cast(char)charKey~'}';
 		}
 		return "{key:"~to!string(key)~'}';
 	}
@@ -815,7 +815,7 @@ public:
 	this(QLayout.Type displayType = QLayout.Type.Vertical){
 		super(displayType);
 		init();
-		setInputMode(InputMode.esc | InputMode.mouse);
+		//setInputMode(InputMode.current | InputMode.mouse);
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;

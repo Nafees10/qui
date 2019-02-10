@@ -18,7 +18,10 @@ version(demo){
 	public:
 		this(){
 			term = new QTerminal(QLayout.Type.Horizontal);
+			progressBar = new ProgressbarWidget();
+			label = new TextLabelWidget();
 			term.addWidget([label, progressBar]);
+			term.registerWidget([label, progressBar]);
 			label.caption = "Progress bar: increases/decreases every 1/2 second. 1 2 3 4 5 6 7 8 9 10 9 8 7 6 5 4 3 2 1";
 			progressBar.max = 10;
 			progressBar.progress = 0;
@@ -35,7 +38,6 @@ version(demo){
 				else
 					owner.progress = owner.progress -1;
 			};
-			term.registerWidget([label, progressBar]);
 		}
 		void run(){
 			term.run;
