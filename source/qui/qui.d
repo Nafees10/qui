@@ -520,7 +520,7 @@ private:
 	/// 
 	/// Returns: true if restricted, false if not restricted, because the area specified is outside terminal, or width || height == 0
 	bool restrictWrite(uinteger x, uinteger y, uinteger width, uinteger height){
-		if (x + width >= _qterminal._size.width || y + height >= _qterminal._size.height || width == 0 || height == 0)
+		if (x + width > _qterminal._size.width || y + height > _qterminal._size.height || width == 0 || height == 0)
 			return false;
 		_restrictX1 = x;
 		_restrictX2 = x + width;
