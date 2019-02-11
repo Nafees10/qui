@@ -117,6 +117,19 @@ protected:
 				text = _caption.scrollHorizontal(xOffset, _size.width);
 			// number of chars to be colored in barColor
 			uinteger fillCharCount = (_progress * _size.width) / _max;
+			// line number on which the caption will be written
+			uinteger captionLineNumber = this._size.height / 2;
+			for (uinteger i = 0; i < this._size.height; i ++){
+				if (i == captionLineNumber){
+					_termInterface.write(cast(char[])text[0 .. fillCharCount], backgroundColor, barColor);
+					_termInterface.write(cast(char[])text[fillCharCount .. text.length], barColor, backgroundColor);
+				}else{
+					if (fillCharCount)
+						_termInterface.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
+					if (fillCharCount < this._size.width)
+						_termInterface.fillLine(' ', barColor, backgroundColor);
+				}
+			}
 			// write till _progress
 			_termInterface.write(cast(char[])text[0 .. fillCharCount], backgroundColor, barColor);
 			// write the empty bar
@@ -130,6 +143,8 @@ public:
 		_caption = null;
 		this.max = max;
 		this.progress = progress;
+		// no max height limit on this one
+		this._size.maxHeight = 0;
 
 		barColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
