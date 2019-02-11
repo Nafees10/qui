@@ -578,6 +578,7 @@ public:
 			for (; _cursorPos.x < _restrictX2; _cursorPos.x ++){
 				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)dC, fg, bg);
 			}
+			_cursorPos.x = _restrictX1;
 		}
 	}
 	/// the position of next write
