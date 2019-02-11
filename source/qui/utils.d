@@ -65,20 +65,26 @@ char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
 /// Adjusts offset (aka _scrollX or _scrollY) in scrolling so the selected character is visible TODO: FIX THIS
 /// 
 /// Arguemnts:
-/// * `selected` is the character on which the cursor is. If it's >size, `selected=size`
+/// * `selected` is the character on which the cursor is. If it's >lineWidth, `selected=lineWidth`
 /// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
 /// * `offset` is the variable storing the offset (_xOffset or _yOffset)
-void adjustScrollingOffset(ref uinteger selected, uinteger size, ref uinteger offset){
+void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWidth, ref uinteger offset){
 	// if selected is outside size, it shouldn't be
-	if (selected > size){
-		selected = size;
+	if (selected > lineWidth){
+		selected = lineWidth;
 	}
-	if (selected <= offset){
-		// scroll back
-		offset = selected;
-	}else if (selected >= offset + size){
-		// scroll ahead
-		offset = selected - size;
+	// range of characters' index that's visible (1 is inclusive, 2 is not)
+	uinteger visible1, visible2;
+	visible1 = offset;
+	visible2 = offset + size;
+	if (selected < visible1 || selected >= visible2){
+		if (selected < visible1){
+			// scroll back
+			offset = selected;
+		}else if (selected >= visible2){
+			// scroll ahead
+			offset = selected+1 - (size);
+		}
 	}
 }
 
