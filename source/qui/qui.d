@@ -52,14 +52,12 @@ struct MouseEvent{
 ///Key press event, keyboardEvent function is called with this
 struct KeyboardEvent{
 	/// which character was entered
-	/// 
-	/// if the character is present in enum `Key` as well, then it's value will be in `KeyboardEvent.key` as well
-	dchar charKey;
+	char charKey;
 	/// which key was pressed, only valid if `charKey == 0`, or if reported char is also present in enum `Key`
 	Key key;
 	/// Returns: true if the pressed key is not a character
 	/// 
-	/// Enter (`\n`), Tab (`\t`), backsace (`\b`) are considered characters too
+	/// Enter (`\n`), Tab (`\t`), backsace (`\b`), and space (` `) are considered characters too
 	@property bool isChar(){
 		if (charKey)
 			return true;
@@ -74,8 +72,8 @@ struct KeyboardEvent{
 	}
 	/// constructor to construct from termbox.Event
 	private this(Event e){
-		this.charKey = e.ch;
-		if (this.charKey == 0){
+		if (e.ch == 0){
+			this.charKey = 0;
 			this.key = cast(Key)e.key;
 			if (this.key == Key.space)
 				charKey = cast(dchar)' ';
@@ -85,6 +83,8 @@ struct KeyboardEvent{
 				charKey = cast(dchar)'\t';
 			else if (this.key == Key.enter)
 				charKey = cast(dchar)'\n';
+		}else{
+			this.charKey = to!char(e.ch);
 		}
 	}
 }
@@ -814,20 +814,15 @@ public:
 	Color textColor, backgroundColor;
 	this(QLayout.Type displayType = QLayout.Type.Vertical){
 		super(displayType);
-		init();
-		//setInputMode(InputMode.current | InputMode.mouse);
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
-		_size.width = width();
-		_size.height = height();
 
 		_termInterface = new QTermInterface(this);
 		//fill it with space, to set color
 		_termInterface.fill(' ', textColor, backgroundColor);
 	}
 	~this(){
-		shutdown();
 		.destroy(_termInterface);
 	}
 
@@ -854,6 +849,11 @@ public:
 	
 	/// starts the UI loop
 	void run(){
+		// init termbox
+		init();
+		setInputMode(InputMode.esc | InputMode.mouse);
+		_size.width = width();
+		_size.height = height();
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.no);
 		//resize all widgets
@@ -889,5 +889,7 @@ public:
 			}
 			_requestingUpdate = [];
 		}
+		// shutdown termbox
+		shutdown();
 	}
 }
