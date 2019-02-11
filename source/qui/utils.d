@@ -57,13 +57,18 @@ unittest{
 	assert("0123456789".scrollHorizontal(-5,10) == "     01234");
 }
 
-/// Adjusts offset (aka _scrollX or _scrollY) in scrolling so the selected character is visible TODO: test this
+/// ditto
+char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
+	return cast(char[])(cast(string)line).scrollHorizontal(xOffset, width);
+}
+
+/// Adjusts offset (aka _scrollX or _scrollY) in scrolling so the selected character is visible TODO: FIX THIS
 /// 
 /// Arguemnts:
-/// * `selected` is the character on which the cursor is
+/// * `selected` is the character on which the cursor is. If it's >size, `selected=size`
 /// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
 /// * `offset` is the variable storing the offset (_xOffset or _yOffset)
-void adjustScrollingOffset(uinteger selected, uinteger size, ref uinteger offset){
+void adjustScrollingOffset(ref uinteger selected, uinteger size, ref uinteger offset){
 	// if selected is outside size, it shouldn't be
 	if (selected > size){
 		selected = size;

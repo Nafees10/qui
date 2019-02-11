@@ -189,7 +189,6 @@ private:
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
-		uinteger oldScrollX = _scrollX;
 		adjustScrollingOffset(_x, _size.width, _scrollX);
 	}
 protected:
@@ -209,9 +208,10 @@ protected:
 	}
 	override void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
+		import demo : log; log(key.tostring);
 		if (key.isChar){
 			//insert that key
-			if (key.key == '\b'){
+			if (key.charKey == '\b'){
 				//backspace
 				if (_x > 0){
 					if (_x == _text.length){
@@ -221,12 +221,12 @@ protected:
 					}
 					_x --;
 				}
-			}else if (key.key != '\n'){
+			}else if (key.charKey != '\n'){
 				if (_x == _text.length){
 					//insert at end
-					_text ~= cast(char)key.key;
+					_text ~= cast(char)key.charKey;
 				}else{
-					_text = _text.insertElement([cast(char)key.key], _x);
+					_text = _text.insertElement([cast(char)key.charKey], _x);
 				}
 				_x ++;
 			}
@@ -245,7 +245,7 @@ protected:
 	override void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
-			_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
+			_termInterface.write(this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
 			// set cursor position
 			_termInterface.setCursorPos(this, _x - _scrollX, 0);
 		}
