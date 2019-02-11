@@ -64,6 +64,10 @@ unittest{
 /// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
 /// * `offset` is the variable storing the offset (_xOffset or _yOffset)
 void adjustScrollingOffset(uinteger selected, uinteger size, ref uinteger offset){
+	// if selected is outside size, it shouldn't be
+	if (selected > size){
+		selected = size;
+	}
 	if (selected <= offset){
 		// scroll back
 		offset = selected;

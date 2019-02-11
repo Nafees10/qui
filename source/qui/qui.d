@@ -103,7 +103,7 @@ struct Position{
 /// zero in min/max means no limit
 struct Size{
 	private{
-		uinteger _w, _h;
+		uinteger _w = 0, _h = 0;
 		bool _changed = false; /// specifies if has been changed.
 	}
 	/// returns whether the size was changed since the last time this property was read
@@ -857,22 +857,23 @@ public:
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.no);
 		//resize all widgets
-		resizeEvent(_size);
+		//resizeEvent(_size);
 		//draw the whole thing
-		update();
+		//update();
 		sw.start;
 		while (true){
 			if (sw.peek.total!"msecs" >= TIMER_MSECS){
 				foreach (widget; _regdWidgets)
 					widget.timerEvent;
 				sw.reset;
+				sw.start;
 			}
 			// take a look at _requestingUpdate
 			int timeout = cast(int)(TIMER_MSECS - sw.peek.total!"msecs");
 			if (_requestingUpdate.length > 0)
 				timeout = 0;
 			Event event;
-			if (peekEvent(&event, timeout)){
+			if (peekEvent(&event, timeout) > 0){
 				// go through the events
 				if (!readEvents(event))
 					break;
