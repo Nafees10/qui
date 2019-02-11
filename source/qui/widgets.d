@@ -169,13 +169,8 @@ private:
 	/// how many chars wont be displayed on left
 	uinteger _scrollX;
 
-	// TODO: fix this, the scrolling is awful
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
-		//check if is within length of line
-		if (_x > _text.length){
-			_x = _text.length;
-		}
 		adjustScrollingOffset(_x, _size.width, _scrollX);
 	}
 protected:
