@@ -570,6 +570,8 @@ public:
 				_cursorPos.x = _restrictX1;
 				_cursorPos.y ++;
 			}
+			if (i >= c.length)
+				break;
 		}
 	}
 	/// Fills the terminal, or restricted area, with a character
