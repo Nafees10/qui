@@ -10,6 +10,7 @@ import std.conv : to;
 import termbox;
 
 import qui.utils;
+debug{import demo : log;}
 
 /// How much time between each timer event
 const ushort TIMER_MSECS = 500;
@@ -525,6 +526,9 @@ private:
 		_restrictX2 = x + width;
 		_restrictY1 = y;
 		_restrictY2 = y + height;
+		log("setting restriction...");
+		log("X restriction: ",_restrictX1," .. ",_restrictX2);
+		log("Y restriction: ",_restrictY1," .. ",_restrictY2);
 		// move to position
 		setCursor(cast(int)x, cast(int)y);
 		_cursorPos = Position(x, y);
@@ -554,6 +558,9 @@ public:
 	/// 
 	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped
 	void write(char[] c, Color fg, Color bg){
+		log("CursorPos: ",_cursorPos.tostring);
+		log("X restriction: ",_restrictX1," .. ",_restrictX2);
+		log("Y restriction: ",_restrictY1," .. ",_restrictY2);
 		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
 			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
 				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(c[i]), fg, bg);
@@ -851,9 +858,10 @@ public:
 	void run(){
 		// init termbox
 		termbox.init();
-		setInputMode(InputMode.esc | InputMode.mouse);
+		termbox.setInputMode(InputMode.esc | InputMode.mouse);
 		_size.width = width();
 		_size.height = height();
+		log("WxH: ",_size.width,'x',_size.height);
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.no);
 		//resize all widgets
@@ -880,10 +888,12 @@ public:
 				update;
 			}else{
 				// if no events triggered, then just update the widgets that want to be updated
-				if (_requestingUpdate.length){
+				if (_requestingUpdate.length > 0){
 					_termInterface.updateStarted;
-					foreach(widget; _requestingUpdate)
+					foreach(widget; _requestingUpdate){
+						_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
 						widget.update;
+					}
 					_termInterface.updateFinished;
 				}
 			}
