@@ -897,8 +897,10 @@ public:
 				}else if (_requestingUpdate.length > 0){
 					_termInterface.updateStarted;
 					foreach(widget; _requestingUpdate){
-						_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
-						widget.update;
+						if (widget._show){
+							_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
+							widget.update;
+						}
 					}
 					_termInterface.updateFinished;
 				}

@@ -65,8 +65,8 @@ protected:
 		calculateMaxXOffset;
 	}
 	
-	override protected void update(){
-		if (needsUpdate){
+	override protected void update(bool force=false){
+		if (needsUpdate || force){
 			needsUpdate = false;
 			_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
 		}
@@ -80,6 +80,7 @@ public:
 		this.caption = newCaption;
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
+		this._size.maxHeight = 1;
 	}
 
 	/// the text to display
@@ -105,8 +106,8 @@ class ProgressbarWidget : TextLabelWidget{
 private:
 	uinteger _max, _progress;
 protected:
-	override protected void update(){
-		if (needsUpdate){
+	override protected void update(bool force=false){
+		if (needsUpdate || force){
 			needsUpdate = false;
 			// if caption fits in width, center align it
 			string text;
@@ -168,15 +169,19 @@ private:
 	uinteger _x;
 	/// how many chars wont be displayed on left
 	uinteger _scrollX;
+	/// stores whether the widget needs update or not
+	bool needsUpdate = true;
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
+		uinteger oldScrollX = _scrollX;
 		adjustScrollingOffset(_x, _size.width, _scrollX);
 	}
 protected:
 	/// override resize to re-scroll
 	override void resizeEvent(Size size){
 		super.resizeEvent(size);
+		needsUpdate = true;
 		reScroll;
 	}
 	override void mouseEvent(MouseEvent mouse){
@@ -184,6 +189,7 @@ protected:
 		if (mouse.button == MouseEvent.Button.Left){
 			_x = mouse.x + _scrollX;
 		}
+		needsUpdate = true;
 		reScroll;
 	}
 	override void keyboardEvent(KeyboardEvent key){
@@ -218,12 +224,16 @@ protected:
 				_text = _text.deleteElement(_x);
 			}
 		}
+		needsUpdate = true;
 		reScroll;
 	}
-	override void update(){
-		_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
-		// set cursor position
-		_termInterface.setCursorPos(this, _x - _scrollX, 0);
+	override void update(bool force=false){
+		if (needsUpdate || force){
+			needsUpdate = false;
+			_termInterface.write(cast(char[])(cast(string)this._text).scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
+			// set cursor position
+			_termInterface.setCursorPos(this, _x - _scrollX, 0);
+		}
 	}
 public:
 	/// background, text, caption, and caption's background colors
