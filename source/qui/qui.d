@@ -208,7 +208,9 @@ protected:
 	TimerEventFunction _customTimerEvent;
 
 	/// Called by parent to update this widget
-	abstract void update();
+	/// 
+	/// If `force==true`, then the widget must update, whether it needs to or not
+	abstract void update(bool force=false);
 
 	/// Called by QTerminal after `_termInterface` has been set and this widget is registered
 	/// 
@@ -467,10 +469,10 @@ protected:
 	}
 	
 	/// called by owner widget to update
-	override void update(){
+	override void update(bool force=false){
 		foreach(widget; _widgets){
 			_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
-			widget.update();
+			widget.update(force);
 		}
 	}
 	
@@ -526,9 +528,6 @@ private:
 		_restrictX2 = x + width;
 		_restrictY1 = y;
 		_restrictY2 = y + height;
-		log("setting restriction...");
-		log("X restriction: ",_restrictX1," .. ",_restrictX2);
-		log("Y restriction: ",_restrictY1," .. ",_restrictY2);
 		// move to position
 		setCursor(cast(int)x, cast(int)y);
 		_cursorPos = Position(x, y);
@@ -558,9 +557,6 @@ public:
 	/// 
 	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped
 	void write(char[] c, Color fg, Color bg){
-		log("CursorPos: ",_cursorPos.tostring);
-		log("X restriction: ",_restrictX1," .. ",_restrictX2);
-		log("Y restriction: ",_restrictY1," .. ",_restrictY2);
 		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
 			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
 				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(c[i]), fg, bg);
@@ -724,7 +720,7 @@ private:
 	/// Reads InputEvent[] and calls appropriate functions to address those events
 	/// 
 	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
-	bool readEvents(Event event){
+	bool readEvent(Event event){
 		if (event.type == EventType.key){
 			if (event.key == Key.ctrlC){
 				return false;
@@ -751,8 +747,7 @@ private:
 			//update self size
 			_size.height = event.h;
 			_size.width = event.w;
-			// fill empty, apply color
-			_termInterface.fill(' ', textColor, backgroundColor);
+			log("WxH: ",_size.width,'x',_size.height);
 			//call size change on all widgets
 			resizeEvent(_size);
 		}
@@ -812,9 +807,13 @@ protected:
 		}
 	}
 	
-	override public void update(){
+	override public void update(bool force=false){
 		_termInterface.updateStarted;
-		super.update;
+		if (force){
+			_termInterface.restrictWrite(0,0,_size.width,_size.height);
+			_termInterface.fill(' ', DEFAULT_FG, DEFAULT_BG);
+		}
+		super.update(force);
 		_termInterface.updateFinished;
 	}
 
@@ -828,8 +827,6 @@ public:
 		backgroundColor = DEFAULT_BG;
 
 		_termInterface = new QTermInterface(this);
-		//fill it with space, to set color
-		_termInterface.fill(' ', textColor, backgroundColor);
 	}
 	~this(){
 		.destroy(_termInterface);
@@ -864,15 +861,17 @@ public:
 		_size.width = width();
 		_size.height = height();
 		log("WxH: ",_size.width,'x',_size.height);
-		// the stop watch, to count how much time has passed after each timerEvent
-		StopWatch sw = StopWatch(AutoStart.no);
 		//resize all widgets
 		resizeEvent(_size);
 		//draw the whole thing
-		update();
+		update(true);
+		ubyte timerCount = 0; /// times timerEvent's been called after last force update
+		// the stop watch, to count how much time has passed after each timerEvent
+		StopWatch sw = StopWatch(AutoStart.no);
 		sw.start;
 		while (true){
 			if (sw.peek.total!"msecs" >= TIMER_MSECS){
+				timerCount ++;
 				foreach (widget; _regdWidgets)
 					widget.timerEvent;
 				sw.reset;
@@ -885,12 +884,14 @@ public:
 			Event event;
 			if (peekEvent(&event, timeout) > 0){
 				// go through the events
-				if (!readEvents(event))
+				if (!readEvent(event))
 					break;
-				update;
+				update();
 			}else{
-				// if no events triggered, then just update the widgets that want to be updated
-				if (_requestingUpdate.length > 0){
+				if (timerCount >= 2){
+					update(true);
+					timerCount = 0;
+				}else if (_requestingUpdate.length > 0){
 					_termInterface.updateStarted;
 					foreach(widget; _requestingUpdate){
 						_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
