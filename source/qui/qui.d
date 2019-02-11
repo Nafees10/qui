@@ -10,7 +10,6 @@ import std.conv : to;
 import termbox;
 
 import qui.utils;
-debug{import demo : log;}
 
 /// How much time between each timer event
 const ushort TIMER_MSECS = 500;
@@ -78,14 +77,14 @@ struct KeyboardEvent{
 			this.key = cast(Key)e.key;
 			if (this.key == Key.space)
 				charKey = cast(dchar)' ';
-			else if (this.key == Key.backspace)
+			else if (this.key == Key.backspace || this.key == Key.backspace2)
 				charKey = cast(dchar)'\b';
 			else if (this.key == Key.tab)
 				charKey = cast(dchar)'\t';
 			else if (this.key == Key.enter)
 				charKey = cast(dchar)'\n';
 		}else{
-			this.charKey = to!char(e.ch);
+			this.charKey = to!char(cast(dchar)e.ch);
 		}
 	}
 }
@@ -765,7 +764,6 @@ private:
 			//update self size
 			_size.height = event.h;
 			_size.width = event.w;
-			log("WxH: ",_size.width,'x',_size.height);
 			//call size change on all widgets
 			resizeEvent(_size);
 		}
@@ -878,7 +876,6 @@ public:
 		termbox.setInputMode(InputMode.esc | InputMode.mouse);
 		_size.width = width();
 		_size.height = height();
-		log("WxH: ",_size.width,'x',_size.height);
 		//resize all widgets
 		resizeEvent(_size);
 		//draw the whole thing
