@@ -850,16 +850,16 @@ public:
 	/// starts the UI loop
 	void run(){
 		// init termbox
-		init();
+		termbox.init();
 		setInputMode(InputMode.esc | InputMode.mouse);
 		_size.width = width();
 		_size.height = height();
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.no);
 		//resize all widgets
-		//resizeEvent(_size);
+		resizeEvent(_size);
 		//draw the whole thing
-		//update();
+		update();
 		sw.start;
 		while (true){
 			if (sw.peek.total!"msecs" >= TIMER_MSECS){
