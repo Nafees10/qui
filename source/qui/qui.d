@@ -572,6 +572,22 @@ public:
 				break;
 		}
 	}
+	/// Fills the remaining part of curent line with `c`
+	/// 
+	/// `maxCount` is the maximum number of cells to fill. 0 for no limit
+	void fillLine(char c, Color fg, Color bg, uinteger maxCount = 0){
+		dchar dC = to!dchar(c);
+		for (uinteger i = 0; _cursorPos.x < _restrictX2; _cursorPos.x ++){
+			setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)dC, fg, bg);
+			i ++;
+			if (i == maxCount)
+				break;
+		}
+		if (_cursorPos.x >= _restrictX2){
+			_cursorPos.x = _restrictX1;
+			_cursorPos.y ++;
+		}
+	}
 	/// Fills the terminal, or restricted area, with a character
 	void fill(char c, Color fg, Color bg){
 		_cursorPos = Position(_restrictX1, _restrictY1);
@@ -702,9 +718,8 @@ private:
 	bool makeActive(uinteger widgetIndex){
 		if (_activeWidgetIndex == widgetIndex)
 			return true;
-		if (_activeWidgetIndex >= 0)
+		if (_activeWidgetIndex >= 0 && widgetIndex < _regdWidgets.length){
 			_activeWidget.activateEvent(false);
-		if (widgetIndex < _regdWidgets.length){
 			_activeWidgetIndex = widgetIndex;
 			_activeWidget = _regdWidgets[widgetIndex];
 			_activeWidget.activateEvent(true);
