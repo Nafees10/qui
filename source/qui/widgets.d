@@ -189,7 +189,7 @@ private:
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
-		adjustScrollingOffset(_x, _size.width, _scrollX);
+		adjustScrollingOffset(_x, _size.width, _text.length, _scrollX);
 	}
 protected:
 	/// override resize to re-scroll
@@ -208,7 +208,6 @@ protected:
 	}
 	override void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
-		import demo : log; log(key.tostring);
 		if (key.isChar){
 			//insert that key
 			if (key.charKey == '\b'){
@@ -254,7 +253,7 @@ public:
 	/// background, text, caption, and caption's background colors
 	Color backgroundColor, textColor;
 	this(string text = ""){
-		this.text = text;
+		this._text = cast(char[])text.dup;
 		//specify min/max
 		_size.minHeight = 1;
 		_size.maxHeight = 1;
