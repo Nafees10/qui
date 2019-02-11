@@ -471,8 +471,10 @@ protected:
 	/// called by owner widget to update
 	override void update(bool force=false){
 		foreach(widget; _widgets){
-			_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
-			widget.update(force);
+			if (widget._show){
+				_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
+				widget.update(force);
+			}
 		}
 	}
 	
