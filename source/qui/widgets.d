@@ -279,304 +279,248 @@ public:
 		return cast(string)newText;
 	}
 }
-/*
+
 /// Can be used as a simple text editor, or to just display text
 class MemoWidget : QWidget{
 private:
-	List!string widgetLines;
-	uinteger scrollX, scrollY;
-	uinteger cursorX, cursorY;
-	bool writeProtected = false;
-	// used by widget itseld to recalculate scrolling
+	List!string _lines;
+	/// how many characters/lines are skipped
+	uinteger _scrollX, _scrollY;
+	/// whether the cursor is, relative to line#0 character#0
+	uinteger _cursorX, _cursorY;
+	/// whether the text in it will be editable
+	bool _enableEditing = true;
+	/// whether the widget needs update or not
+	bool needsUpdate = true;
+	/// used by widget itself to recalculate scrolling
 	void reScroll(){
-		//calculate scrollY first
-		scrollY = 0;
-		// scrollY + widgetSize.height  -->  last visible line+1
-		if (cursorY >= scrollY + widgetSize.height || cursorY < scrollY){
-			scrollY = (cursorY - widgetSize.height) + 1;
-		}
-		//now time for scrollX
-		//check if is within length of line
-		uinteger len = readLine(cursorY).length;
-		if (cursorX > len){
-			cursorX = len;
-		}
-		//now calculate scrollX, if it needs to be increased
-		if (scrollX + widgetSize.width < cursorX || scrollX + widgetSize.width >= cursorX){
-			if (cursorX < widgetSize.width){
-				scrollX = 0;
-			}else{
-				scrollX = cursorX - widgetSize.width;
-			}
-		}
+		// _scrollY
+		adjustScrollingOffset(_cursorY, this._size.height, _lines.length, _scrollY);
+		// _scrollX
+		adjustScrollingOffset(_cursorX, this._size.width, readLine(_cursorX).length, _scrollX);
 	}
-	// used by widget itself to set cursor
-	void setCursor(){
-		termInterface.setCursorPos(
-			Position(
-				cursorX - scrollX, // x
-				cursorY - scrollY //  y
-				),
-			this);
-	}
-	// used by widget itself to move cursor
+	/// used by widget itself to move cursor
 	void moveCursor(uinteger x, uinteger y){
-		cursorX = x;
-		cursorY = y;
+		_cursorX = x;
+		_cursorY = y;
 		
-		if (cursorY > lineCount){
-			cursorY = lineCount-1;
-		}
-		if (cursorX > readLine(cursorY).length){
-			cursorX = readLine(cursorY).length;
-		}
+		if (_cursorY > lineCount)
+			_cursorY = lineCount-1;
+		if (_cursorX > readLine(_cursorY).length)
+			_cursorX = readLine(_cursorY).length;
 	}
 	/// Reads a line from widgetLines
 	string readLine(uinteger index){
-		if (index == widgetLines.length){
+		if (index >= _lines.length)
 			return "";
-		}
-		return widgetLines.read(index);
+		return _lines.read(index);
 	}
 	/// overwrites a line
 	void overwriteLine(uinteger index, string line){
-		if (index == widgetLines.length){
-			widgetLines.add(line);
-		}else{
-			widgetLines.set(index,line);
-		}
+		if (index == _lines.length)
+			_lines.append(line);
+		else
+			_lines.set(index,line);
+		
 	}
 	/// deletes a line
 	void removeLine(uinteger index){
-		if (index < widgetLines.length){
-			widgetLines.remove(index);
-		}
+		if (index < _lines.length)
+			_lines.remove(index);
 	}
 	/// inserts a line
 	void insertLine(uinteger index, string line){
-		if (index == widgetLines.length){
-			widgetLines.add(line);
-		}else{
-			widgetLines.insert(index, line);
-		}
+		if (index == _lines.length)
+			_lines.append(line);
+		else
+			_lines.insert(index, line);
 	}
 	/// adds a line
 	void addLine(string line){
-		widgetLines.add(line);
+		_lines.append(line);
 	}
 	/// returns lines count
 	@property uinteger lineCount(){
-		return widgetLines.length+1;
+		return _lines.length+1;
 	}
 public:
 	// background and text colors
-	RGB backgroundColor, textColor;
-	this(bool readOnly = false){
-		widgetLines = new List!string;
-		scrollX = 0;
-		scrollY = 0;
-		cursorX = 0;
-		cursorY = 0;
-		writeProtected = readOnly;//cause if readOnly, then writeProtected = true also
+	Color backgroundColor, textColor;
+	this(bool editable = true){
+		_lines = new List!string;
+		_scrollX = 0;
+		_scrollY = 0;
+		_cursorX = 0;
+		_cursorY = 0;
+		_enableEditing = editable; //cause if readOnly, then writeProtected = true also
 
-		// this widget wants Tab key
-		widgetWantsTab = true;
+		if (_enableEditing)
+			_wantsTab = true;
 		// and input too, obviously
-		widgetWantsInput = true;
-		// and the cursor should be visible
-		widgetShowCursor = true;
+		_wantsInput = true;
 
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
 	}
 	~this(){
-		.destroy(widgetLines);
+		.destroy(_lines);
 	}
 	
-	override bool update(Matrix display){
-		bool r = false;
-		if (needsUpdate){
-			r = true;
-			//check if there's lines to be displayed
+	override void update(bool force=false){
+		if (needsUpdate || force){
+			needsUpdate = false;
 			uinteger count = lineCount;
 			if (count > 0){
 				//write lines to memo
-				char[] line;
-				for (uinteger i = scrollY; i < count; i++){
-					//echo current line
-					line = cast(char[])readLine(i);
-					//fit the line into screen, i.e check if only a part of it will be displayed
-					if (line.length >= widgetSize.width+scrollX){
-						//display only partial line
-						display.write(line[scrollX .. scrollX + widgetSize.width], textColor, backgroundColor);
-					}else{
-						//either the line is small enough to fit, or 0-length
-						if (line.length <= scrollX || line.length == 0){
-							//just write the bgColor
-							display.fillLine(' ', textColor, backgroundColor);
-						}else{
-							display.write(line[scrollX .. line.length], textColor, backgroundColor);
-							//write the bgColor
-							display.fillLine(' ',textColor,backgroundColor);
-						}
-					}
-					//check if is at end
-					if (i-scrollY >= widgetSize.height){
-						break;
-					}
+				for (uinteger i = _scrollY, end = count < this._size.height ? count : this._size.height; i < end; i++){
+					_termInterface.write(cast(char[])readLine(i).scrollHorizontal(_scrollX, this._size.width), 
+						textColor, backgroundColor);
 				}
-				//fill empty space with emptyLine
-				display.fillMatrix(' ',textColor,backgroundColor);
 			}
-			needsUpdate = false;
+			_termInterface.fill(' ', textColor, backgroundColor);
 		}
-		setCursor();
-		return r;
+		if (_enableEditing)
+			_termInterface.setCursorPos(this, _cursorX - _scrollX, _cursorY - _scrollY);
 	}
 	
-	override void mouseEvent(MouseClick mouse){
+	override void mouseEvent(MouseEvent mouse){
 		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll
-		mouse.x = mouse.x + scrollX;
-		mouse.y = mouse.y + scrollY;
-		if (mouse.mouseButton == mouse.Button.Left){
+		mouse.x = mouse.x + _scrollX;
+		mouse.y = mouse.y + _scrollY;
+		if (mouse.button == mouse.Button.Left){
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);
-		}else if (mouse.mouseButton == mouse.Button.ScrollDown){
-			if (cursorY+1 < lineCount){
+		}else if (mouse.button == mouse.Button.ScrollDown){
+			if (_cursorY+1 < lineCount){
 				needsUpdate = true;
-				moveCursor(cursorX, cursorY + 4);
+				moveCursor(_cursorX, _cursorY + 4);
 				reScroll();
 			}
-		}else if (mouse.mouseButton == mouse.Button.ScrollUp){
-			if (cursorY > 0){
+		}else if (mouse.button == mouse.Button.ScrollUp){
+			if (_cursorY > 0){
 				needsUpdate = true;
-				if (cursorY < 4){
-					moveCursor(cursorX, 0);
+				if (_cursorY < 4){
+					moveCursor(_cursorX, 0);
 				}else{
-					moveCursor(cursorX, cursorY - 4);
+					moveCursor(_cursorX, _cursorY - 4);
 				}
 				reScroll();
 			}
 		}
 	}
-	
-	override void keyboardEvent(KeyPress key){
+	// too big of a mess to be dealt with right now, TODO try to make this shorter
+	override void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		if (key.isChar){
-			if (!writeProtected){
+			if (_enableEditing){
 				needsUpdate = true;
-				string currentLine = readLine(cursorY);
+				string currentLine = readLine(_cursorY);
 				//check if backspace
-				if (key.key == '\b'){
+				if (key.charKey == '\b'){
 					//make sure that it's not the first line, first line cannot be removed
-					if (cursorY > 0){
+					if (_cursorY > 0){
 						//check if has to remove a '\n'
-						if (cursorX == 0){
-							cursorY --;
+						if (_cursorX == 0){
+							_cursorY --;
 							//if line's not empty, append it to previous line
-							cursorX = readLine(cursorY).length;
+							_cursorX = readLine(_cursorY).length;
 							if (currentLine != ""){
 								//else, append this line to previous
-								overwriteLine(cursorY, readLine(cursorY)~currentLine);
+								overwriteLine(_cursorY, readLine(_cursorY)~currentLine);
 							}
-							removeLine(cursorY+1);
+							removeLine(_cursorY+1);
 						}else{
-							overwriteLine(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
-							cursorX --;
+							overwriteLine(_cursorY, cast(string)deleteElement(cast(char[])currentLine,_cursorX-1));
+							_cursorX --;
 						}
-					}else if (cursorX > 0){
-						overwriteLine(cursorY, cast(string)deleteElement(cast(char[])currentLine,cursorX-1));
-						cursorX --;
+					}else if (_cursorX > 0){
+						overwriteLine(_cursorY, cast(string)deleteElement(cast(char[])currentLine,_cursorX-1));
+						_cursorX --;
 					}
 					
-				}else if (key.key == '\n'){
+				}else if (key.charKey == '\n'){
 					//insert a newline
-					//if is at end, just add it
-					bool atEnd = false;
-					if (cursorY >= lineCount - 1){
-						atEnd = true;
-					}
-					if (cursorX == readLine(cursorY).length){
-						if (atEnd){
-							widgetLines.add("");
+					if (_cursorX == readLine(_cursorY).length){
+						if (_cursorY >= lineCount - 1){
+							_lines.append("");
 						}else{
-							insertLine(cursorY + 1,"");
+							insertLine(_cursorY + 1,"");
 						}
 					}else{
 						string[2] line;
-						line[0] = readLine(cursorY);
-						line[1] = line[0][cursorX .. line[0].length];
-						line[0] = line[0][0 .. cursorX];
-						overwriteLine(cursorY, line[0]);
-						if (atEnd){
-							widgetLines.add(line[1]);
+						line[0] = readLine(_cursorY);
+						line[1] = line[0][_cursorX .. line[0].length];
+						line[0] = line[0][0 .. _cursorX];
+						overwriteLine(_cursorY, line[0]);
+						if (_cursorY >= lineCount - 1){
+							_lines.append(line[1]);
 						}else{
-							insertLine(cursorY + 1, line[1]);
+							insertLine(_cursorY + 1, line[1]);
 						}
 					}
-					cursorY ++;
-					cursorX = 0;
-				}else if (key.key == '\t'){
+					_cursorY ++;
+					_cursorX = 0;
+				}else if (key.charKey == '\t'){
 					//convert it to 4 spaces
-					overwriteLine(cursorY, cast(string)insertElement(cast(char[])currentLine,cast(char[])"    ",cursorX));
-					cursorX += 4;
+					overwriteLine(_cursorY, cast(string)insertElement(cast(char[])currentLine,cast(char[])"    ",_cursorX));
+					_cursorX += 4;
 				}else{
 					//insert that char
-					overwriteLine(cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.key],cursorX));
-					cursorX ++;
+					overwriteLine(_cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.charKey],_cursorX));
+					_cursorX ++;
 				}
 			}
 		}else{
-			if (key.key == key.NonCharKey.Delete){
+			if (key.key == Key.del && _enableEditing){
 				needsUpdate = true;
 				//check if is deleting \n
-				if (cursorX == readLine(cursorY).length && cursorY+1 < lineCount){
+				if (_cursorX == readLine(_cursorY).length && _cursorY+1 < lineCount){
 					//merge next line with this one
-					char[] line = cast(char[])readLine(cursorY)~readLine(cursorY+1);
-					overwriteLine(cursorY, cast(string)line);
+					char[] line = cast(char[])readLine(_cursorY)~readLine(_cursorY+1);
+					overwriteLine(_cursorY, cast(string)line);
 					//remove next line
-					removeLine(cursorY+1);
-				}else if (cursorX < readLine(cursorY).length){
-					char[] line = cast(char[])readLine(cursorY);
-					line = line.deleteElement(cursorX);
-					overwriteLine(cursorY, cast(string)line);
+					removeLine(_cursorY+1);
+				}else if (_cursorX < readLine(_cursorY).length){
+					char[] line = cast(char[])readLine(_cursorY);
+					line = line.deleteElement(_cursorX);
+					overwriteLine(_cursorY, cast(string)line);
 				}
-			}else if (key.key == key.NonCharKey.DownArrow){
-				if (cursorY+1 < lineCount){
+			}else if (key.key == Key.arrowDown){
+				if (_cursorY+1 < lineCount){
 					needsUpdate = true;
-					cursorY ++;
+					_cursorY ++;
 				}
-			}else if (key.key == key.NonCharKey.UpArrow){
-				if (cursorY > 0){
+			}else if (key.key == Key.arrowUp){
+				if (_cursorY > 0){
 					needsUpdate = true;
-					cursorY --;
+					_cursorY --;
 				}
-			}else if (key.key == key.NonCharKey.LeftArrow){
-				if ((cursorY >= 0 && cursorX > 0) || (cursorY > 0 && cursorX == 0)){
+			}else if (key.key == Key.arrowLeft){
+				if ((_cursorY >= 0 && _cursorX > 0) || (_cursorY > 0 && _cursorX == 0)){
 					needsUpdate = true;
-					if (cursorX == 0){
-						cursorY --;
-						cursorX = readLine(cursorY).length;
+					if (_cursorX == 0){
+						_cursorY --;
+						_cursorX = readLine(_cursorY).length;
 					}else{
-						cursorX --;
+						_cursorX --;
 					}
 				}
-			}else if (key.key == key.NonCharKey.RightArrow){
+			}else if (key.key == Key.arrowRight){
 				needsUpdate = true;
-				if (cursorX == readLine(cursorY).length){
-					if (cursorY+1 < lineCount){
-						cursorX = 0;
-						cursorY ++;
-						scrollX = 0;
+				if (_cursorX == readLine(_cursorY).length){
+					if (_cursorY+1 < lineCount){
+						_cursorX = 0;
+						_cursorY ++;
+						_scrollX = 0;
 					}
 				}else{
-					cursorX ++;
+					_cursorX ++;
 				}
 			}
 		}
 		// I'll use this this time not to move the cursor, but to fix the cursor position
-		moveCursor(cursorX,cursorY);
+		moveCursor(_cursorX,_cursorY);
 		reScroll();
 	}
 	
@@ -586,21 +530,18 @@ public:
 	///
 	///class `List` is defined in `utils.lists.d`
 	@property List!string lines(){
-		return widgetLines;
+		return _lines;
 	}
 	///Returns true if memo's contents cannot be modified, by user
-	@property bool readOnly(){
-		return writeProtected;
+	@property bool editable(){
+		return _enableEditing;
 	}
 	///sets whether to allow modifying of contents (false) or not (true)
-	@property bool readOnly(bool newPermission){
-		writeProtected = newPermission;
-		// force an update
-		termInterface.forceUpdate();
-		return writeProtected;
+	@property bool editable(bool newPermission){
+		return _enableEditing = newPermission;
 	}
 }
-
+/*
 /// Displays an un-scrollable log, that removes older lines
 /// 
 /// It's content cannot be modified by user.
