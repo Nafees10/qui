@@ -372,7 +372,7 @@ public:
 			uinteger count = lineCount;
 			if (count > 0){
 				//write lines to memo
-				for (uinteger i = _scrollY, end = count < this._size.height ? count : this._size.height; i < end; i++){
+				for (uinteger i = _scrollY; i < count && _termInterface.cursor.y < _size.height; i++){
 					_termInterface.write(cast(char[])readLine(i).scrollHorizontal(_scrollX, this._size.width), 
 						textColor, backgroundColor);
 				}
