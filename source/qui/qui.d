@@ -599,13 +599,17 @@ public:
 	}
 	/// the position of next write
 	/// 
+	/// relative to the (0,0) of area where writing has been restricted (usually the area occupied by a widget)
+	/// 
 	/// Returns: position of cursor
 	@property Position cursor(){
-		return _cursorPos;
+		return Position(_cursorPos.x - _restrictX1, _cursorPos.y - _restrictY1);
 	}
 	/// ditto
 	@property Position cursor(Position newPosition){
 		_cursorPos = newPosition;
+		_cursorPos.x += _restrictX1;
+		_cursorPos.y += _restrictY1;
 		if (_cursorPos.x > _restrictX2)
 			_cursorPos.x = _restrictX2;
 		if (_cursorPos.y > _restrictY2)
