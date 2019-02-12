@@ -589,7 +589,6 @@ public:
 	}
 	/// Fills the terminal, or restricted area, with a character
 	void fill(char c, Color fg, Color bg){
-		_cursorPos = Position(_restrictX1, _restrictY1);
 		dchar dC = to!dchar(c);
 		for (; _cursorPos.y < _restrictY2; _cursorPos.y ++){
 			for (; _cursorPos.x < _restrictX2; _cursorPos.x ++){
