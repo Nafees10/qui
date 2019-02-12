@@ -295,9 +295,9 @@ private:
 	/// used by widget itself to recalculate scrolling
 	void reScroll(){
 		// _scrollY
-		adjustScrollingOffset(_cursorY, this._size.height, _lines.length, _scrollY);
+		adjustScrollingOffset(_cursorY, this._size.height, lineCount, _scrollY);
 		// _scrollX
-		adjustScrollingOffset(_cursorX, this._size.width, readLine(_cursorX).length, _scrollX);
+		adjustScrollingOffset(_cursorX, this._size.width, readLine(_cursorY).length, _scrollX);
 	}
 	/// used by widget itself to move cursor
 	void moveCursor(uinteger x, uinteger y){
