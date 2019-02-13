@@ -15,10 +15,12 @@ _(uses termbox under the hood.)_
 ---
 
 ## Setting it up
+
 To use qui in your dub package, add this to `dub.json` dependencies:  
 `"qui": "~>0.2.0"`  
 or to `dub.sdl`:  
 `dependency "qui" version="~>0.2.0"`
+
 ---
 
 ## Getting Started
