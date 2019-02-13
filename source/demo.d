@@ -2,6 +2,8 @@
 version(demo){
 	import qui.qui;
 	import qui.widgets;
+	import std.conv : to;
+	import utils.misc : fileToArray;
 	
 	void main (){
 		App appInstance = new App();
@@ -13,84 +15,76 @@ version(demo){
 	class App{
 	private:
 		QTerminal term;
-		// to put a border around everything
-		ContainerWidget border;
-		// because we want >1 widgets in terminal, but ContainerWidget allows only one
-		QLayout mainLayout;
-		// just a memo
-		LogWidget logs;
-		// because we want buttons to be in a vertical order, but mainLayout is horizontal
-		QLayout buttonsContainer;
-		// some buttons
-		ButtonWidget incButton, decButton;
-		// just a progress bar
 		ProgressbarWidget progressBar;
+		TextLabelWidget label;
+		EditLineWidget edit;
+		MemoWidget memo;
+		LogWidget log;
+		QLayout hLayout;
+		SplitterWidget split;
 	public:
 		this(){
-			term = new QTerminal("Dummy Caption", LayoutDisplayType.Horizontal);
-			border = new ContainerWidget;
-			border.margin = 2;
-			border.marginChar = ' ';
-			mainLayout = new QLayout(LayoutDisplayType.Horizontal);
-			
-			logs = new LogWidget();
-			
-			buttonsContainer = new QLayout(LayoutDisplayType.Vertical);
-			incButton = new ButtonWidget("increase");
-			decButton = new ButtonWidget("decrease");
-			
-			progressBar = new ProgressbarWidget(100, 50);
-			
-			// arrange them inside each other
-			// buttons go inside the buttons container, to put them vertically
-			buttonsContainer.addWidget ([incButton, decButton]);
-			// then they go in order: memo:buttons:progressBar
-			mainLayout.addWidget([
-					logs,
-					buttonsContainer,
-					progressBar
-				]);
-			// and the whole container goes inside the form
-			border.widget = mainLayout;
-			term.addWidget(border);
-			
-			// register custom events, to handle button presses
-			incButton.onMouseEvent = &increaseButtonPress;
-			decButton.onMouseEvent = &decreaseButtonPres;
+			// construct all widgets
+			term = new QTerminal(QLayout.Type.Vertical);
+			progressBar = new ProgressbarWidget();
+			label = new TextLabelWidget();
+			edit = new EditLineWidget("EditLineWidget, one line text editor: ");
+			hLayout = new QLayout(QLayout.Type.Horizontal);
+			memo = new MemoWidget();
+			log = new LogWidget();
+			split = new SplitterWidget();
+
+			// prepare the layout in for the Memo and log
+			hLayout.addWidget([memo, split, log]);
+			memo.lines.loadArray(fileToArray("README.md")); // make sure there's a README.md in the working dir, or it'll crash
+			memo.wantsTab = false;
+			split.size.maxWidth = 1;
+			split.color = Color.blue;
+
+			// put all widgets in the order they are to appear in terminal
+			term.addWidget([label, edit, progressBar, hLayout]);
+
+			// register every single widget, if you don't, it'll segfault
+			term.registerWidget([label, edit, progressBar, hLayout, memo, split, log]);
+
+			// set some properties
+			label.caption = "Progress bar: increases/decreases every 1/2 second. 1 2 3 4 5 6 7 8 10 9 8 7 6 5 4 3 2 1";
+			progressBar.caption = "this is the progress bar";
+			progressBar.size.maxHeight = 1;
+			progressBar.max = 10;
+			progressBar.progress = 0;
+
+			// and this is how timerEvent can be used
+			progressBar.onTimerEvent = delegate(QWidget caller){
+				static increasing = true;
+				// owner = caller (same thing)
+				ProgressbarWidget owner = cast(ProgressbarWidget)caller;
+				log.add("timer called");
+				if (owner.progress >= owner.max){
+					increasing = false;
+				}else if (owner.progress == 0){
+					increasing = true;
+				}
+				if (increasing)
+					owner.progress = owner.progress + 1;
+				else
+					owner.progress = owner.progress -1;
+				log.add("progress: "~to!string(owner.progress));
+			};
 		}
 		~this(){
-			// destroy them all, or (IDK why) it causes an exception at end
-			.destroy (progressBar);
-			.destroy (decButton);
-			.destroy (incButton);
-			.destroy (buttonsContainer);
-			.destroy (logs);
-			.destroy (mainLayout);
-			.destroy (border);
-			.destroy (term);
+			// destroy all widgets
+			.destroy(term);
+			.destroy(progressBar);
+			.destroy(label);
+			.destroy(edit);
+			.destroy(memo);
+			.destroy(log);
+			.destroy(hLayout);
+			.destroy(split);
 		}
 		void run(){
-			term.run();
-		}
-		/// catch click from incButton
-		void increaseButtonPress(MouseClick mouse){
-			if (progressBar.progress - progressBar.total < 10){
-				progressBar.progress = progressBar.total;
-			}else{
-				progressBar.progress = progressBar.progress + 10;
-			}
-			// add it to log
-			logs.add("incButton pressed");
-		}
-		/// catch click from decButton
-		void decreaseButtonPres(MouseClick mouse){
-			if (progressBar.progress < 10){
-				progressBar.progress = 0;
-			}else{
-				progressBar.progress = progressBar.progress - 10;
-			}
-			// add it to log
-			logs.add("decButton pressed");
+			term.run;
 		}
 	}
 }

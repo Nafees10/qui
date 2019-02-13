@@ -1,70 +1,34 @@
 ## QUI
-QUI is a Text User Interface library for the [D Language](http://dlang.org/).  
-It is based on [adamdruppe's arsd.terminal](https://github.com/adamdruppe/arsd/blob/master/terminal.d).  
+QUI is a widget based Text User Interface library for the [D Language](http://dlang.org/).  
+_(uses termbox under the hood.)_
 
 ---
 
-### Features:
-1. Widget-based - each widget controls a specfic part of the terminal display, one buggy widget won't mess with the whole terminal.
-2. Easy to get started with
+## Features
+1. Widget-based
+1. Easy to add more widgets
+2. Easy to get started with (`source/demo.d` explains how to use most of it)
 3. Event-based
-4. Support for mouse events
-5. Most, if not all, of the code is commented - Separate docs can be found in docs/ directory
+4. Timer Events
+4. Support for mouse events 
+5. Most, if not all, of the code is commented
+---
+
+## Setting it up
+
+To use qui in your dub package, add this to `dub.json` dependencies:  
+`"qui": "~>0.2.0"`  
+or to `dub.sdl`:  
+`dependency "qui" version="~>0.2.0"`
 
 ---
 
-### Some examples:
-LogWidget and EditLineWidget, being used to input stuff and display it:
+## Getting Started
+Documentation for this package can be found [here](https://qui.dpldocs.info/qui.html).
+### Building demo
+The included demo configuration (`source/demo.d`) demonstrates the usage of all the included widgets. To build it, run the following:  
 ```
-import qui.qui;
-import qui.widgets;
-void main(){
-	App appInstance = new App;
-	appInstance.run();
-	.destroy(appInstance);
-}
-class App{
-private:
-	QTerminal term;
-	LogWidget log;
-	EditLineWidget edit;
-public:
-	this(){
-		term = new QTerminal("LogWidget and EditLineWidget",LayoutDisplayType.Vertical);
-		log = new LogWidget;
-		edit = new EditLineWidget("type something here: ");
-		// arrange them:
-		term.addWidget([log,edit]);
-		// set up event handlers
-		edit.onKeyboardEvent = &editKeyboardEvent;
-		// set up colors
-		log.backgroundColor = hexToColor("FFFFFF");
-		log.textColor = hexToColor("000000");
-		// editLine input colors
-		edit.textColor = hexToColor("000000");
-		edit.backgroundColor = hexToColor("BFBFBF");
-		// editLine caption colors
-		edit.captionBackgroundColor = hexToColor("FFFFFF");
-		edit.captionTextColor = hexToColor("000000");
-	}
-	~this(){
-		// clean up everyting
-		.destroy(term);
-		.destroy(log);
-		.destroy(edit);
-	}
-	/// starts the UI
-	void run(){
-		term.run();
-	}
-	// event handler for catching Enter key
-	void editKeyboardEvent(KeyPress key){
-		if (cast(char)key.key == '\n'){
-			log.add("Entered: "~edit.text);
-			edit.text = "";
-		}
-	}
-}
+dub fetch qui
+dub --build=release --config=demo qui
 ```
-The result will be something like:
-![alt text](http://imgur.com/vpokN5Ql.png "Screenshot")
+This will run the demo program.
