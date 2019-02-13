@@ -556,11 +556,15 @@ public:
 	}
 	/// Writes characters on terminal
 	/// 
-	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped
+	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped.  
+	/// **and tab character is not supported, as in it will be read as a single space character. `'\t' = ' '`**
 	void write(char[] c, Color fg, Color bg){
 		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
 			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
-				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(c[i]), fg, bg);
+				if (c[i] == '\t')
+					setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(' '), fg, bg);
+				else
+					setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(c[i]), fg, bg);
 				i ++;
 			}
 			if (_cursorPos.x >= _restrictX2){
