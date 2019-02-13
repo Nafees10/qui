@@ -378,19 +378,19 @@ private:
 		do{
 			repeat = false;
 			foreach(i, widget; widgets){
-				if (widget._show){
+				if (widget.show){
 					// calculate width or height
 					uinteger newSpace = ratioToRaw(widget._sizeRatio, totalRatio, totalSpace);
 					uinteger calculatedSpace = newSpace;
 					//apply size
 					static if (T == QLayout.Type.Horizontal){
-						widget._size.height = _size.height;
-						widget._size.width = newSpace;
-						newSpace = widget._size.width;
+						widget.size.height = _size.height;
+						widget.size.width = newSpace;
+						newSpace = widget.size.width;
 					}else{
-						widget._size.width = _size.width;
-						widget._size.height = newSpace;
-						newSpace = widget._size.height;
+						widget.size.width = _size.width;
+						widget.size.height = newSpace;
+						newSpace = widget.size.height;
 					}
 					if (newSpace != calculatedSpace){
 						totalRatio -= widget._sizeRatio;
@@ -402,7 +402,7 @@ private:
 					// check if there's enough space to contain that widget
 					if (newSpace > totalSpace){
 						newSpace = 0;
-						widget._show = false;
+						widget.show = false;
 					}
 				}
 			}
@@ -416,15 +416,15 @@ private:
 		uinteger previousSpace = (T == QLayout.Type.Horizontal ? _position.x : _position.y);
 		uinteger fixedPoint = (T == QLayout.Type.Horizontal ? _position.y : _position.x);
 		foreach(widget; widgets){
-			if (widget._show){
+			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
 					widget._position.y = _position.y;
 					widget._position.x = previousSpace;
-					previousSpace += widget._size.width;
+					previousSpace += widget.size.width;
 				}else{
 					widget._position.x = _position.x;
 					widget._position.y = previousSpace;
-					previousSpace += widget._size.height;
+					previousSpace += widget.size.height;
 				}
 			}
 		}
@@ -436,7 +436,7 @@ protected:
 		super.resizeEvent(_size);
 		uinteger ratioTotal;
 		foreach(w; _widgets){
-			if (w._show){
+			if (w.show){
 				ratioTotal += w._sizeRatio;
 			}
 		}
@@ -456,9 +456,9 @@ protected:
 	override public void mouseEvent(MouseEvent mouse) {
 		super.mouseEvent(mouse);
 		foreach (widget; _widgets){
-			if (widget._show && widget._wantsInput &&
-				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
-				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
+			if (widget.show && widget._wantsInput &&
+				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget.size.width &&
+				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget.size.height){
 				// make it active, and call it's mouseEvent
 				if (_termInterface._qterminal.makeActive(widget))
 					widget.mouseEvent(mouse);
@@ -470,8 +470,8 @@ protected:
 	/// called by owner widget to update
 	override void update(bool force=false){
 		foreach(widget; _widgets){
-			if (widget._show){
-				_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
+			if (widget.show){
+				_termInterface.restrictWrite(widget._position.x, widget._position.y, widget.size.width, widget.size.height);
 				widget.update(force);
 			}
 		}
@@ -523,7 +523,7 @@ private:
 	/// 
 	/// Returns: true if restricted, false if not restricted, because the area specified is outside terminal, or width || height == 0
 	bool restrictWrite(uinteger x, uinteger y, uinteger width, uinteger height){
-		if (x + width > _qterminal._size.width || y + height > _qterminal._size.height || width == 0 || height == 0)
+		if (x + width > _qterminal.size.width || y + height > _qterminal.size.height || width == 0 || height == 0)
 			return false;
 		_restrictX1 = x;
 		_restrictX2 = x + width;
@@ -720,15 +720,37 @@ private:
 		return false;
 	}
 
-	/// ditto
+	/// makes a widget active, provided its index in _regdWidgets.
+	/// 
+	/// if that widget does not accept input, it tries to look for another widget
 	bool makeActive(uinteger widgetIndex){
 		if (_activeWidgetIndex == widgetIndex)
 			return true;
+		if (_activeWidgetIndex > _regdWidgets.length)
+			_activeWidgetIndex = 0;
 		if (_activeWidgetIndex >= 0 && widgetIndex < _regdWidgets.length){
-			_activeWidget.activateEvent(false);
-			_activeWidgetIndex = widgetIndex;
-			_activeWidget = _regdWidgets[widgetIndex];
-			_activeWidget.activateEvent(true);
+			// check if it wants input, if not, find some widget that does
+			if (_regdWidgets[widgetIndex].wantsInput && _regdWidgets[widgetIndex].show){
+				_activeWidget.activateEvent(false);
+				_activeWidgetIndex = widgetIndex;
+				_activeWidget = _regdWidgets[widgetIndex];
+				_activeWidget.activateEvent(true);
+			}else{
+				integer index = -1;
+				for (uinteger i = widgetIndex+1, lastIndex = _regdWidgets.length-1; i < _regdWidgets.length && i != widgetIndex;){
+					if (_regdWidgets[i].wantsInput && _regdWidgets[i].show){
+						index = i;
+						break;
+					}
+					if (i == lastIndex){
+						i = 0;
+						continue;
+					}
+					i ++;
+				}
+				if (index >= 0)
+					return makeActive(index);
+			}
 			return true;
 		}
 		_activeWidget = null;
@@ -780,21 +802,20 @@ private:
 protected:
 	override public void mouseEvent(MouseEvent mouse){
 		super.mouseEvent(mouse);
-		foreach (i, widget; _widgets){
-			if (widget._show && widget._wantsInput){
+		foreach (i, widget; _regdWidgets){
+			if (widget.show && widget.wantsInput){
 				Position p = widget._position;
-				Size s = widget._size;
+				Size s = widget.size;
 				//check x-y-axis
 				if (mouse.x >= p.x && mouse.x < p.x + s.width && mouse.y >= p.y && mouse.y < p.y + s.height){
 					//mark this widget as active
-					makeActive(i);
-					if (_activeWidgetIndex == -1)
-						makeActive(0);
-					// make mouse position relative to widget position, not 0:0
-					mouse.x = mouse.x - _activeWidget._position.x;
-					mouse.y = mouse.y - _activeWidget._position.y;
-					//call mouseEvent
-					widget.mouseEvent(mouse);
+					if (makeActive(i) && _activeWidgetIndex == i){
+						// make mouse position relative to widget position, not 0:0
+						mouse.x = mouse.x - _activeWidget._position.x;
+						mouse.y = mouse.y - _activeWidget._position.y;
+						//call mouseEvent
+						widget.mouseEvent(mouse);
+					}
 					break;
 				}
 			}
@@ -804,20 +825,11 @@ protected:
 	override public void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == Key.esc || (key.charKey == '\t' && (_activeWidgetIndex < 0 || !_activeWidget._wantsTab))){
+		if (key.key == Key.esc || (key.charKey == '\t' && (_activeWidgetIndex < 0 || !_activeWidget.wantsTab))){
 			QWidget lastActiveWidget = _activeWidget;
 			// make the next widget active
 			if (_regdWidgets.length > 0){
-				uinteger newIndex = _activeWidgetIndex + 1;
-				// see if it wants input, case no, switch to some other widget
-				for (;newIndex < _regdWidgets.length; newIndex ++){
-					if (_widgets[newIndex]._show && _widgets[newIndex]._wantsInput){
-						break;
-					}
-				}
-				makeActive(newIndex);
-				if (_activeWidgetIndex == -1)
-					makeActive(0);
+				makeActive(_activeWidgetIndex+1);
 			}
 		}else if (key.key in _keysToCatch){
 			// this is a registered key, only a specific widget catches it
@@ -916,8 +928,8 @@ public:
 				}else if (_requestingUpdate.length > 0){
 					_termInterface.updateStarted;
 					foreach(widget; _requestingUpdate){
-						if (widget._show){
-							_termInterface.restrictWrite(widget._position.x, widget._position.y, widget._size.width, widget._size.height);
+						if (widget.show){
+							_termInterface.restrictWrite(widget._position.x, widget._position.y, widget.size.width, widget.size.height);
 							widget.update;
 						}
 					}
