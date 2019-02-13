@@ -53,8 +53,7 @@ protected:
 			else
 				xOffset --;
 			// request update
-			if (_termInterface)
-				_termInterface.requestUpdate(this);
+			_termInterface.requestUpdate(this);
 			needsUpdate = true;
 		}
 	}
@@ -541,128 +540,124 @@ public:
 		return _enableEditing = newPermission;
 	}
 }
-/*
-/// Displays an un-scrollable log, that removes older lines
+
+/// Displays an un-scrollable log
 /// 
-/// It's content cannot be modified by user.
+/// It's content cannot be modified by user, like a MemoWidget with editing disabled, but automatically scrolls down as new lines 
+/// are added, and it wraps long lines. And it supports newline characters
 class LogWidget : QWidget{
 private:
-	LinkedList!string logs;
-	
-	uinteger max;
+	/// stores the logs
+	List!string _logs;
+	/// The index in _logs where the oldest added line is
+	uinteger _startIndex;
+	/// the maximum number of lines to store
+	uinteger _maxLines;
+	/// whether the widget needs update or not
+	bool needsUpdate = true;
 
-	
-	uinteger stringLineCount(string s){
-		uinteger width = widgetSize.width;
-		uinteger i, widthTaken = 0, count = 1;
-		for (i = 0; i < s.length; i++){
+	/// Returns: how many cells in height will a string take (due to wrapping of long lines)
+	uinteger lineHeight(string s){
+		uinteger width = this._size.width;
+		uinteger widthTaken = 0, count = 1;
+		for (uinteger i = 0; i < s.length; i++){
 			widthTaken ++;
 			if (s[i] == '\n' || widthTaken >= width){
 				count ++;
 				widthTaken = 0;
-			}
-			if (widthTaken >= width){
-				count ++;
 			}
 		}
 		return count;
 	}
-	string stripString(string s, uinteger height){
-		char[] r;
-		uinteger width = widgetSize.width;
-		uinteger i, widthTaken = 0, count = 1;
-		for (i = 0; i < s.length; i++){
+	/// Returns: wrapped lines
+	string[] wrapLine(string s){
+		uinteger width = this._size.width, widthTaken = 0;
+		string[] r;
+		for (uinteger i = 0, startIndex = 0, endIndex = s.length-1; i < s.length; i ++){
 			widthTaken ++;
-			if (s[i] == '\n' || widthTaken >= width){
-				count ++;
+			if (s[i] == '\n' || widthTaken >= width || i == endIndex){
+				r ~= s[startIndex .. s[i] == '\n' ? i : i+1];
+				startIndex = i+1;
 				widthTaken = 0;
 			}
-			if (count > height){
-				r.length = i;
-				r[0 .. i] = s[0 .. i];
-				break;
+		}
+		return r;
+	}
+	/// Returns: lines to be displayed
+	string[] displayedLines(){
+		uinteger maxHeight = this._size.height;
+		uinteger availableHeight = maxHeight;
+		string[] r;
+		r.length = maxHeight;
+		for (integer i = _logs.length - 1, index = r.length-1; i >= 0 && index >= 0; i --){
+			string[] line = wrapLine(_logs.read(i));
+			if (line.length > availableHeight)
+				line = line[line.length - availableHeight .. line.length];
+			foreach_reverse(wrapped; line){
+				r[index] = wrapped;
+				if (index == 0)
+					break;
+				index --;
 			}
 		}
-		return cast(string)r;
+		return r;
 	}
 public:
 	/// background and text color
-	RGB backgroundColor, textColor;
-	this(uinteger maxLen=100){
-		max = maxLen;
-		logs = new LinkedList!string;
+	Color backgroundColor, textColor;
+	this(uinteger maxLen=200){
+		_maxLines = maxLen;
+		_logs = new List!string;
+		_startIndex = 0;
 
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
 	}
 	~this(){
-		logs.destroy;
+		_logs.destroy;
 	}
 	
-	override public bool update(Matrix display){
-		bool r = false;
-		if (needsUpdate){
-			r = true;
-			//get list of messages
-			string[] messages = logs.toArray;
-			//messages = messages.arrayReverse;
-			//set colors
-			display.setColors(textColor, backgroundColor);
-			//determine how many of them will be displayed
-			uinteger count;//right now, it's used to store number of lines used
-			uinteger i;
-			if (messages.length>0){
-				for (i=messages.length-1; i>=0; i--){
-					count += stringLineCount(messages[i]);
-					if (count > widgetSize.height){
-						messages = messages[i+1 .. messages.length];
-						//try to insert part of the last message
-						uinteger thisCount = stringLineCount(messages[i]);
-						count -= thisCount;
-						if (count < widgetSize.height){
-							messages ~= [stripString(messages[i], widgetSize.height - count)];
-						}
-						break;
-					}
-					if (i==0){
-						break;
-					}
-				}
-			}
-			//write them
-			for (i = 0; i < messages.length; i++){
-				display.write(cast(char[])messages[i], textColor, backgroundColor);
-				//add newline
-				display.moveTo(0, display.writePos.y+1);
-			}
+	override void update(bool force){
+		if (needsUpdate || force){
 			needsUpdate = false;
+			string[] lines = displayedLines();
+			foreach(line; lines){
+				_termInterface.write(cast(char[])line, textColor, backgroundColor);
+				// if there's empty space left in current line, fill it
+				if (_termInterface.cursor.x > 0)
+					_termInterface.fillLine(' ', textColor, backgroundColor);
+			}
+			// fill any remaining cell
+			_termInterface.fill(' ', textColor, backgroundColor);
 		}
-		return r;
+	}
+
+	override protected void resizeEvent(Size size) {
+		super.resizeEvent(size);
+		needsUpdate = true;
 	}
 	
 	///adds string to the log, and scrolls down to it
 	void add(string item){
-		//add height
-		logs.append(item);
-		//check if needs to remove older items
-		if (logs.count > max){
-			logs.removeFirst();
-		}
-		//update
+		//check if needs to overwrite
+		if (_logs.length > _maxLines){
+			_logs.set(_startIndex, item);
+			_startIndex ++;
+		}else
+			_logs.append(item);
+		if (_termInterface)
+			_termInterface.requestUpdate(this);
 		needsUpdate = true;
-		// force an update
-		termInterface.forceUpdate();
 	}
 	///clears the log
 	void clear(){
-		logs.clear;
-		//update
+		_logs.clear;
+		if (_termInterface)
+			_termInterface.requestUpdate(this);
 		needsUpdate = true;
-		// force an update
-		termInterface.forceUpdate();
 	}
 }
-
+/*
 /// A button
 /// 
 /// the caption is displayed inside the button
