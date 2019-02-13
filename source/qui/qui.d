@@ -726,35 +726,33 @@ private:
 	bool makeActive(uinteger widgetIndex){
 		if (_activeWidgetIndex == widgetIndex)
 			return true;
-		if (_activeWidgetIndex > _regdWidgets.length)
-			_activeWidgetIndex = 0;
-		if (_activeWidgetIndex >= 0 && widgetIndex < _regdWidgets.length){
-			// check if it wants input, if not, find some widget that does
-			if (_regdWidgets[widgetIndex].wantsInput && _regdWidgets[widgetIndex].show){
-				_activeWidget.activateEvent(false);
-				_activeWidgetIndex = widgetIndex;
-				_activeWidget = _regdWidgets[widgetIndex];
-				_activeWidget.activateEvent(true);
-			}else{
-				integer index = -1;
-				for (uinteger i = widgetIndex+1, lastIndex = _regdWidgets.length-1; i < _regdWidgets.length && i != widgetIndex;){
-					if (_regdWidgets[i].wantsInput && _regdWidgets[i].show){
+		if (widgetIndex > _regdWidgets.length)
+			widgetIndex = 0;
+		if (widgetIndex >= 0 && widgetIndex < _regdWidgets.length){
+			integer index = -1;
+			foreach(i, widget; _regdWidgets[widgetIndex .. _regdWidgets.length]){
+				if (widget.wantsInput && widget.show){
+					index = i+widgetIndex;
+					break;
+				}
+			}
+			if (index == -1){
+				foreach(i, widget; _regdWidgets[0 .. widgetIndex]){
+					if (widget.wantsInput && widget.show){
 						index = i;
 						break;
 					}
-					if (i == lastIndex){
-						i = 0;
-						continue;
-					}
-					i ++;
 				}
-				if (index >= 0)
-					return makeActive(index);
+			}
+			if (index >= 0){
+				if (_activeWidget)
+					_activeWidget.activateEvent(false);
+				_activeWidgetIndex = index;
+				_activeWidget = _regdWidgets[_activeWidgetIndex];
+				_activeWidget.activateEvent(true);
 			}
 			return true;
 		}
-		_activeWidget = null;
-		_activeWidgetIndex = -1;
 		return false;
 	}
 
@@ -825,12 +823,9 @@ protected:
 	override public void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == Key.esc || (key.charKey == '\t' && (_activeWidgetIndex < 0 || !_activeWidget.wantsTab))){
-			QWidget lastActiveWidget = _activeWidget;
+		if (key.key == Key.esc || (key.charKey == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
 			// make the next widget active
-			if (_regdWidgets.length > 0){
-				makeActive(_activeWidgetIndex+1);
-			}
+			makeActive(_activeWidgetIndex+1);
 		}else if (key.key in _keysToCatch){
 			// this is a registered key, only a specific widget catches it
 			// check if it's in UNCATCHABLE_KEYS, if yes, the call _activeWidget's keyboard event too
