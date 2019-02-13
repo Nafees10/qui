@@ -192,7 +192,7 @@ private:
 	}
 protected:
 	/// override resize to re-scroll
-	override void resizeEvent(Size size){
+	override protected void resizeEvent(Size size){
 		super.resizeEvent(size);
 		needsUpdate = true;
 		reScroll;
@@ -240,7 +240,7 @@ protected:
 		needsUpdate = true;
 		reScroll;
 	}
-	override void update(bool force=false){
+	override protected void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			_termInterface.write(this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
@@ -342,30 +342,8 @@ private:
 	@property uinteger lineCount(){
 		return _lines.length+1;
 	}
-public:
-	// background and text colors
-	Color backgroundColor, textColor;
-	this(bool editable = true){
-		_lines = new List!string;
-		_scrollX = 0;
-		_scrollY = 0;
-		_cursorX = 0;
-		_cursorY = 0;
-		_enableEditing = editable; //cause if readOnly, then writeProtected = true also
-
-		if (_enableEditing)
-			_wantsTab = true;
-		// and input too, obviously
-		_wantsInput = true;
-
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
-	}
-	~this(){
-		.destroy(_lines);
-	}
-	
-	override void update(bool force=false){
+protected:
+	override protected void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			uinteger count = lineCount;
@@ -382,7 +360,7 @@ public:
 			_termInterface.setCursorPos(this, _cursorX - _scrollX, _cursorY - _scrollY);
 	}
 	
-	override void mouseEvent(MouseEvent mouse){
+	override protected void mouseEvent(MouseEvent mouse){
 		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll
 		mouse.x = mouse.x + _scrollX;
@@ -409,7 +387,7 @@ public:
 		}
 	}
 	// too big of a mess to be dealt with right now, TODO try to make this shorter
-	override void keyboardEvent(KeyboardEvent key){
+	override protected void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		if (key.isChar){
 			if (_enableEditing){
@@ -522,6 +500,28 @@ public:
 		moveCursor(_cursorX,_cursorY);
 		reScroll();
 	}
+public:
+	// background and text colors
+	Color backgroundColor, textColor;
+	this(bool editable = true){
+		_lines = new List!string;
+		_scrollX = 0;
+		_scrollY = 0;
+		_cursorX = 0;
+		_cursorY = 0;
+		_enableEditing = editable; //cause if readOnly, then writeProtected = true also
+
+		if (_enableEditing)
+			_wantsTab = true;
+		// and input too, obviously
+		_wantsInput = true;
+
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
+	}
+	~this(){
+		.destroy(_lines);
+	}
 	
 	///returns a list of lines in memo
 	///
@@ -602,22 +602,8 @@ private:
 		}
 		return r;
 	}
-public:
-	/// background and text color
-	Color backgroundColor, textColor;
-	this(uinteger maxLen=200){
-		_maxLines = maxLen;
-		_logs = new List!string;
-		_startIndex = 0;
-
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
-	}
-	~this(){
-		_logs.destroy;
-	}
-	
-	override void update(bool force){
+protected:
+	override protected void update(bool force){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			string[] lines = displayedLines();
@@ -631,10 +617,24 @@ public:
 			_termInterface.fill(' ', textColor, backgroundColor);
 		}
 	}
-
+	
 	override protected void resizeEvent(Size size) {
 		super.resizeEvent(size);
 		needsUpdate = true;
+	}
+public:
+	/// background and text color
+	Color backgroundColor, textColor;
+	this(uinteger maxLen=200){
+		_maxLines = maxLen;
+		_logs = new List!string;
+		_startIndex = 0;
+
+		textColor = DEFAULT_FG;
+		backgroundColor = DEFAULT_BG;
+	}
+	~this(){
+		_logs.destroy;
 	}
 	
 	///adds string to the log, and scrolls down to it
@@ -657,69 +657,29 @@ public:
 		needsUpdate = true;
 	}
 }
-/*
-/// A button
+
+/// Just occupies some space. Use this to put space between widgets
 /// 
-/// the caption is displayed inside the button
-/// 
-/// To receive input, set the `onMouseEvent` to set a custom mouse event
-class ButtonWidget : QWidget{
-public:
-	/// background, and text color, in case it's not active
-	RGB backgroundColor, textColor;
-	/// background, and text color, in case it's activeWidget
-	RGB activeBackgroundColor, activeTextColor;
-	this(string caption=""){
-		widgetCaption = caption;
-		widgetWantsInput = true;
-
-		textColor = DEFAULT_TEXT_COLOR;
-		backgroundColor = DEFAULT_BACK_COLOR;
-
-		activeTextColor = DEFAULT_TEXT_COLOR;
-		activeBackgroundColor = DEFAULT_BACK_COLOR;
-	}
-	
-	override public bool update(Matrix display){
-		bool r = false;
-		if (needsUpdate){
-			char[] row;
-			row.length = widgetSize.width;
-			row[0 .. row.length] = ' ';
-			//write the caption too!
-			uinteger middle = widgetSize.height/2;
-			// the colors to use now, background, and text
-			RGB bgC, tC;
-			if (termInterface.isActiveWidget(this)){
-				bgC = activeBackgroundColor;
-				tC = activeTextColor;
-			}else{
-				bgC = backgroundColor;
-				tC = textColor;
-			}
-			for (uinteger i = 0; i < widgetSize.height; i++){
-				if (i == middle && widgetCaption != ""){
-					row = centerAlignText(cast(char[])caption, widgetSize.width);
-					display.write(row, tC, bgC);
-					row[0 .. row.length] = ' ';
-					continue;
-				}else{
-					display.write(row, tC, bgC);
-				}
-			}
-			r = true;
-			needsUpdate = false;
-		}
-		return r;
-	}
-
-	override public void activateEvent(bool isActive){
-		super.activateEvent(isActive);
+/// To specify the size, use the minHeight, maxHeight, minWidth, and maxWidth. only specifying the width and/or height will have no effect
+class SplitterWidget : QWidget{
+private:
+	/// whether it needs an update or not
+	bool needsUpdate = true;
+protected:
+	override protected void resizeEvent(Size size) {
+		super.resizeEvent(size);
 		needsUpdate = true;
 	}
-
-	override void keyboardEvent(KeyPress key){
-		super.keyboardEvent(key);
-		mouseEvent(MouseClick(MouseClick.Button.Left, 0, 0));
+	
+	override protected void update(bool force = false) {
+		if (needsUpdate || force){
+			needsUpdate = false;
+			_termInterface.fill(' ',DEFAULT_FG, color);
+		}
 	}
-}*/
+public:
+	Color color;
+	this(){
+		this.color = DEFAULT_BG;
+	}
+}
