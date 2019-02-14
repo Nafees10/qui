@@ -3,6 +3,8 @@ version(demo){
 	import qui.qui;
 	import qui.widgets;
 	import std.conv : to;
+	import std.path;
+	import std.file : thisExePath;
 	import utils.misc : fileToArray;
 	
 	void main (){
@@ -36,7 +38,7 @@ version(demo){
 
 			// prepare the layout in for the Memo and log
 			hLayout.addWidget([memo, split, log]);
-			memo.lines.loadArray(fileToArray("README.md")); // make sure there's a README.md in the working dir, or it'll crash
+			memo.lines.loadArray(fileToArray(dirName(thisExePath)~dirSeparator~"README.md"));
 			memo.wantsTab = false;
 			split.size.maxWidth = 1;
 			split.color = Color.blue;
