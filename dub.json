@@ -4,13 +4,14 @@
 	"copyright": "Copyright © 2017, nafees",
 	"authors": ["nafees"],
 	"license":"MIT",
+	"lflags" : ["$PACKAGE_DIR/libtermbox.a"],
+	"preGenerateCommands" : ["bash $PACKAGE_DIR/build-termbox.sh"],
 	"dependencies": {
-		"utils": "~>0.3.1",
-		"termbox": "~>0.0.5"
+		"utils": "~>0.3.1"
 	},"configurations": [
 		{
 			"name": "default",
-			"targetType": "library",
+			"targetType": "staticLibrary",
 			"targetName": "qui"
 		},
 		{
