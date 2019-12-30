@@ -1,3 +1,4 @@
+// for optional dependency
 /++
 	Module for interacting with the user's terminal, including color output, cursor manipulation, and full-featured real-time mouse and keyboard input. Also includes high-level convenience methods, like [Terminal.getline], which gives the user a line editor with history, completion, etc. See the [#examples].
 
@@ -34,8 +35,6 @@
 
 		* More advanced terminal features as functions, where available, like cursor changing and full-color functions.
 
-		* The module will eventually be renamed to `arsd.terminal`.
-
 		* More documentation.
 	)
 
@@ -63,14 +62,17 @@
 +/
 module arsd.terminal;
 
+// FIXME: needs to support VT output on Windows too in certain situations
+// FIXME: paste on Windows and alt+NNNN codes in getline function
+
 /++
 	$(H3 Get Line)
 
 	This example will demonstrate the high-level getline interface.
 
-	The user will be able to type a line and navigate around it with cursor keys and even the mouse on some systems, as well as perform editing as they expect (e.g. the backspace and delete keys work normally) until they press enter. Then, the final line will be returned to your program, which the example will simply print back to the user.
+	The user will be able to type a line and navigate around it with cursor keys and even the mouse on some systems, as well as perform editing as they expect (e.g. the backspace and delete keys work normally) until they press enter.  Then, the final line will be returned to your program, which the example will simply print back to the user.
 +/
-unittest {
+version(demos) unittest {
 	import arsd.terminal;
 
 	void main() {
@@ -78,6 +80,8 @@ unittest {
 		string line = terminal.getline();
 		terminal.writeln("You wrote: ", line);
 	}
+
+	main; // exclude from docs
 }
 
 /++
@@ -86,8 +90,9 @@ unittest {
 	This example demonstrates color output, using [Terminal.color]
 	and the output functions like [Terminal.writeln].
 +/
-unittest {
+version(demos) unittest {
 	import arsd.terminal;
+
 	void main() {
 		auto terminal = Terminal(ConsoleOutputType.linear);
 		terminal.color(Color.green, Color.black);
@@ -95,6 +100,8 @@ unittest {
 		terminal.color(Color.DEFAULT, Color.DEFAULT);
 		terminal.writeln("And back to normal.");
 	}
+
+	main; // exclude from docs
 }
 
 /++
@@ -103,8 +110,9 @@ unittest {
 	This shows how to get one single character press using
 	the [RealTimeConsoleInput] structure.
 +/
-unittest {
+version(demos) unittest {
 	import arsd.terminal;
+
 	void main() {
 		auto terminal = Terminal(ConsoleOutputType.linear);
 		auto input = RealTimeConsoleInput(&terminal, ConsoleInputFlags.raw);
@@ -113,6 +121,8 @@ unittest {
 		auto ch = input.getch();
 		terminal.writeln("You pressed ", ch);
 	}
+
+	main; // exclude from docs
 }
 
 /*
@@ -281,7 +291,7 @@ vt|vt100|DEC vt100 compatible:\
 
 
 # Entry for an xterm. Insert mode has been disabled.
-vs|xterm|xterm-color|xterm-256color|vs100|xterm terminal emulator (X Window System):\
+vs|xterm|screen|screen.xterm|screen.xterm-256color|xterm-color|xterm-256color|vs100|xterm terminal emulator (X Window System):\
 	:am:bs:mi@:km:co#80:li#55:\
 	:im@:ei@:\
 	:cl=\E[H\E[J:\
@@ -301,7 +311,7 @@ vs|xterm|xterm-color|xterm-256color|vs100|xterm terminal emulator (X Window Syst
 
 
 #rxvt, added by me
-rxvt|rxvt-unicode:\
+rxvt|rxvt-unicode|rxvt-unicode-256color:\
 	:am:bs:mi@:km:co#80:li#55:\
 	:im@:ei@:\
 	:ct=\E[3k:ue=\E[m:\
@@ -363,9 +373,11 @@ an|ansi|ansi-bbs|ANSI terminals (emulators):\
 	`;
 }
 
+/// A modifier for [Color]
 enum Bright = 0x08;
 
 /// Defines the list of standard colors understood by Terminal.
+/// See also: [Bright]
 enum Color : ushort {
 	black = 0, /// .
 	red = RED_BIT, /// .
@@ -425,6 +437,25 @@ struct Terminal {
 	@disable this(this);
 	private ConsoleOutputType type;
 
+	/++
+		Terminal is only valid to use on an actual console device or terminal
+		handle. You should not attempt to construct a Terminal instance if this
+		returns false;
+	+/
+	static bool stdoutIsTerminal() {
+		version(Posix) {
+			import core.sys.posix.unistd;
+			return cast(bool) isatty(1);
+		} else version(Windows) {
+			auto hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+			CONSOLE_SCREEN_BUFFER_INFO originalSbi;
+			if(GetConsoleScreenBufferInfo(hConsole, &originalSbi) == 0)
+				return false;
+			else
+				return true;
+		} else static assert(0);
+	}
+
 	version(Posix) {
 		private int fdOut;
 		private int fdIn;
@@ -460,7 +491,7 @@ struct Terminal {
 			import std.stdio;
 			import std.string;
 
-			if(!exists("/etc/termcap"))
+			//if(!exists("/etc/termcap"))
 				useBuiltinTermcap = true;
 
 			string current;
@@ -790,7 +821,29 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 			hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 		}
 
-		GetConsoleScreenBufferInfo(hConsole, &originalSbi);
+		if(GetConsoleScreenBufferInfo(hConsole, &originalSbi) == 0)
+			throw new Exception("not a user-interactive terminal");
+
+		defaultForegroundColor = cast(Color) (originalSbi.wAttributes & 0x0f);
+		defaultBackgroundColor = cast(Color) ((originalSbi.wAttributes >> 4) & 0x0f);
+
+		// this is unnecessary since I use the W versions of other functions
+		// and can cause weird font bugs, so I'm commenting unless some other
+		// need comes up.
+		/*
+		oldCp = GetConsoleOutputCP();
+		SetConsoleOutputCP(65001); // UTF-8
+
+		oldCpIn = GetConsoleCP();
+		SetConsoleCP(65001); // UTF-8
+		*/
+	}
+
+	version(Windows) {
+		private Color defaultBackgroundColor = Color.black;
+		private Color defaultForegroundColor = Color.white;
+		UINT oldCp;
+		UINT oldCpIn;
 	}
 
 	// only use this if you are sure you know what you want, since the terminal is a shared resource you generally really want to reset it to normal when you leave...
@@ -824,6 +877,10 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 		if(lineGetter !is null)
 			lineGetter.dispose();
+
+
+		SetConsoleOutputCP(oldCp);
+		SetConsoleCP(oldCpIn);
 
 		auto stdo = GetStdHandle(STD_OUTPUT_HANDLE);
 		SetConsoleActiveScreenBuffer(stdo);
@@ -903,6 +960,11 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 				colorToXTermPaletteIndex(background)
 			));
 
+			/+ // this is the full 24 bit color sequence
+			writeStringRaw(format("\033[38;2;%d;%d;%dm", foreground.r, foreground.g, foreground.b));
+			writeStringRaw(format("\033[48;2;%d;%d;%dm", background.r, background.g, background.b));
+			+/
+
 			return true;
 		}
 	}
@@ -922,20 +984,20 @@ http://msdn.microsoft.com/en-us/library/windows/desktop/ms683193%28v=vs.85%29.as
 
 				// this isn't necessarily right but meh
 				if(background == Color.DEFAULT)
-					setTob = Color.black;
+					setTob = defaultBackgroundColor;
 				if(foreground == Color.DEFAULT)
-					setTof = Color.white;
+					setTof = defaultForegroundColor;
 
 				if(force == ForceOption.alwaysSend || reverseVideo != this.reverseVideo || foreground != _currentForeground || background != _currentBackground) {
 					flush(); // if we don't do this now, the buffering can screw up the colors...
 					if(reverseVideo) {
 						if(background == Color.DEFAULT)
-							setTof = Color.black;
+							setTof = defaultBackgroundColor;
 						else
 							setTof = cast(ushort) background | (foreground & Bright);
 
 						if(background == Color.DEFAULT)
-							setTob = Color.white;
+							setTob = defaultForegroundColor;
 						else
 							setTob = cast(ushort) (foreground & ~Bright);
 					}
@@ -1563,6 +1625,34 @@ struct RealTimeConsoleInput {
 		}
 	}
 
+	void fdReadyReader() {
+		auto queue = readNextEvents();
+		foreach(event; queue)
+			userEventHandler(event);
+	}
+
+	void delegate(InputEvent) userEventHandler;
+
+	/++
+		If you are using [arsd.simpledisplay] and want terminal interop too, you can call
+		this function to add it to the sdpy event loop and get the callback called on new
+		input.
+
+		Note that you will probably need to call `terminal.flush()` when you are doing doing
+		output, as the sdpy event loop doesn't know to do that (yet). I will probably change
+		that in a future version, but it doesn't hurt to call it twice anyway, so I recommend
+		calling flush yourself in any code you write using this.
+	+/
+	void integrateWithSimpleDisplayEventLoop()(void delegate(InputEvent) userEventHandler) {
+		this.userEventHandler = userEventHandler;
+		import arsd.simpledisplay;
+		version(Windows)
+			auto listener = new WindowsHandleReader(&fdReadyReader, terminal.hConsole);
+		else version(linux)
+			auto listener = new PosixFdReader(&fdReadyReader, fdIn);
+		else static assert(0, "sdpy event loop integration not implemented on this platform");
+	}
+
 	version(with_eventloop) {
 		version(Posix)
 		void signalFired(SignalFired) {
@@ -1626,6 +1716,19 @@ struct RealTimeConsoleInput {
 
 	/// Check for input, waiting no longer than the number of milliseconds
 	bool timedCheckForInput(int milliseconds) {
+		if(inputQueue.length || timedCheckForInput_bypassingBuffer(milliseconds))
+			return true;
+		version(Posix)
+			if(interrupted || windowSizeChanged || hangedUp)
+				return true;
+		return false;
+	}
+
+	/* private */ bool anyInput_internal(int timeout = 0) {
+		return timedCheckForInput(timeout);
+	}
+
+	bool timedCheckForInput_bypassingBuffer(int milliseconds) {
 		version(Windows) {
 			auto response = WaitForSingleObject(terminal.hConsole, milliseconds);
 			if(response  == 0)
@@ -1649,15 +1752,6 @@ struct RealTimeConsoleInput {
 
 			return FD_ISSET(fdIn, &fs);
 		}
-	}
-
-	/* private */ bool anyInput_internal() {
-		if(inputQueue.length || timedCheckForInput(0))
-			return true;
-		version(Posix)
-			if(interrupted || windowSizeChanged || hangedUp)
-				return true;
-		return false;
 	}
 
 	private dchar getchBuffer;
@@ -1839,7 +1933,7 @@ struct RealTimeConsoleInput {
 		INPUT_RECORD[32] buffer;
 		DWORD actuallyRead;
 			// FIXME: ReadConsoleInputW
-		auto success = ReadConsoleInputA(inputHandle, buffer.ptr, buffer.length, &actuallyRead);
+		auto success = ReadConsoleInputW(inputHandle, buffer.ptr, buffer.length, &actuallyRead);
 		if(success == 0)
 			throw new Exception("ReadConsoleInput");
 
@@ -1963,7 +2057,7 @@ struct RealTimeConsoleInput {
 		// it is the simplest thing that can possibly work. The alternative would be
 		// doing non-blocking reads and buffering in the nextRaw function (not a bad idea
 		// btw, just a bit more of a hassle).
-		while(timedCheckForInput(0)) {
+		while(timedCheckForInput_bypassingBuffer(0)) {
 			auto ne = readNextEventsHelper();
 			initial ~= ne;
 			foreach(n; ne)
@@ -2696,6 +2790,8 @@ void main() {
 	terminal.write("test some long string to see if it wraps or what because i dont really know what it is going to do so i just want to test i think it will wrap but gotta be sure lolololololololol");
 	terminal.writefln("%d %d", terminal.cursorX, terminal.cursorY);
 
+	terminal.color(Color.DEFAULT, Color.DEFAULT);
+
 	int centerX = terminal.width / 2;
 	int centerY = terminal.height / 2;
 
@@ -3124,6 +3220,11 @@ class LineGetter {
 
 	private int lastDrawLength = 0;
 	void redraw() {
+		terminal.hideCursor();
+		scope(exit) {
+			terminal.flush();
+			terminal.showCursor();
+		}
 		terminal.moveTo(startOfLineX, startOfLineY);
 
 		auto lineLength = availableLineLength();
@@ -3536,7 +3637,7 @@ struct ScrollbackBuffer {
 	}
 
 	void clear() {
-		lines = null;
+		lines.clear();
 		clickRegions = null;
 		scrollbackPosition = 0;
 	}
@@ -3638,9 +3739,87 @@ struct ScrollbackBuffer {
 		}
 	}
 
-	// FIXME: limit scrollback lines.length
+	static struct CircularBuffer(T) {
+		T[] backing;
 
-	Line[] lines;
+		enum maxScrollback = 8192; // as a power of 2, i hope the compiler optimizes the % below to a simple bit mask...
+
+		int start;
+		int length_;
+
+		void clear() {
+			backing = null;
+			start = 0;
+			length_ = 0;
+		}
+
+		size_t length() {
+			return length_;
+		}
+
+		void opOpAssign(string op : "~")(T line) {
+			if(length_ < maxScrollback) {
+				backing.assumeSafeAppend();
+				backing ~= line;
+				length_++;
+			} else {
+				backing[start] = line;
+				start++;
+				if(start == maxScrollback)
+					start = 0;
+			}
+		}
+
+		T opIndex(int idx) {
+			return backing[(start + idx) % maxScrollback];
+		}
+		T opIndex(Dollar idx) {
+			return backing[(start + (length + idx.offsetFromEnd)) % maxScrollback];
+		}
+
+		CircularBufferRange opSlice(int startOfIteration, Dollar end) {
+			return CircularBufferRange(&this, startOfIteration, cast(int) length - startOfIteration + end.offsetFromEnd);
+		}
+		CircularBufferRange opSlice(int startOfIteration, int end) {
+			return CircularBufferRange(&this, startOfIteration, end - startOfIteration);
+		}
+		CircularBufferRange opSlice() {
+			return CircularBufferRange(&this, 0, cast(int) length);
+		}
+
+		static struct CircularBufferRange {
+			CircularBuffer* item;
+			int position;
+			int remaining;
+			this(CircularBuffer* item, int startOfIteration, int count) {
+				this.item = item;
+				position = startOfIteration;
+				remaining = count;
+			}
+
+			T front() { return (*item)[position]; }
+			bool empty() { return remaining <= 0; }
+			void popFront() {
+				position++;
+				remaining--;
+			}
+
+			T back() { return (*item)[remaining - 1 - position]; }
+			void popBack() {
+				remaining--;
+			}
+		}
+
+		static struct Dollar {
+			int offsetFromEnd;
+			Dollar opBinary(string op : "-")(int rhs) {
+				return Dollar(offsetFromEnd - rhs);
+			}
+		}
+		Dollar opDollar() { return Dollar(0); }
+	}
+
+	CircularBuffer!Line lines;
 	string name;
 
 	int x, y, width, height;
@@ -3770,7 +3949,7 @@ struct ScrollbackBuffer {
 		// second pass: actually draw it
 		int linePos = remaining;
 
-		foreach(idx, line; lines[start .. start + howMany]) {
+		foreach(line; lines[start .. start + howMany]) {
 			int written = 0;
 
 			if(linePos < 0) {
