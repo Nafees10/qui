@@ -38,3 +38,9 @@ dub --build=release --config=demo qui
 ```
 
 This will run the demo program.
+
+---
+
+## License
+QUI is licensed under the MIT license - see [LICENSE](LICENSE).  
+It also uses [Adam D. Ruppe](https://github.com/adamdruppe)'s [terminal.d](https://github.com/adamdruppe/arsd/blob/master/terminal.d) which is licensed under the Boost License - see `source/arsd/LICENSE`
