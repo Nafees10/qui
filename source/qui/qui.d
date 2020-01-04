@@ -7,90 +7,29 @@ module qui.qui;
 import std.datetime.stopwatch;
 import utils.misc;
 import std.conv : to;
-import termbox;
+import qui.termwrap;
 
 import qui.utils;
 
 /// How much time between each timer event
 const ushort TIMER_MSECS = 500;
-/// If a widget registers itself as keyHandler for either of these keys, the keyboardEvent for _activeWidget will also be called 
-/// when these keys are tirggered, along with handler's keyboardEvent
-const UNCATCHABLE_KEYS = [Key.space, Key.backspace, Key.tab];
 /// the default foreground color
-const Color DEFAULT_FG = Color.green;
+const Color DEFAULT_FG = Color.white;
 /// the default background color
 const Color DEFAULT_BG = Color.black;
 
 /// Available colors are in this enum
-public import termbox : Color;
+public alias Color = qui.termwrap.Color;
 /// Availabe Keys (keyboard) for input
-public import termbox : Key;
-
-///Mouse Click, or Ms Wheel scroll event
-///
-///The mouseEvent function is called with this.
-struct MouseEvent{
-	///Types of buttons
-	enum Button{
-		Left,/// Left mouse button
-		ScrollUp,/// MS wheel was scrolled up
-		ScrollDown,/// MS wheel was scrolled down
-		Right,/// Right mouse button was pressed
-	}
-	///Stores which button was pressed
-	Button button;
-	/// the x-axis of mouse cursor, 0 means left-most
-	uinteger x;
-	/// the y-axis of mouse cursor, 0 means top-most
-	uinteger y;
-	/// Returns: a string representation of MouseClick, in JSON
-	string tostring(){
-		return "{button:"~to!string(button)~",x:"~to!string(x)~",y:"~to!string(y)~"}";
-	}
-}
-
-///Key press event, keyboardEvent function is called with this
-struct KeyboardEvent{
-	/// which character was entered
-	char charKey;
-	/// which key was pressed, only valid if `charKey == 0`, or if reported char is also present in enum `Key`
-	Key key;
-	/// Returns: true if the pressed key is not a character
-	/// 
-	/// Enter (`\n`), Tab (`\t`), backsace (`\b`), and space (` `) are considered characters too
-	@property bool isChar(){
-		if (charKey)
-			return true;
-		return false;
-	}
-	/// Returns: a string representation of KeyPress, in JSON
-	string tostring(){
-		if (isChar){
-			return "{charKey:"~cast(char)charKey~'}';
-		}
-		return "{key:"~to!string(key)~'}';
-	}
-	/// constructor to construct from termbox.Event
-	private this(Event e){
-		if (e.ch == 0){
-			this.charKey = 0;
-			this.key = cast(Key)e.key;
-			if (this.key == Key.space)
-				charKey = cast(dchar)' ';
-			else if (this.key == Key.backspace || this.key == Key.backspace2)
-				charKey = cast(dchar)'\b';
-			else if (this.key == Key.tab)
-				charKey = cast(dchar)'\t';
-			else if (this.key == Key.enter)
-				charKey = cast(dchar)'\n';
-		}else{
-			this.charKey = to!char(cast(dchar)e.ch);
-		}
-	}
-}
+public alias Key = qui.termwrap.Event.Keyboard.Key;
+/// Mouse Event
+public alias MouseEvent = Event.Mouse;
+/// Keyboard Event
+public alias KeyboardEvent = Event.Keyboard;
 
 /// Used to store position for widgets
 struct Position{
+	/// x and u position
 	integer x = 0, y = 0;
 	/// Returns: a string representation of Position
 	string tostring(){
@@ -190,7 +129,7 @@ protected:
 	bool _wantsTab = false;
 	/// whether the widget wants input
 	bool _wantsInput = false;
-	/// the interface used to "talk" to the terminal, for example, to change the cursor position etc
+	/// the interface used to "talk" to the terminal
 	QTermInterface _termInterface = null;
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
@@ -220,7 +159,7 @@ protected:
 	/// 		// code to handle this event here
 	/// 	}
 	/// ```
-	void init(){
+	void initialize(){
 		if (_customInitEvent)
 			_customInitEvent(this);
 	}
@@ -295,7 +234,7 @@ protected:
 			_customTimerEvent(this);
 	}
 public:
-	/// use to change the custom init event
+	/// use to change the custom initialize event
 	@property InitFunction onInitEvent(InitFunction func){
 		return _customInitEvent = func;
 	}
@@ -358,10 +297,6 @@ public:
 }
 
 ///Used to place widgets in an order (i.e vertical or horizontal)
-///
-///The QTerminal is also a layout, basically.
-///
-///Name in theme: 'layout';
 class QLayout : QWidget{
 private:
 	/// array of all the widgets that have been added to this layout
@@ -381,7 +316,7 @@ private:
 				if (widget.show){
 					// calculate width or height
 					uinteger newSpace = ratioToRaw(widget._sizeRatio, totalRatio, totalSpace);
-					uinteger calculatedSpace = newSpace;
+					const uinteger calculatedSpace = newSpace;
 					//apply size
 					static if (T == QLayout.Type.Horizontal){
 						widget.size.height = _size.height;
@@ -414,7 +349,6 @@ private:
 			assert(false);
 		}
 		uinteger previousSpace = (T == QLayout.Type.Horizontal ? _position.x : _position.y);
-		uinteger fixedPoint = (T == QLayout.Type.Horizontal ? _position.y : _position.x);
 		foreach(widget; widgets){
 			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
@@ -504,6 +438,7 @@ public:
 	}
 }
 
+/// Used by widgets to draw on terminal & etc
 class QTermInterface{
 private:
 	/// The QTerminal
@@ -530,16 +465,16 @@ private:
 		_restrictY1 = y;
 		_restrictY2 = y + height;
 		// move to position
-		setCursor(cast(int)x, cast(int)y);
+		_qterminal._termWrap.moveCursor(cast(int)x, cast(int)y);
 		_cursorPos = Position(x, y);
 		return true;
 	}
 	/// called by QTerminal after all updating is finished, and right before checking for more events
 	void updateFinished(){
 		// set cursor position
-		setCursor(cast(int)_postUpdateCursorPos.x, cast(int)_postUpdateCursorPos.y);
+		_qterminal._termWrap.moveCursor(cast(int)_postUpdateCursorPos.x, cast(int)_postUpdateCursorPos.y);
 		// flush
-		flush();
+		_qterminal._termWrap.flush();
 	}
 	/// called by QTerminal right before starting to update widgets
 	void updateStarted(){
@@ -547,6 +482,7 @@ private:
 		_postUpdateCursorPos = Position(-1,-1);
 	}
 public:
+	/// Constructor
 	this(QTerminal term){
 		_qterminal = term;
 	}
@@ -562,9 +498,9 @@ public:
 		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
 			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
 				if (c[i] == '\t')
-					setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(' '), fg, bg);
+					_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y,' ', fg, bg);
 				else
-					setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)to!dchar(c[i]), fg, bg);
+					_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c[i], fg, bg);
 				i ++;
 			}
 			if (_cursorPos.x >= _restrictX2){
@@ -579,9 +515,8 @@ public:
 	/// 
 	/// `maxCount` is the maximum number of cells to fill. 0 for no limit
 	void fillLine(char c, Color fg, Color bg, uinteger maxCount = 0){
-		dchar dC = to!dchar(c);
 		for (uinteger i = 0; _cursorPos.x < _restrictX2; _cursorPos.x ++){
-			setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)dC, fg, bg);
+			_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c, fg, bg);
 			i ++;
 			if (i == maxCount)
 				break;
@@ -593,10 +528,9 @@ public:
 	}
 	/// Fills the terminal, or restricted area, with a character
 	void fill(char c, Color fg, Color bg){
-		dchar dC = to!dchar(c);
 		for (; _cursorPos.y < _restrictY2; _cursorPos.y ++){
 			for (; _cursorPos.x < _restrictX2; _cursorPos.x ++){
-				setCell(cast(int)_cursorPos.x, cast(int)_cursorPos.y, cast(uint)dC, fg, bg);
+				_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c, fg, bg);
 			}
 			_cursorPos.x = _restrictX1;
 		}
@@ -618,7 +552,7 @@ public:
 			_cursorPos.x = _restrictX2;
 		if (_cursorPos.y > _restrictY2)
 			_cursorPos.y = _restrictY2;
-		setCursor(cast(int)_cursorPos.x, cast(int)_cursorPos.y);
+		_qterminal._termWrap.moveCursor(cast(int)_cursorPos.x, cast(int)_cursorPos.y);
 		return _cursorPos;
 	}
 	/// sets position of cursor on terminal, after updating is done
@@ -647,12 +581,10 @@ public:
 }
 
 /// A terminal (as the name says).
-/// 
-/// All widgets, receives events, runs UI loop...
-/// 
-/// Name in theme: 'terminal';
 class QTerminal : QLayout{
 private:
+	/// To actually access the terminal
+	TermWrapper _termWrap;
 	/// stores the position of the cursor on terminal
 	Position _cursor;
 	/// array containing registered widgets
@@ -662,7 +594,7 @@ private:
 	// contains reference to the active widget, null if no active widget
 	QWidget _activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
-	QWidget[Key] _keysToCatch;
+	QWidget[dchar] _keysToCatch;
 	/// list of widgets requesting early `update();`
 	QWidget[] _requestingUpdate;
 
@@ -683,7 +615,7 @@ private:
 	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
 	/// 
 	/// Returns:  true on success, false on failure, which can occur because that key is already registered, or if widget is not registered
-	bool registerKeyHandler(Key key, QWidget widget){
+	bool registerKeyHandler(dchar key, QWidget widget){
 		if (key in _keysToCatch || _regdWidgets.hasElement(widget)){
 			return false;
 		}else{
@@ -765,32 +697,17 @@ private:
 	/// 
 	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
 	bool readEvent(Event event){
-		if (event.type == EventType.key){
-			if (event.key == Key.ctrlC){
-				return false;
-			}
-			KeyboardEvent kPress = KeyboardEvent(event);
+		if (event.type == Event.Type.HangupInterrupt){
+			return false;
+		}else if (event.type == Event.Type.Keyboard){
+			KeyboardEvent kPress = event.keyboard;
 			this.keyboardEvent(kPress);
-		}else if (event.type == EventType.mouse){
-			// only button clicks & scroll are events, hovering is not (at least yet)
-			MouseEvent mEvent;
-			mEvent.x = event.x;
-			mEvent.y = event.y;
-			if (event.key == Key.mouseLeft)
-				mEvent.button = MouseEvent.Button.Left;
-			else if (event.key == Key.mouseRight)
-				mEvent.button = MouseEvent.Button.Right;
-			else if (event.key == Key.mouseWheelUp)
-				mEvent.button = MouseEvent.Button.ScrollUp;
-			else if (event.key == Key.mouseWheelDown)
-				mEvent.button = MouseEvent.Button.ScrollDown;
-			else
-				return true;
-			this.mouseEvent(mEvent);
-		}else if (event.type == EventType.resize){
+		}else if (event.type == Event.Type.Mouse){
+			this.mouseEvent(event.mouse);
+		}else if (event.type == Event.Type.Resize){
 			//update self size
-			_size.height = event.h;
-			_size.width = event.w;
+			_size.height = event.resize.height;
+			_size.width = event.resize.width;
 			//call size change on all widgets
 			resizeEvent(_size);
 		}
@@ -809,8 +726,8 @@ protected:
 					//mark this widget as active
 					if (makeActive(i) && _activeWidgetIndex == i){
 						// make mouse position relative to widget position, not 0:0
-						mouse.x = mouse.x - _activeWidget._position.x;
-						mouse.y = mouse.y - _activeWidget._position.y;
+						mouse.x = mouse.x - cast(int)_activeWidget._position.x;
+						mouse.y = mouse.y - cast(int)_activeWidget._position.y;
 						//call mouseEvent
 						widget.mouseEvent(mouse);
 					}
@@ -823,18 +740,16 @@ protected:
 	override public void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == Key.esc || (key.charKey == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
+		if (key.key == Key.Escape || (cast(char)key.key == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
 			// make the next widget active
 			makeActive(_activeWidgetIndex+1);
-		}else if (key.key in _keysToCatch){
-			// this is a registered key, only a specific widget catches it
-			// check if it's in UNCATCHABLE_KEYS, if yes, the call _activeWidget's keyboard event too
-			if (UNCATCHABLE_KEYS.hasElement(key.key))
-				_activeWidget.keyboardEvent(key);
-			_keysToCatch[key.key].keyboardEvent(key);
 		}else if (_activeWidget !is null){
 			_activeWidget.keyboardEvent (key);
 		}
+		if (key.key in _keysToCatch){
+			_keysToCatch[key.key].keyboardEvent(key);
+		}
+		
 	}
 	
 	override public void update(bool force=false){
@@ -850,15 +765,18 @@ protected:
 public:
 	/// text color, and background color
 	Color textColor, backgroundColor;
+	/// constructor
 	this(QLayout.Type displayType = QLayout.Type.Vertical){
 		super(displayType);
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
 
+		_termWrap = new TermWrapper();
 		_termInterface = new QTermInterface(this);
 	}
 	~this(){
+		.destroy(_termWrap);
 		.destroy(_termInterface);
 	}
 
@@ -869,7 +787,7 @@ public:
 	void registerWidget(QWidget widget){
 		_regdWidgets ~= widget;
 		widget._termInterface = _termInterface;
-		widget.init();
+		widget.initialize();
 	}
 	/// registers widgets
 	/// 
@@ -879,17 +797,15 @@ public:
 		_regdWidgets = _regdWidgets ~ widgets.dup;
 		foreach (widget; widgets){
 			widget._termInterface = _termInterface;
-			widget.init();
+			widget.initialize();
 		}
 	}
 	
 	/// starts the UI loop
 	void run(){
 		// init termbox
-		termbox.init();
-		termbox.setInputMode(InputMode.esc | InputMode.mouse);
-		_size.width = width();
-		_size.height = height();
+		_size.width = _termWrap.width();
+		_size.height = _termWrap.height();
 		//resize all widgets
 		resizeEvent(_size);
 		//draw the whole thing
@@ -911,7 +827,7 @@ public:
 			if (_requestingUpdate.length > 0)
 				timeout = 0;
 			Event event;
-			if (peekEvent(&event, timeout) > 0){
+			if (_termWrap.getEvent(timeout, event) > 0){
 				// go through the events
 				if (!readEvent(event))
 					break;
@@ -933,7 +849,5 @@ public:
 			}
 			_requestingUpdate = [];
 		}
-		// shutdown termbox
-		shutdown();
 	}
 }

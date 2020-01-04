@@ -39,7 +39,7 @@ private:
 		}
 	}
 protected:
-	override protected void timerEvent(){
+	override void timerEvent(){
 		super.timerEvent;
 		if (maxXOffset > 0){
 			if (xOffset == maxXOffset){
@@ -58,13 +58,13 @@ protected:
 		}
 	}
 	
-	override protected void resizeEvent(Size size){
+	override void resizeEvent(Size size){
 		super.resizeEvent(size);
 		needsUpdate = true;
 		calculateMaxXOffset;
 	}
 	
-	override protected void update(bool force=false){
+	override void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			_termInterface.write(cast(char[])_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
@@ -105,7 +105,7 @@ class ProgressbarWidget : TextLabelWidget{
 private:
 	uinteger _max, _progress;
 protected:
-	override protected void update(bool force=false){
+	override void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			// if caption fits in width, center align it
@@ -117,8 +117,7 @@ protected:
 			// number of chars to be colored in barColor
 			uinteger fillCharCount = (_progress * _size.width) / _max;
 			// line number on which the caption will be written
-			uinteger captionLineNumber = this._size.height / 2;
-			for (uinteger i = 0; i < this._size.height; i ++){
+			for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
 				if (i == captionLineNumber){
 					_termInterface.write(cast(char[])text[0 .. fillCharCount], backgroundColor, barColor);
 					_termInterface.write(cast(char[])text[fillCharCount .. text.length], barColor, backgroundColor);
@@ -138,6 +137,7 @@ protected:
 public:
 	/// background color, and bar's color
 	Color backgroundColor, barColor;
+	/// constructor
 	this(uinteger max = 100, uinteger progress = 0){
 		_caption = null;
 		this.max = max;
@@ -192,7 +192,7 @@ private:
 	}
 protected:
 	/// override resize to re-scroll
-	override protected void resizeEvent(Size size){
+	override void resizeEvent(Size size){
 		super.resizeEvent(size);
 		needsUpdate = true;
 		reScroll;
@@ -209,7 +209,7 @@ protected:
 		super.keyboardEvent(key);
 		if (key.isChar){
 			//insert that key
-			if (key.charKey == '\b'){
+			if (key.key == '\b'){
 				//backspace
 				if (_x > 0){
 					if (_x == _text.length){
@@ -219,28 +219,28 @@ protected:
 					}
 					_x --;
 				}
-			}else if (key.charKey != '\n'){
+			}else if (key.key != '\n'){
 				if (_x == _text.length){
 					//insert at end
-					_text ~= cast(char)key.charKey;
+					_text ~= cast(char)key.key;
 				}else{
-					_text = _text.insertElement([cast(char)key.charKey], _x);
+					_text = _text.insertElement([cast(char)key.key], _x);
 				}
 				_x ++;
 			}
 		}else{
-			if (key.key == Key.arrowLeft && _x > 0){
+			if (key.key == Key.LeftArrow && _x > 0){
 				_x --;
-			}else if (key.key == Key.arrowRight && _x < _text.length){
+			}else if (key.key == Key.RightArrow && _x < _text.length){
 				_x ++;
-			}else if (key.key == Key.del && _x < _text.length){
+			}else if (key.key == Key.Delete && _x < _text.length){
 				_text = _text.deleteElement(_x);
 			}
 		}
 		needsUpdate = true;
 		reScroll;
 	}
-	override protected void update(bool force=false){
+	override void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			_termInterface.write(this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
@@ -251,6 +251,7 @@ protected:
 public:
 	/// background, text, caption, and caption's background colors
 	Color backgroundColor, textColor;
+	/// constructor
 	this(string text = ""){
 		this._text = cast(char[])text.dup;
 		//specify min/max
@@ -343,10 +344,10 @@ private:
 		return _lines.length+1;
 	}
 protected:
-	override protected void update(bool force=false){
+	override void update(bool force=false){
 		if (needsUpdate || force){
 			needsUpdate = false;
-			uinteger count = lineCount;
+			const uinteger count = lineCount;
 			if (count > 0){
 				//write lines to memo
 				for (uinteger i = _scrollY; i < count && _termInterface.cursor.y < _size.height; i++){
@@ -360,11 +361,11 @@ protected:
 			_termInterface.setCursorPos(this, _cursorX - _scrollX, _cursorY - _scrollY);
 	}
 	
-	override protected void mouseEvent(MouseEvent mouse){
+	override void mouseEvent(MouseEvent mouse){
 		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll
-		mouse.x = mouse.x + _scrollX;
-		mouse.y = mouse.y + _scrollY;
+		mouse.x = mouse.x + cast(int)_scrollX;
+		mouse.y = mouse.y + cast(int)_scrollY;
 		if (mouse.button == mouse.Button.Left){
 			needsUpdate = true;
 			moveCursor(mouse.x, mouse.y);
@@ -387,14 +388,14 @@ protected:
 		}
 	}
 	// too big of a mess to be dealt with right now, TODO try to make this shorter
-	override protected void keyboardEvent(KeyboardEvent key){
+	override void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		if (key.isChar){
 			if (_enableEditing){
 				needsUpdate = true;
 				string currentLine = readLine(_cursorY);
 				//check if backspace
-				if (key.charKey == '\b'){
+				if (key.key == '\b'){
 					//make sure that it's not the first line, first line cannot be removed
 					if (_cursorY > 0){
 						//check if has to remove a '\n'
@@ -416,7 +417,7 @@ protected:
 						_cursorX --;
 					}
 					
-				}else if (key.charKey == '\n'){
+				}else if (key.key == '\n'){
 					//insert a newline
 					if (_cursorX == readLine(_cursorY).length){
 						if (_cursorY >= lineCount - 1){
@@ -438,18 +439,18 @@ protected:
 					}
 					_cursorY ++;
 					_cursorX = 0;
-				}else if (key.charKey == '\t'){
+				}else if (key.key == '\t'){
 					//convert it to 4 spaces
 					overwriteLine(_cursorY, cast(string)insertElement(cast(char[])currentLine,cast(char[])"    ",_cursorX));
 					_cursorX += 4;
 				}else{
 					//insert that char
-					overwriteLine(_cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.charKey],_cursorX));
+					overwriteLine(_cursorY, cast(string)insertElement(cast(char[])currentLine,[cast(char)key.key],_cursorX));
 					_cursorX ++;
 				}
 			}
 		}else{
-			if (key.key == Key.del && _enableEditing){
+			if (key.key == Key.Delete && _enableEditing){
 				needsUpdate = true;
 				//check if is deleting \n
 				if (_cursorX == readLine(_cursorY).length && _cursorY+1 < lineCount){
@@ -463,17 +464,17 @@ protected:
 					line = line.deleteElement(_cursorX);
 					overwriteLine(_cursorY, cast(string)line);
 				}
-			}else if (key.key == Key.arrowDown){
+			}else if (key.key == Key.DownArrow){
 				if (_cursorY+1 < lineCount){
 					needsUpdate = true;
 					_cursorY ++;
 				}
-			}else if (key.key == Key.arrowUp){
+			}else if (key.key == Key.UpArrow){
 				if (_cursorY > 0){
 					needsUpdate = true;
 					_cursorY --;
 				}
-			}else if (key.key == Key.arrowLeft){
+			}else if (key.key == Key.LeftArrow){
 				if ((_cursorY >= 0 && _cursorX > 0) || (_cursorY > 0 && _cursorX == 0)){
 					needsUpdate = true;
 					if (_cursorX == 0){
@@ -483,7 +484,7 @@ protected:
 						_cursorX --;
 					}
 				}
-			}else if (key.key == Key.arrowRight){
+			}else if (key.key == Key.RightArrow){
 				needsUpdate = true;
 				if (_cursorX == readLine(_cursorY).length){
 					if (_cursorY+1 < lineCount){
@@ -501,8 +502,9 @@ protected:
 		reScroll();
 	}
 public:
-	// background and text colors
+	/// background and text colors
 	Color backgroundColor, textColor;
+	/// constructor
 	this(bool editable = true){
 		_lines = new List!string;
 		_scrollX = 0;
@@ -558,7 +560,7 @@ private:
 
 	/// Returns: how many cells in height will a string take (due to wrapping of long lines)
 	uinteger lineHeight(string s){
-		uinteger width = this._size.width;
+		const uinteger width = this._size.width;
 		uinteger widthTaken = 0, count = 1;
 		for (uinteger i = 0; i < s.length; i++){
 			widthTaken ++;
@@ -571,7 +573,8 @@ private:
 	}
 	/// Returns: wrapped lines
 	string[] wrapLine(string s){
-		uinteger width = this._size.width, widthTaken = 0;
+		const uinteger width = this._size.width;
+		uinteger widthTaken = 0;
 		string[] r;
 		for (uinteger i = 0, startIndex = 0, endIndex = s.length-1; i < s.length; i ++){
 			widthTaken ++;
@@ -585,10 +588,9 @@ private:
 	}
 	/// Returns: lines to be displayed
 	string[] displayedLines(){
-		uinteger maxHeight = this._size.height;
-		uinteger availableHeight = maxHeight;
+		uinteger availableHeight = this._size.height;
 		string[] r;
-		r.length = maxHeight;
+		r.length = this._size.height;
 		for (integer i = _logs.length - 1, index = r.length-1; i >= 0 && index >= 0; i --){
 			string[] line = wrapLine(_logs.read(i));
 			if (line.length > availableHeight)
@@ -603,7 +605,7 @@ private:
 		return r;
 	}
 protected:
-	override protected void update(bool force){
+	override void update(bool force){
 		if (needsUpdate || force){
 			needsUpdate = false;
 			string[] lines = displayedLines();
@@ -618,13 +620,14 @@ protected:
 		}
 	}
 	
-	override protected void resizeEvent(Size size) {
+	override void resizeEvent(Size size) {
 		super.resizeEvent(size);
 		needsUpdate = true;
 	}
 public:
 	/// background and text color
 	Color backgroundColor, textColor;
+	/// constructor
 	this(uinteger maxLen=200){
 		_maxLines = maxLen;
 		_logs = new List!string;
@@ -666,19 +669,21 @@ private:
 	/// whether it needs an update or not
 	bool needsUpdate = true;
 protected:
-	override protected void resizeEvent(Size size) {
+	override void resizeEvent(Size size) {
 		super.resizeEvent(size);
 		needsUpdate = true;
 	}
 	
-	override protected void update(bool force = false) {
+	override void update(bool force = false) {
 		if (needsUpdate || force){
 			needsUpdate = false;
 			_termInterface.fill(' ',DEFAULT_FG, color);
 		}
 	}
 public:
+	/// color of this widget
 	Color color;
+	/// constructor
 	this(){
 		this.color = DEFAULT_BG;
 	}
