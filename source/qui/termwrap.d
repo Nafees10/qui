@@ -159,8 +159,7 @@ public:
 	}
 	~this(){
 		_term.clear;
-		.destroy(_input);
-		.destroy(_term);
+		_term.reset;
 	}
 	/// Returns: width of termial
 	@property int width(){
@@ -246,16 +245,13 @@ public:
 				}
 				if (e.type == InputEvent.Type.MouseEvent){
 					MouseEvent mouseE = e.get!(InputEvent.Type.MouseEvent);
-					if (mouseE.eventType == MouseEvent.Type.Clicked || mouseE.eventType == MouseEvent.Type.Moved){
-						event = Event(Event.Mouse(mouseE));
-						return true;
-					}
+					event = Event(Event.Mouse(mouseE));
+					return true;
 				}else if (e.type == InputEvent.Type.SizeChangedEvent){
 					SizeChangedEvent resize = e.get!(InputEvent.Type.SizeChangedEvent);
 					event = Event(Event.Resize(resize.newWidth, resize.newHeight));
 					return true;
 				}
-
 			}
 		}
 		sw.stop;
