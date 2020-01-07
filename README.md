@@ -41,6 +41,12 @@ This will build the demo program, binary will be named `quidemo`.
 
 ---
 
+## Upcoming Features
+
+* `QLayout` will manage scrolling instead of widgets.
+
+---
+
 ## License
 QUI is licensed under the MIT license - see [LICENSE](LICENSE).  
 It also uses [Adam D. Ruppe](https://github.com/adamdruppe)'s [terminal.d](https://github.com/adamdruppe/arsd/blob/master/terminal.d) which is licensed under the Boost License - see `source/arsd/LICENSE`.
