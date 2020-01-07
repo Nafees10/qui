@@ -479,7 +479,7 @@ private:
 	/// called by QTerminal right before starting to update widgets
 	void updateStarted(){
 		// set cursor position to (-1,-1), so if not set, its not visible
-		_postUpdateCursorPos = Position(-1,-1);
+		_qterminal._termWrap.cursorVisible = false;
 	}
 public:
 	/// Constructor
@@ -564,6 +564,7 @@ public:
 		if (_qterminal.isActive(caller)){
 			_postUpdateCursorPos.x = _qterminal._activeWidget._position.x + x;
 			_postUpdateCursorPos.y = _qterminal._activeWidget._position.y + y;
+			_qterminal._termWrap.cursorVisible = true;
 			return true;
 		}
 		return false;
