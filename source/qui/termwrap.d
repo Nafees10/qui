@@ -198,8 +198,8 @@ public:
 	/// Moves to (x,y), and writes a string
 	/// flush to terminal
 	void flush(){
-		_term.moveTo(width+1, height+1);
-		_term.hideCursor();
+		//_term.moveTo(width+1, height+1);
+		//_term.hideCursor();
 		_term.flush();
 	}
 	/// writes a character `ch` at a position `(x, y)`
