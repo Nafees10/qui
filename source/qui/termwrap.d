@@ -174,9 +174,9 @@ public:
 		_term.color(fg, bg);
 	}
 	/// fills all cells with a character
-	void fill(char ch){
+	void fill(dchar ch){
 		const int _w = width, _h = height;
-		char[] line;
+		dchar[] line;
 		line.length = _w;
 		line[] = ch;
 		// write line _h times
@@ -186,8 +186,8 @@ public:
 		}
 	}
 	/// fills a rectangle with a character
-	void fill(char ch, int x1, int x2, int y1, int y2){
-		char[] line;
+	void fill(dchar ch, int x1, int x2, int y1, int y2){
+		dchar[] line;
 		line.length = (x2 - x1) + 1;
 		line[] = ch;
 		foreach(i; y1 .. y2 +1){
@@ -203,12 +203,12 @@ public:
 		_term.flush();
 	}
 	/// writes a character `ch` at a position `(x, y)`
-	void put(int x, int y, char ch){
+	void put(int x, int y, dchar ch){
 		_term.moveTo(x, y);
 		_term.write(ch);
 	}
 	/// writes a character `ch` at a position `(x, y)` with `fg` as foreground ang `bg` as background color
-	void put(int x, int y, char ch, Color fg, Color bg){
+	void put(int x, int y, dchar ch, Color fg, Color bg){
 		_term.color(fg, bg);
 		_term.moveTo(x, y);
 		_term.write(ch);
