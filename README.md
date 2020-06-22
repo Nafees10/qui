@@ -34,7 +34,7 @@ The included demo configuration (`source/demo.d`) demonstrates the usage of all 
 
 ```bash
 dub fetch qui
-dub --build=release --config=demo qui
+dub --build=release --config=quidemo qui
 ```
 
 This will build the demo program, binary will be named `quidemo`.

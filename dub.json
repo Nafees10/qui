@@ -13,7 +13,7 @@
 			"targetName": "qui"
 		},
 		{
-			"name": "demo",
+			"name": "quidemo",
 			"targetType": "executable",
 			"targetName": "quidemo",
 			"versions": ["demo"]
