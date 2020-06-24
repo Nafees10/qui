@@ -13,6 +13,7 @@ QUI is a widget based Text User Interface library for the [D Language](http://dl
 1. Timer Events
 1. Support for mouse events
 1. Most, if not all, of the code is commented
+1. Unicode characters supported
 
 ---
 
