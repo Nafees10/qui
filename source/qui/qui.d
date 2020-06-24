@@ -494,7 +494,7 @@ public:
 	/// 
 	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped.  
 	/// **and tab character is not supported, as in it will be read as a single space character. `'\t' = ' '`**
-	void write(char[] c, Color fg, Color bg){
+	void write(dstring c, Color fg, Color bg){
 		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
 			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
 				if (c[i] == '\t')
@@ -514,7 +514,7 @@ public:
 	/// Fills the remaining part of curent line with `c`
 	/// 
 	/// `maxCount` is the maximum number of cells to fill. 0 for no limit
-	void fillLine(char c, Color fg, Color bg, uinteger maxCount = 0){
+	void fillLine(dchar c, Color fg, Color bg, uinteger maxCount = 0){
 		for (uinteger i = 0; _cursorPos.x < _restrictX2; _cursorPos.x ++){
 			_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c, fg, bg);
 			i ++;
@@ -527,7 +527,7 @@ public:
 		}
 	}
 	/// Fills the terminal, or restricted area, with a character
-	void fill(char c, Color fg, Color bg){
+	void fill(dchar c, Color fg, Color bg){
 		for (; _cursorPos.y < _restrictY2; _cursorPos.y ++){
 			for (; _cursorPos.x < _restrictX2; _cursorPos.x ++){
 				_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c, fg, bg);
@@ -741,7 +741,7 @@ protected:
 	override public void keyboardEvent(KeyboardEvent key){
 		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == Key.Escape || (cast(char)key.key == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
+		if (key.key == Key.Escape || (key.key == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
 			// make the next widget active
 			makeActive(_activeWidgetIndex+1);
 		}else if (_activeWidget !is null){

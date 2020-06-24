@@ -38,7 +38,13 @@ version(demo){
 
 			// prepare the layout in for the Memo and log
 			hLayout.addWidget([memo, split, log]);
-			memo.lines.loadArray(fileToArray(dirName(thisExePath)~dirSeparator~"README.md"));
+			{
+				string[] lines = fileToArray(dirName(thisExePath)~dirSeparator~"README.md");
+				foreach (line; lines){
+					memo.lines.append(line.to!dstring);
+				}
+			}
+			//memo.lines.loadArray(fileToArray(dirName(thisExePath)~dirSeparator~"README.md"));
 			memo.wantsTab = false;
 			split.size.maxWidth = 1;
 			split.color = Color.blue;
@@ -71,7 +77,7 @@ version(demo){
 					owner.progress = owner.progress + 1;
 				else
 					owner.progress = owner.progress -1;
-				log.add("progress: "~to!string(owner.progress));
+				log.add("progress: "~to!dstring(owner.progress));
 			};
 		}
 		~this(){

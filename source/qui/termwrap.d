@@ -195,7 +195,6 @@ public:
 			_term.write(line);
 		}
 	}
-	/// Moves to (x,y), and writes a string
 	/// flush to terminal
 	void flush(){
 		//_term.moveTo(width+1, height+1);

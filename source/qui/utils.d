@@ -19,22 +19,22 @@ import std.conv : to;
 /// * `width` is the number of characters that are to be displayed
 /// 
 /// Returns: the text that should be displayed
-string scrollHorizontal(string line, integer xOffset, uinteger width){
-	char[] r;
+dstring scrollHorizontal(dstring line, integer xOffset, uinteger width){
+	dchar[] r;
 	if (xOffset == 0){
 		// in case it has to do nothing, 
-		r = cast(char[])line[0 .. width > line.length ? line.length : width].dup;
+		r = cast(dchar[])line[0 .. width > line.length ? line.length : width].dup;
 	}else if (xOffset > 0){
 		// only do something if it's not scrolled too far for the line to be even displayed
 		if (xOffset < line.length){
-			r = cast(char[])line[xOffset .. line.length].dup;
+			r = cast(dchar[])line[xOffset .. line.length].dup;
 		}
 	}else if (xOffset < 0){
 		// only do something if it's not scrolled too far for the line to be even displayed
 		if (cast(integer)(line.length) + xOffset > 0){
 			r.length = xOffset * -1;
 			r[] = ' ';
-			r = r ~ cast(char[])line.dup;
+			r = r ~ cast(dchar[])line.dup;
 		}
 	}
 	if (r.length < width){
@@ -44,7 +44,7 @@ string scrollHorizontal(string line, integer xOffset, uinteger width){
 	}else if (r.length > width){
 		r.length = width;
 	}
-	return cast(string)r;
+	return cast(dstring)r;
 }
 /// 
 unittest{
@@ -58,8 +58,12 @@ unittest{
 }
 
 /// ditto
+dchar[] scrollHorizontal(dchar[] line, integer xOffset, uinteger width){
+	return cast(dchar[])(cast(dstring)line).scrollHorizontal(xOffset, width);
+}
+/// ditto
 char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
-	return cast(char[])(cast(string)line).scrollHorizontal(xOffset, width);
+	return cast(char[])(cast(dstring)line).scrollHorizontal(xOffset, width);
 }
 
 /// Adjusts offset (aka _scrollX or _scrollY) in scrolling so the selected character is visible TODO: FIX THIS
@@ -93,8 +97,8 @@ void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWi
 /// If `text.length > width`, the exceeding characters are removed
 /// 
 /// Returns: the text center aligned in a string
-string centerAlignText(string text, uinteger width, char fill = ' '){
-	char[] r;
+dstring centerAlignText(dstring text, uinteger width, dchar fill = ' '){
+	dchar[] r;
 	if (text.length < width){
 		r.length = width;
 		uinteger offset = (width - text.length)/2;
@@ -102,9 +106,9 @@ string centerAlignText(string text, uinteger width, char fill = ' '){
 		r[offset .. offset+text.length][] = text;
 		r[offset+text.length .. r.length] = fill;
 	}else{
-		r = cast(char[])text[0 .. width].dup;
+		r = cast(dchar[])text[0 .. width].dup;
 	}
-	return cast(string)r;
+	return cast(dstring)r;
 }
 ///
 unittest{
