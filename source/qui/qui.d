@@ -93,18 +93,18 @@ struct Size{
 	}
 }
 
-/// mouseEvent function
-alias MouseEventFuction = void delegate(QWidget, MouseEvent);
-///keyboardEvent function
-alias KeyboardEventFunction = void delegate(QWidget, KeyboardEvent);
-/// resizeEvent function
-alias ResizeEventFunction = void delegate(QWidget, Size);
-/// activateEvent function
-alias ActivateEventFunction = void delegate(QWidget, bool);
-/// TimerEvent function
-alias TimerEventFunction = void delegate(QWidget);
-/// Init function
-alias InitFunction = void delegate(QWidget);
+/// mouseEvent function. Return true if the event should be dropped
+alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
+///keyboardEvent function. Return true if the event should be dropped
+alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent);
+/// resizeEvent function. Return true if the event should be dropped
+alias ResizeEventFunction = bool delegate(QWidget, Size);
+/// activateEvent function. Return true if the event should be dropped
+alias ActivateEventFunction = bool delegate(QWidget, bool);
+/// TimerEvent function. Return true if the event should be dropped
+alias TimerEventFunction = bool delegate(QWidget, uinteger);
+/// Init function. Return true if the event should be dropped
+alias InitFunction = bool delegate(QWidget);
 
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -116,6 +116,38 @@ private:
 	/// 
 	/// This is private so it won't be modified by the widget, only classes present in this module are concerned with it
 	Position _position;
+	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
+	integer _activeWidgetIndex = 0;
+	/// called by owner for initialize event
+	void initializeCall(){
+		if (!_customInitEvent || !_customInitEvent(this))
+			this.initialize();
+	}
+	/// called by owner for mouseEvent
+	void mouseEventCall(MouseEvent mouse){
+		if (!_customMouseEvent || !_customMouseEvent(this, mouse))
+			this.mouseEvent(mouse);
+	}
+	/// called by owner for keyboardEvent
+	void keyboardEventCall(KeyboardEvent key){
+		if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
+			this.keyboardEvent(key);
+	}
+	/// called by owner for resizeEvent
+	void resizeEventCall(Size size){
+		if (!_customResizeEvent || !_customResizeEvent(this, size))
+			this.resizeEvent(size);
+	}
+	/// called by owner for activateEvent
+	void activateEventCall(bool isActive){
+		if (!_customActivateEvent || !_customActivateEvent(this, isActive))
+			this.activateEvent(isActive);
+	}
+	/// called by owner for mouseEvent
+	void timerEventCall(uinteger msecs){
+		if (!_customTimerEvent || !_customTimerEvent(this, msecs))
+			this.timerEvent(msecs);
+	}
 protected:
 	///size of this widget
 	Size _size;
@@ -131,6 +163,11 @@ protected:
 	bool _wantsInput = false;
 	/// the interface used to "talk" to the terminal
 	QTermInterface _termInterface = null;
+
+	/// For cycling between widgets. Returns false, always.
+	bool cycleActiveWidget(){
+		return false;
+	}
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
 	InitFunction _customInitEvent;
@@ -150,89 +187,18 @@ protected:
 	/// If `force==true`, then the widget must update, whether it needs to or not
 	abstract void update(bool force=false);
 
-	/// Called by QTerminal after `_termInterface` has been set and this widget is registered
-	/// 
-	/// Must be inherited like:
-	/// ```
-	/// 	override void init(){
-	/// 		super.mouseEvent(mouse);
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	void initialize(){
-		if (_customInitEvent)
-			_customInitEvent(this);
-	}
-
+	/// Called by QTerminal after `_termInterface` has been set and this widget is ready to be used
+	abstract void initialize();
 	/// Called by parent when mouse is clicked with cursor on this widget.
-	/// 
-	/// Must be inherited like:
-	/// ```
-	/// 	override void mouseEvent(MouseClick mouse){
-	/// 		super.mouseEvent(mouse);
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	void mouseEvent(MouseEvent mouse){
-		if (_customMouseEvent !is null)
-			_customMouseEvent(this, mouse);
-	}
-	
+	abstract void mouseEvent(MouseEvent mouse);
 	/// Called by parent when key is pressed and this widget is active.
-	/// 
-	/// Must be inherited like:
-	/// ```
-	/// 	override void keyboardEvent(KeyPress key){
-	/// 		super.keyboardEvent(key);
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	void keyboardEvent(KeyboardEvent key){
-		if (_customKeyboardEvent !is null)
-			_customKeyboardEvent(this, key);
-	}
-
+	abstract void keyboardEvent(KeyboardEvent key);
 	/// Called by parent when widget size is changed.
-	/// 
-	/// Must be inherited like:
-	/// ```
-	/// 	override void resizeEvent(Size size){
-	/// 		super.resizeEvent(size);
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	void resizeEvent(Size size){
-		if (_customResizeEvent !is null)
-			_customResizeEvent(this, size);
-	}
-
+	abstract void resizeEvent(Size size);
 	/// called by QTerminal right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
-	/// 
-	/// Must be inherited, only if inherited, like:
-	/// ```
-	/// 	override void activateEvent(bool activated){
-	/// 		super.activateEvent(activated);
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	void activateEvent(bool isActive){
-		if (_customActivateEvent)
-			_customActivateEvent(this, isActive);
-	}
-
-	/// called by QTerminal every 500ms, not accurate
-	/// 
-	/// Must be inherited, only if inherited, like:
-	/// ```
-	/// 	override void timerEvent(){
-	/// 		super.timerEvent();
-	/// 		// code to handle this event here
-	/// 	}
-	/// ```
-	void timerEvent(){
-		if (_customTimerEvent)
-			_customTimerEvent(this);
-	}
+	abstract void activateEvent(bool isActive);
+	/// called by QTerminal often. `msecs` is the msecs since last timerEvent, not accurate
+	abstract void timerEvent(uinteger msecs);
 public:
 	/// use to change the custom initialize event
 	@property InitFunction onInitEvent(InitFunction func){
@@ -367,7 +333,6 @@ protected:
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
 	override void resizeEvent(Size size){
-		super.resizeEvent(_size);
 		uinteger ratioTotal;
 		foreach(w; _widgets){
 			if (w.show){
@@ -388,16 +353,42 @@ protected:
 	
 	/// Redirects the mouseEvent to the appropriate widget
 	override public void mouseEvent(MouseEvent mouse) {
-		super.mouseEvent(mouse);
-		foreach (widget; _widgets){
-			if (widget.show && widget._wantsInput &&
-				mouse.x >= widget._position.x && mouse.x < widget._position.x + widget.size.width &&
-				mouse.y >= widget._position.y && mouse.y < widget._position.y + widget.size.height){
-				// make it active, and call it's mouseEvent
-				if (_termInterface._qterminal.makeActive(widget))
+		/// first check if it's already inside active widget, might not have to search through each widget
+		QWidget activeWidget = null;
+		if (_activeWidgetIndex > -1)
+			activeWidget = _widgets[_activeWidgetIndex];
+		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x + activeWidget.size.width 
+		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget.size.height){
+			activeWidget.mouseEvent(mouse);
+		}else{
+			foreach (i, widget; _widgets){
+				if (widget.show && widget._wantsInput &&
+					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget.size.width &&
+					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget.size.height){
+					// make it active, and call it's mouseEvent
+					_activeWidgetIndex = i;
 					widget.mouseEvent(mouse);
-				break;
+					break;
+				}
 			}
+		}
+	}
+
+	/// Redirects the keyboardEvent to appropriate widget
+	override public void keyboardEvent(KeyboardEvent key){
+		// check if need to cycle
+		if ((key.key == '\t' && (_activeWidgetIndex == -1 || !_widgets[_activeWidgetIndex].wantsTab)) || 
+		key.key == KeyboardEvent.Key.Escape){
+			cycleActiveWidget();
+		}else if (_activeWidgetIndex > -1){
+			_widgets[_activeWidgetIndex].keyboardEventCall(key);
+		}
+	}
+
+	/// override initialize to initliaze child widgets
+	override void initialize(){
+		foreach (widget; _widgets){
+			widget._termInterface = _termInterface;
 		}
 	}
 	
@@ -410,7 +401,32 @@ protected:
 			}
 		}
 	}
-	
+	/// called to cycle between actveWidgets.
+	/// 
+	/// Returns: true if cycled to another widget, false if _activeWidgetIndex set to -1
+	override bool cycleActiveWidget(){
+		// check if need to cycle within current active widget
+		if (_activeWidgetIndex == -1 || _widgets[_activeWidgetIndex].cycleActiveWidget()){
+			integer lastActiveWidgetIndex = _activeWidgetIndex;
+			if (_activeWidgetIndex < 0)
+				_activeWidgetIndex = 0;
+			for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
+				QWidget widget = _widgets[_activeWidgetIndex];
+				if (widget.wantsInput){
+					break;
+				}
+			}
+			if (_activeWidgetIndex >= _widgets.length)
+				_activeWidgetIndex = -1;
+			if (lastActiveWidgetIndex != _activeWidgetIndex){
+				if (lastActiveWidgetIndex > -1)
+					_widgets[lastActiveWidgetIndex].activateEventCall(false);
+				if (_activeWidgetIndex > -1)
+					_widgets[_activeWidgetIndex].activateEventCall(true);
+			}
+		}
+		return _activeWidgetIndex != -1;
+	}
 public:
 	/// Layout type
 	enum Type{
@@ -420,6 +436,22 @@ public:
 	/// constructor
 	this(QLayout.Type type){
 		_type = type;
+	}
+	/// Returns: whether the widget is receiving the Tab key press or not
+	override @property bool wantsTab(){
+		foreach (widget; _widgets){
+			if (widget.wantsTab)
+				return true;
+		}
+		return false;
+	}
+	/// Returns: true if the widget wants input
+	override @property bool wantsInput(){
+		foreach (widget; _widgets){
+			if (widget.wantsInput)
+				return true;
+		}
+		return false;
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
@@ -485,10 +517,6 @@ public:
 	/// Constructor
 	this(QTerminal term){
 		_qterminal = term;
-	}
-	/// Returns: true if the caller widget is _activeWidget
-	bool isActive(QWidget caller){
-		return _qterminal.isActive(caller);
 	}
 	/// Writes characters on terminal
 	/// 
@@ -560,14 +588,10 @@ public:
 	/// position is relative to caller widget's position.
 	/// 
 	/// Returns: true if successful, false if not
-	bool setCursorPos(QWidget caller, uinteger x, uinteger y){
-		if (_qterminal.isActive(caller)){
-			_postUpdateCursorPos.x = _qterminal._activeWidget._position.x + x;
-			_postUpdateCursorPos.y = _qterminal._activeWidget._position.y + y;
-			_qterminal._termWrap.cursorVisible = true;
-			return true;
-		}
-		return false;
+	void setCursorPos(QWidget caller, uinteger x, uinteger y){
+		_postUpdateCursorPos.x = caller._position.x + x;
+		_postUpdateCursorPos.y = caller._position.y + y;
+		_qterminal._termWrap.cursorVisible = true;
 	}
 	/// Registers a keypress to a QWidget. When that key is pressed, the keyboardEvent of that widget will be called, regardless of _activeWidget
 	/// 
@@ -586,32 +610,10 @@ class QTerminal : QLayout{
 private:
 	/// To actually access the terminal
 	TermWrapper _termWrap;
-	/// stores the position of the cursor on terminal
-	Position _cursor;
-	/// array containing registered widgets
-	QWidget[] _regdWidgets;
-	/// stores the index of the active widget, which is in `_regdWidgets`, it will be -1 if none is active
-	integer _activeWidgetIndex = -1;
-	// contains reference to the active widget, null if no active widget
-	QWidget _activeWidget;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[dchar] _keysToCatch;
 	/// list of widgets requesting early `update();`
 	QWidget[] _requestingUpdate;
-
-	/// Called by QTermInterface to position the cursor, only the _activeWidget can change the cursorPos
-	/// 
-	/// the cursor position is relative to caller widget's position
-	/// 
-	/// Returns: true on success, false on failure
-	bool setCursorPos(uinteger x, uinteger y, QWidget callerWidget){
-		if (_activeWidget && callerWidget == _activeWidget){
-			_cursor.x = _activeWidget._position.x + x;
-			_cursor.y = _activeWidget._position.y + y;
-			return true;
-		}
-		return false;
-	}
 
 	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
 	/// 
@@ -717,7 +719,6 @@ private:
 
 protected:
 	override public void mouseEvent(MouseEvent mouse){
-		super.mouseEvent(mouse);
 		foreach (i, widget; _regdWidgets){
 			if (widget.show && widget.wantsInput){
 				Position p = widget._position;
@@ -739,7 +740,6 @@ protected:
 	}
 	
 	override public void keyboardEvent(KeyboardEvent key){
-		super.keyboardEvent(key);
 		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
 		if (key.key == Key.Escape || (key.key == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
 			// make the next widget active
