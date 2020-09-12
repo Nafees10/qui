@@ -38,16 +38,21 @@ dub fetch qui
 dub --build=release --config=quidemo qui
 ```
 
-This will build the demo program, binary will be named `quidemo`.
+This will build the demo program, binary will be named `quidemo`. To run the demo, either `cd` to the directory and run `./quidemo` or do:  
+```bash
+dub run qui -b=release -c=quidemo
+```
 
 ---
 
 ## Upcoming Features
 
 * `QLayout` will manage scrolling instead of widgets.
+* ability to change how often timer events is called.
+* remove having to register widgets with `QTerminal`.
 
 ---
 
 ## License
 QUI is licensed under the MIT license - see [LICENSE](LICENSE).  
-It also uses [Adam D. Ruppe](https://github.com/adamdruppe)'s [terminal.d](https://github.com/adamdruppe/arsd/blob/master/terminal.d) which is licensed under the Boost License - see `source/arsd/LICENSE`.
+QUI uses [Adam D. Ruppe](https://github.com/adamdruppe)'s [terminal.d](https://github.com/adamdruppe/arsd/blob/master/terminal.d) which is licensed under the Boost License - see `source/arsd/LICENSE`.
