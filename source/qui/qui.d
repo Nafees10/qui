@@ -165,7 +165,7 @@ protected:
 	QTermInterface _termInterface = null;
 
 	/// For cycling between widgets. Returns false, always.
-	bool cycleActiveWidget(){
+	bool cycleActiveWidget(bool forward = true){
 		return false;
 	}
 
@@ -404,20 +404,30 @@ protected:
 	/// called to cycle between actveWidgets.
 	/// 
 	/// Returns: true if cycled to another widget, false if _activeWidgetIndex set to -1
-	override bool cycleActiveWidget(){
+	override bool cycleActiveWidget(bool forward = true){
 		// check if need to cycle within current active widget
-		if (_activeWidgetIndex == -1 || _widgets[_activeWidgetIndex].cycleActiveWidget()){
+		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget(forward))){
 			integer lastActiveWidgetIndex = _activeWidgetIndex;
-			if (_activeWidgetIndex < 0)
-				_activeWidgetIndex = 0;
-			for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-				QWidget widget = _widgets[_activeWidgetIndex];
-				if (widget.wantsInput){
-					break;
+			if (forward){
+				if (_activeWidgetIndex < 0)
+					_activeWidgetIndex = 0;
+				for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
+					if (_widgets[_activeWidgetIndex].wantsInput)
+						break;
 				}
+				if (_activeWidgetIndex >= _widgets.length)
+					_activeWidgetIndex = -1;
+			}else if (_widgets.length > 0){
+				if (_activeWidgetIndex < 0)
+					_activeWidgetIndex = cast(integer)(_widgets.length)-1;
+				for (; _activeWidgetIndex >= 0; _activeWidgetIndex --){
+					if (_widgets[_activeWidgetIndex].wantsInput)
+						break;
+				}
+				if (_activeWidgetIndex < 0)
+					_activeWidgetIndex = -1;
 			}
-			if (_activeWidgetIndex >= _widgets.length)
-				_activeWidgetIndex = -1;
+			
 			if (lastActiveWidgetIndex != _activeWidgetIndex){
 				if (lastActiveWidgetIndex > -1)
 					_widgets[lastActiveWidgetIndex].activateEventCall(false);
@@ -619,76 +629,12 @@ private:
 	/// 
 	/// Returns:  true on success, false on failure, which can occur because that key is already registered, or if widget is not registered
 	bool registerKeyHandler(dchar key, QWidget widget){
-		if (key in _keysToCatch || _regdWidgets.hasElement(widget)){
+		if (key in _keysToCatch){
 			return false;
 		}else{
 			_keysToCatch[key] = widget;
 			return true;
 		}
-	}
-
-	/// Returns: true if a widget is active widget
-	bool isActive(QWidget widget){
-		if (_activeWidget && widget == _activeWidget){
-			return true;
-		}
-		return false;
-	}
-
-	/// makes a widget active, i.e, redirects keyboard input to a `widget`
-	/// 
-	/// Return: true on success, false on error, or if the widget isn't registered
-	bool makeActive(QWidget widget){
-		QWidget lastActiveWidget = _activeWidget;
-		foreach (i, aWidget; _regdWidgets){
-			if (widget == aWidget){
-				_activeWidgetIndex = i;
-				_activeWidget = aWidget;
-				if (lastActiveWidget != _activeWidget){
-					if (lastActiveWidget)
-						lastActiveWidget.activateEvent(false);
-					_activeWidget.activateEvent(true);
-				}
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/// makes a widget active, provided its index in _regdWidgets.
-	/// 
-	/// if that widget does not accept input, it tries to look for another widget
-	bool makeActive(uinteger widgetIndex){
-		if (_activeWidgetIndex == widgetIndex)
-			return true;
-		if (widgetIndex > _regdWidgets.length)
-			widgetIndex = 0;
-		if (widgetIndex >= 0 && widgetIndex < _regdWidgets.length){
-			integer index = -1;
-			foreach(i, widget; _regdWidgets[widgetIndex .. _regdWidgets.length]){
-				if (widget.wantsInput && widget.show){
-					index = i+widgetIndex;
-					break;
-				}
-			}
-			if (index == -1){
-				foreach(i, widget; _regdWidgets[0 .. widgetIndex]){
-					if (widget.wantsInput && widget.show){
-						index = i;
-						break;
-					}
-				}
-			}
-			if (index >= 0){
-				if (_activeWidget)
-					_activeWidget.activateEvent(false);
-				_activeWidgetIndex = index;
-				_activeWidget = _regdWidgets[_activeWidgetIndex];
-				_activeWidget.activateEvent(true);
-			}
-			return true;
-		}
-		return false;
 	}
 
 	/// adds a widget to `_requestingUpdate`, so it'll be updated right after `timerEvent`s are done with
