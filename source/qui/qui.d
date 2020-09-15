@@ -118,6 +118,8 @@ private:
 	Position _position;
 	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
 	integer _activeWidgetIndex = 0;
+	/// stores if this widget is the active widget
+	bool _isActive = false;
 	/// called by owner for initialize event
 	void initializeCall(){
 		if (!_customInitEvent || !_customInitEvent(this))
@@ -223,6 +225,10 @@ public:
 	/// use to change the custom timer event
 	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
+	}
+	/// Returns: true if this widget is the current active widget
+	@property bool isActive(){
+		return _isActive;
 	}
 	/// Returns: whether the widget is receiving the Tab key press or not
 	@property bool wantsTab(){
@@ -365,8 +371,13 @@ protected:
 				if (widget.show && widget._wantsInput &&
 					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget.size.width &&
 					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget.size.height){
-					// make it active, and call it's mouseEvent
-					_activeWidgetIndex = i;
+					// make it active only if this layout is itself active
+					if (this.isActive){
+						if (activeWidget)
+							activeWidget._isActive = false;
+						widget._isActive = true;
+						_activeWidgetIndex = i;
+					}
 					widget.mouseEvent(mouse);
 					break;
 				}
@@ -401,7 +412,7 @@ protected:
 			}
 		}
 	}
-	/// called to cycle between actveWidgets.
+	/// called to cycle between actveWidgets. This is called by owner widget
 	/// 
 	/// Returns: true if cycled to another widget, false if _activeWidgetIndex set to -1
 	override bool cycleActiveWidget(bool forward = true){
@@ -412,7 +423,7 @@ protected:
 				if (_activeWidgetIndex < 0)
 					_activeWidgetIndex = 0;
 				for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-					if (_widgets[_activeWidgetIndex].wantsInput)
+					if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
 						break;
 				}
 				if (_activeWidgetIndex >= _widgets.length)
@@ -421,7 +432,7 @@ protected:
 				if (_activeWidgetIndex < 0)
 					_activeWidgetIndex = cast(integer)(_widgets.length)-1;
 				for (; _activeWidgetIndex >= 0; _activeWidgetIndex --){
-					if (_widgets[_activeWidgetIndex].wantsInput)
+					if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
 						break;
 				}
 				if (_activeWidgetIndex < 0)
@@ -462,6 +473,37 @@ public:
 				return true;
 		}
 		return false;
+	}
+
+	/// Cycles between active widgets. If current active widget is last in the list, the first will be made active
+	/// 
+	/// does effectively nothing if no widgets added, or no widgets want input, or if this layout isn't the active widget
+	void cycleActiveWidgetLoop(bool forward = true){
+		if (this.isActive && _widgets.length > 0){
+			immutable integer lastActiveWidgetIndex = _activeWidgetIndex;
+			if (_activeWidgetIndex == -1)
+				_activeWidgetIndex = 0;
+			immutable integer startIndex = _activeWidgetIndex;
+			do{
+				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
+					break;
+				_activeWidgetIndex = _activeWidgetIndex + (forward ? 1 : -1);
+				if (_activeWidgetIndex >= _widgets.length)
+					_activeWidgetIndex = 0;
+				else if (_activeWidgetIndex < 0)
+					_activeWidgetIndex = cast(integer)_widgets.length - 1;
+			}while (_activeWidgetIndex != lastActiveWidgetIndex);
+			if (_activeWidgetIndex != lastActiveWidgetIndex){
+				if (lastActiveWidgetIndex != -1){
+					_widgets[lastActiveWidgetIndex]._isActive = false;
+					_widgets[lastActiveWidgetIndex].activateEventCall(false);
+				}
+				if (_activeWidgetIndex != -1){
+					_widgets[_activeWidgetIndex]._isActive = true;
+					_widgets[_activeWidgetIndex].activateEventCall(true);
+				}
+			}
+		}
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
