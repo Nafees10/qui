@@ -504,11 +504,9 @@ public:
 	}
 	///sets whether to allow modifying of contents (false) or not (true)
 	@property bool editable(bool newPermission){
-		if (newPermission){
-			_wantsTab = true;
-			_wantsInput = true;
-			_showCursor = true;
-		}
+		_wantsTab = newPermission;
+		_wantsInput = newPermission;
+		_showCursor = newPermission;
 		return _enableEditing = newPermission;
 	}
 }
