@@ -11,8 +11,6 @@ import qui.termwrap;
 
 import qui.utils;
 
-/// How much time between each timer event
-const ushort TIMER_MSECS = 500;
 /// the default foreground color
 const Color DEFAULT_FG = Color.white;
 /// the default background color
@@ -120,6 +118,12 @@ private:
 	integer _activeWidgetIndex = 0;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
+	/// stores what child widgets want updates
+	bool[] _requestingUpdate;
+	/// the parent widget
+	QWidget _parent;
+	/// the index it is stored at in _parent. -1 if no parent asigned yet
+	integer _indexInParent = -1;
 	/// called by owner for initialize event
 	void initializeCall(){
 		if (!_customInitEvent || !_customInitEvent(this))
@@ -149,6 +153,13 @@ private:
 	void timerEventCall(uinteger msecs){
 		if (!_customTimerEvent || !_customTimerEvent(this, msecs))
 			this.timerEvent(msecs);
+	}
+	/// Called by children of this widget to request updates
+	void requestUpdate(uinteger index){
+		if (index < _requestingUpdate.length){
+			_requestingUpdate[index] = true;
+			requestUpdate();
+		}
 	}
 protected:
 	///size of this widget
@@ -185,22 +196,26 @@ protected:
 	TimerEventFunction _customTimerEvent;
 
 	/// Called by parent to update this widget
-	/// 
-	/// If `force==true`, then the widget must update, whether it needs to or not
-	abstract void update(bool force=false);
+	abstract void update();
 
-	/// Called by QTerminal after `_termInterface` has been set and this widget is ready to be used
+	/// Called after `_termInterface` has been set and this widget is ready to be used
 	abstract void initialize();
-	/// Called by parent when mouse is clicked with cursor on this widget.
+	/// Called when mouse is clicked with cursor on this widget.
 	abstract void mouseEvent(MouseEvent mouse);
-	/// Called by parent when key is pressed and this widget is active.
+	/// Called when key is pressed and this widget is active.
 	abstract void keyboardEvent(KeyboardEvent key);
-	/// Called by parent when widget size is changed.
+	/// Called when widget size is changed.
 	abstract void resizeEvent(Size size);
-	/// called by QTerminal right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
+	/// called right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
 	abstract void activateEvent(bool isActive);
-	/// called by QTerminal often. `msecs` is the msecs since last timerEvent, not accurate
+	/// called often. `msecs` is the msecs since last timerEvent, not accurate
 	abstract void timerEvent(uinteger msecs);
+	/// Called by itself when it needs to request an update
+	void requestUpdate(){
+		if (_parent && _indexInParent > -1 && _indexInParent < _parent._requestingUpdate.length && 
+		_parent._requestingUpdate[_indexInParent] == false)
+			_parent.requestUpdate(_indexInParent);
+	}
 public:
 	/// use to change the custom initialize event
 	@property InitFunction onInitEvent(InitFunction func){
@@ -225,6 +240,10 @@ public:
 	/// use to change the custom timer event
 	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
+	}
+	/// Returns: this widget's parent
+	@property QWidget parent(){
+		return _parent;
 	}
 	/// Returns: true if this widget is the current active widget
 	@property bool isActive(){
@@ -353,7 +372,7 @@ protected:
 			recalculateWidgetsPosition!(QLayout.Type.Vertical)(_widgets);
 		}
 		foreach (widget; _widgets){
-			widget.resizeEvent(size);
+			widget.resizeEventCall(size);
 		}
 	}
 	
@@ -365,7 +384,7 @@ protected:
 			activeWidget = _widgets[_activeWidgetIndex];
 		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x + activeWidget.size.width 
 		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget.size.height){
-			activeWidget.mouseEvent(mouse);
+			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
 				if (widget.show && widget._wantsInput &&
@@ -378,7 +397,7 @@ protected:
 						widget._isActive = true;
 						_activeWidgetIndex = i;
 					}
-					widget.mouseEvent(mouse);
+					widget.mouseEventCall(mouse);
 					break;
 				}
 			}
@@ -400,15 +419,33 @@ protected:
 	override void initialize(){
 		foreach (widget; _widgets){
 			widget._termInterface = _termInterface;
+			widget.initializeCall();
+		}
+	}
+
+	/// override timer event to call child widgets' timers
+	override void timerEvent(uinteger msecs){
+		foreach (widget; _widgets){
+			widget.timerEventCall(msecs);
+		}
+	}
+
+	/// override activate event
+	override void activateEvent(bool isActive){
+		if (isActive){
+			cycleActiveWidgetLoop();
+		}else if (_activeWidgetIndex > -1){
+			_widgets[_activeWidgetIndex].activateEvent(isActive);
 		}
 	}
 	
 	/// called by owner widget to update
-	override void update(bool force=false){
-		foreach(widget; _widgets){
-			if (widget.show){
+	override void update(){
+		foreach(i, widget; _widgets){
+			if (_requestingUpdate[i] && widget.show){
 				_termInterface.restrictWrite(widget._position.x, widget._position.y, widget.size.width, widget.size.height);
-				widget.update(force);
+				widget.update();
+				_requestingUpdate[i] = false;
 			}
 		}
 	}
@@ -510,15 +547,28 @@ public:
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
+		widget._parent = this;
+		widget._indexInParent = _widgets.length;
 		//add it to array
 		_widgets ~= widget;
+		// make space in _requestingUpdate
+		_requestingUpdate ~= true;
 	}
 	/// adds (appends) widgets to the widgetList, and makes space for them
 	/// 
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget[] widgets){
+		foreach (i, widget; widgets){
+			widget._parent = this;
+			widget._indexInParent = _widgets.length+i;
+		}
 		// add to array
 		_widgets ~= widgets.dup;
+		// make space in _requestingUpdate
+		bool[] reqUpdates;
+		reqUpdates.length = widgets.length;
+		reqUpdates[] = true;
+		_requestingUpdate ~= reqUpdates;
 	}
 }
 
@@ -573,7 +623,7 @@ public:
 	/// Writes characters on terminal
 	/// 
 	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped.  
-	/// **and tab character is not supported, as in it will be read as a single space character. `'\t' = ' '`**
+	/// **and tab character is not supported, as in it will be read as a single space character. ` ('\t' == ' ') = true; `**
 	void write(dstring c, Color fg, Color bg){
 		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
 			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
@@ -651,10 +701,6 @@ public:
 	bool setKeyHandler(Key key, QWidget handlerWidget){
 		return _qterminal.registerKeyHandler(key, handlerWidget);
 	}
-	/// adds a request to QTerminal so right after it's done with `timerEvent`s, this widget's update will be called
-	void requestUpdate(QWidget widget){
-		_qterminal.requestUpdate(widget);
-	}
 }
 
 /// A terminal (as the name says).
@@ -664,8 +710,6 @@ private:
 	TermWrapper _termWrap;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[dchar] _keysToCatch;
-	/// list of widgets requesting early `update();`
-	QWidget[] _requestingUpdate;
 
 	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
 	/// 
@@ -679,11 +723,6 @@ private:
 		}
 	}
 
-	/// adds a widget to `_requestingUpdate`, so it'll be updated right after `timerEvent`s are done with
-	void requestUpdate(QWidget widget){
-		_requestingUpdate ~= widget;
-	}
-
 	/// Reads InputEvent[] and calls appropriate functions to address those events
 	/// 
 	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
@@ -692,74 +731,41 @@ private:
 			return false;
 		}else if (event.type == Event.Type.Keyboard){
 			KeyboardEvent kPress = event.keyboard;
-			this.keyboardEvent(kPress);
+			this.keyboardEventCall(kPress);
 		}else if (event.type == Event.Type.Mouse){
-			this.mouseEvent(event.mouse);
+			this.mouseEventCall(event.mouse);
 		}else if (event.type == Event.Type.Resize){
 			//update self size
 			_size.height = event.resize.height;
 			_size.width = event.resize.width;
 			//call size change on all widgets
-			resizeEvent(_size);
+			resizeEventCall(_size);
 		}
 		return true;
 	}
 
 protected:
-	override public void mouseEvent(MouseEvent mouse){
-		foreach (i, widget; _regdWidgets){
-			if (widget.show && widget.wantsInput){
-				Position p = widget._position;
-				Size s = widget.size;
-				//check x-y-axis
-				if (mouse.x >= p.x && mouse.x < p.x + s.width && mouse.y >= p.y && mouse.y < p.y + s.height){
-					//mark this widget as active
-					if (makeActive(i) && _activeWidgetIndex == i){
-						// make mouse position relative to widget position, not 0:0
-						mouse.x = mouse.x - cast(int)_activeWidget._position.x;
-						mouse.y = mouse.y - cast(int)_activeWidget._position.y;
-						//call mouseEvent
-						widget.mouseEvent(mouse);
-					}
-					break;
-				}
-			}
-		}
-	}
 	
-	override public void keyboardEvent(KeyboardEvent key){
-		// check if the _activeWidget wants Tab, otherwise, if is Tab, make the next widget active
-		if (key.key == Key.Escape || (key.key == '\t' && (!_activeWidget || !_activeWidget.wantsTab))){
-			// make the next widget active
-			makeActive(_activeWidgetIndex+1);
-		}else if (_activeWidget !is null){
-			_activeWidget.keyboardEvent (key);
-		}
-		if (key.key in _keysToCatch){
-			_keysToCatch[key.key].keyboardEvent(key);
-		}
-		
-	}
-	
-	override public void update(bool force=false){
+	override public void update(){
 		_termInterface.updateStarted;
-		if (force){
-			_termInterface.restrictWrite(0,0,_size.width,_size.height);
-			_termInterface.fill(' ', DEFAULT_FG, DEFAULT_BG);
-		}
-		super.update(force);
+		_termInterface.restrictWrite(0,0,_size.width,_size.height);
+		//_termInterface.fill(' ', DEFAULT_FG, DEFAULT_BG); // why'd I ever think this'd be a good idea?
+		super.update();
 		_termInterface.updateFinished;
 	}
 
 public:
 	/// text color, and background color
 	Color textColor, backgroundColor;
+	/// time to wait between timer events (milliseconds)
+	ushort timerMsecs;
 	/// constructor
-	this(QLayout.Type displayType = QLayout.Type.Vertical){
+	this(QLayout.Type displayType = QLayout.Type.Vertical, ushort timerDuration = 500){
 		super(displayType);
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
+		timerMsecs = timerDuration;
 
 		_termWrap = new TermWrapper();
 		_termInterface = new QTermInterface(this);
@@ -768,27 +774,6 @@ public:
 		.destroy(_termWrap);
 		.destroy(_termInterface);
 	}
-
-	/// registers a widget
-	/// 
-	/// **All** widgets that are to be present on terminal must be registered.  
-	/// All means widgets added to QTerminal, and any QLayout and any other widget.
-	void registerWidget(QWidget widget){
-		_regdWidgets ~= widget;
-		widget._termInterface = _termInterface;
-		widget.initialize();
-	}
-	/// registers widgets
-	/// 
-	/// **All** widgets that are to be present on terminal must be registered.  
-	/// All means widgets added to QTerminal, and any QLayout and any other widget.
-	void registerWidget(QWidget[] widgets){
-		_regdWidgets = _regdWidgets ~ widgets.dup;
-		foreach (widget; widgets){
-			widget._termInterface = _termInterface;
-			widget.initialize();
-		}
-	}
 	
 	/// starts the UI loop
 	void run(){
@@ -796,47 +781,30 @@ public:
 		_size.width = _termWrap.width();
 		_size.height = _termWrap.height();
 		//resize all widgets
-		resizeEvent(_size);
+		resizeEventCall(_size);
 		//draw the whole thing
-		update(true);
-		ubyte timerCount = 0; /// times timerEvent's been called after last force update
+		update();
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.no);
 		sw.start;
 		while (true){
-			if (sw.peek.total!"msecs" >= TIMER_MSECS){
-				timerCount ++;
-				foreach (widget; _regdWidgets)
-					widget.timerEvent;
+			if (sw.peek.total!"msecs" >= timerMsecs){
+				foreach (widget; _widgets)
+					widget.timerEventCall(sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
 			}
 			// take a look at _requestingUpdate
-			int timeout = cast(int)(TIMER_MSECS - sw.peek.total!"msecs");
+			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			if (_requestingUpdate.length > 0)
 				timeout = 0;
 			Event event;
-			if (_termWrap.getEvent(timeout, event) > 0){
-				// go through the events
+			while (_termWrap.getEvent(timeout, event) > 0){
 				if (!readEvent(event))
 					break;
-				update();
-			}else{
-				if (timerCount >= 2){
-					update(true);
-					timerCount = 0;
-				}else if (_requestingUpdate.length > 0){
-					_termInterface.updateStarted;
-					foreach(widget; _requestingUpdate){
-						if (widget.show){
-							_termInterface.restrictWrite(widget._position.x, widget._position.y, widget.size.width, widget.size.height);
-							widget.update;
-						}
-					}
-					_termInterface.updateFinished;
-				}
+				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			}
-			_requestingUpdate = [];
+			update();
 		}
 	}
 }
