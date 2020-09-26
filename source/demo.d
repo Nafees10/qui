@@ -45,10 +45,9 @@ version(demo){
 					memo.lines.append(line.to!dstring);
 				}
 			}
-			//memo.lines.loadArray(fileToArray(dirName(thisExePath)~dirSeparator~"README.md"));
 			memo.wantsTab = false;
 			split.size.maxWidth = 1;
-			split.color = Color.blue;
+			split.color = Color.white;
 
 			// put all widgets in the order they are to appear in terminal
 			term.addWidget([label, edit, progressBar, hLayout]);
