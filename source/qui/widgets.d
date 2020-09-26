@@ -49,14 +49,13 @@ protected:
 			else
 				xOffset --;
 			// request update
-			super.requestUpdate();
+			requestUpdate();
 		}
 	}
 	
 	override void resizeEvent(Size size){
-		super.resizeEvent(size);
 		calculateMaxXOffset;
-		super.requestUpdate();
+		requestUpdate();
 	}
 	
 	override void update(){
@@ -85,11 +84,11 @@ public:
 		calculateMaxXOffset;
 		// request update
 		if (_termInterface)
-			super.requestUpdate();
+			requestUpdate();
 		return _caption;
 	}
 }
-/*
+
 /// Displays a left-to-right progress bar.
 /// 
 /// Can also display text (just like TextLabelWidget)
@@ -97,34 +96,31 @@ class ProgressbarWidget : TextLabelWidget{
 private:
 	uinteger _max, _progress;
 protected:
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			// if caption fits in width, center align it
-			dstring text;
-			if (_caption.length < _size.width)
-				text = centerAlignText(_caption, _size.width);
-			else
-				text = _caption.scrollHorizontal(xOffset, _size.width);
-			// number of chars to be colored in barColor
-			uinteger fillCharCount = (_progress * _size.width) / _max;
-			// line number on which the caption will be written
-			for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
-				if (i == captionLineNumber){
-					_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-					_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
-				}else{
-					if (fillCharCount)
-						_termInterface.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
-					if (fillCharCount < this._size.width)
-						_termInterface.fillLine(' ', barColor, backgroundColor);
-				}
+	override void update(){
+		// if caption fits in width, center align it
+		dstring text;
+		if (_caption.length < _size.width)
+			text = centerAlignText(_caption, _size.width);
+		else
+			text = _caption.scrollHorizontal(xOffset, _size.width);
+		// number of chars to be colored in barColor
+		uinteger fillCharCount = (_progress * _size.width) / _max;
+		// line number on which the caption will be written
+		for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
+			if (i == captionLineNumber){
+				_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
+				_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
+			}else{
+				if (fillCharCount)
+					_termInterface.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
+				if (fillCharCount < this._size.width)
+					_termInterface.fillLine(' ', barColor, backgroundColor);
 			}
-			// write till _progress
-			_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-			// write the empty bar
-			_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 		}
+		// write till _progress
+		_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
+		// write the empty bar
+		_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 	}
 public:
 	/// background color, and bar's color
@@ -147,9 +143,7 @@ public:
 	/// The 'total' or the max-progress. setter
 	@property uinteger max(uinteger newMax){
 		_max = newMax;
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 		return _max;
 	}
 	/// the amount of progress. getter
@@ -159,9 +153,7 @@ public:
 	/// the amount of progress. setter
 	@property uinteger progress(uinteger newProgress){
 		_progress = newProgress;
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 		return _progress;
 	}
 }
@@ -175,8 +167,6 @@ private:
 	uinteger _x;
 	/// how many chars wont be displayed on left
 	uinteger _scrollX;
-	/// stores whether the widget needs update or not
-	bool needsUpdate = true;
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
@@ -185,20 +175,17 @@ private:
 protected:
 	/// override resize to re-scroll
 	override void resizeEvent(Size size){
-		super.resizeEvent(size);
-		needsUpdate = true;
+		requestUpdate();
 		reScroll;
 	}
 	override void mouseEvent(MouseEvent mouse){
-		super.mouseEvent(mouse);
 		if (mouse.button == MouseEvent.Button.Left){
 			_x = mouse.x + _scrollX;
 		}
-		needsUpdate = true;
+		requestUpdate();
 		reScroll;
 	}
 	override void keyboardEvent(KeyboardEvent key){
-		super.keyboardEvent(key);
 		if (key.isChar){
 			//insert that key
 			if (key.key == '\b'){
@@ -229,16 +216,13 @@ protected:
 				_text = _text.deleteElement(_x);
 			}
 		}
-		needsUpdate = true;
+		requestUpdate();
 		reScroll;
 	}
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			_termInterface.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
-			// set cursor position
-			_termInterface.setCursorPos(this, _x - _scrollX, 0);
-		}
+	override void update(){
+		_termInterface.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
+		// set cursor position
+		_termInterface.setCursorPos(this, _x - _scrollX, 0);
 	}
 public:
 	/// background, text, caption, and caption's background colors
@@ -266,12 +250,11 @@ public:
 	@property dstring text(dstring newText){
 		_text = cast(dchar[])newText.dup;
 		// request update
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
+		requestUpdate();
 		return cast(dstring)newText;
 	}
 }
-
+/*
 /// Can be used as a simple text editor, or to just display text
 class MemoWidget : QWidget{
 private:
