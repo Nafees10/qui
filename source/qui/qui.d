@@ -701,6 +701,10 @@ public:
 	bool setKeyHandler(Key key, QWidget handlerWidget){
 		return _qterminal.registerKeyHandler(key, handlerWidget);
 	}
+	/// Call to terminate UI loop
+	void terminate(){
+		_qterminal._isRunning = false;
+	}
 }
 
 /// A terminal (as the name says).
@@ -710,6 +714,8 @@ private:
 	TermWrapper _termWrap;
 	/// stores list of keys and widgets that will catch their KeyPress event
 	QWidget[dchar] _keysToCatch;
+	/// set to false to stop UI loop in run()
+	bool _isRunning;
 
 	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
 	/// 
@@ -784,10 +790,11 @@ public:
 		resizeEventCall(_size);
 		//draw the whole thing
 		update();
+		_isRunning = true;
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.no);
 		sw.start;
-		while (true){
+		while (_isRunning){
 			if (sw.peek.total!"msecs" >= timerMsecs){
 				foreach (widget; _widgets)
 					widget.timerEventCall(sw.peek.total!"msecs");
