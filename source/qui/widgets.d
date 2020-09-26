@@ -237,6 +237,8 @@ public:
 		_wantsTab = false;
 		// and input too, obvious
 		_wantsInput = true;
+		// and needs to show cursor
+		_showCursor = true;
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -473,18 +475,13 @@ public:
 	/// background and text colors
 	Color backgroundColor, textColor;
 	/// constructor
-	this(bool editable = true){
+	this(bool allowEditing = true){
 		_lines = new List!dstring;
 		_scrollX = 0;
 		_scrollY = 0;
 		_cursorX = 0;
 		_cursorY = 0;
-		_enableEditing = editable; //cause if readOnly, then writeProtected = true also
-
-		if (_enableEditing)
-			_wantsTab = true;
-		// and input too, obviously
-		_wantsInput = true;
+		this.editable = allowEditing;
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -507,6 +504,11 @@ public:
 	}
 	///sets whether to allow modifying of contents (false) or not (true)
 	@property bool editable(bool newPermission){
+		if (newPermission){
+			_wantsTab = true;
+			_wantsInput = true;
+			_showCursor = true;
+		}
 		return _enableEditing = newPermission;
 	}
 }
