@@ -751,6 +751,13 @@ private:
 	}
 
 protected:
+
+	override void keyboardEvent(KeyboardEvent key){
+		if (key.key in _keysToCatch){
+			_keysToCatch[key.key].keyboardEventCall(key);
+		}
+		super.keyboardEvent(key);
+	}
 	
 	override public void update(){
 		_termInterface.updateStarted;
