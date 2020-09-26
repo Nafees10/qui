@@ -196,7 +196,7 @@ protected:
 	TimerEventFunction _customTimerEvent;
 
 	/// Called by parent to update this widget
-	void update();
+	void update(){}
 
 	/// Called after `_termInterface` has been set and this widget is ready to be used
 	void initialize(){}
@@ -793,7 +793,8 @@ public:
 		// init termbox
 		_size.width = _termWrap.width();
 		_size.height = _termWrap.height();
-		//resize all widgets
+		//ready
+		initializeCall();
 		resizeEventCall(_size);
 		//draw the whole thing
 		update();
@@ -802,23 +803,24 @@ public:
 		StopWatch sw = StopWatch(AutoStart.no);
 		sw.start;
 		while (_isRunning){
+			bool doUpdate = false;
+			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
+			Event event;
+			while (_termWrap.getEvent(timeout, event) > 0){
+				doUpdate = true;
+				if (!readEvent(event))
+					break;
+				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
+			}
 			if (sw.peek.total!"msecs" >= timerMsecs){
+				doUpdate = true;
 				foreach (widget; _widgets)
 					widget.timerEventCall(sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
 			}
-			// take a look at _requestingUpdate
-			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
-			if (_requestingUpdate.length > 0)
-				timeout = 0;
-			Event event;
-			while (_termWrap.getEvent(timeout, event) > 0){
-				if (!readEvent(event))
-					break;
-				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
-			}
-			update();
+			if (doUpdate)
+				update();
 		}
 	}
 }
