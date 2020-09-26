@@ -37,19 +37,23 @@ private:
 	}
 protected:
 	override void timerEvent(uinteger msecs){
+		static uinteger accumulatedTime;
 		if (maxXOffset > 0){
-			if (xOffset == maxXOffset){
-				xOffset --;
+			accumulatedTime += msecs;
+			if (xOffset >= maxXOffset)
 				increasedXOffset = false;
-			}else if (xOffset == 0){
-				xOffset ++;
+			else if (xOffset == 0)
 				increasedXOffset = true;
-			}else if (increasedXOffset)
-				xOffset ++;
-			else
-				xOffset --;
-			// request update
-			requestUpdate();
+			while (accumulatedTime >= scrollTimer){
+				accumulatedTime -= scrollTimer;
+				if (increasedXOffset){
+					if (xOffset < maxXOffset)
+						xOffset ++;
+				}else if (xOffset > 0)
+					xOffset --;
+				// request update
+				requestUpdate();
+			}
 		}
 	}
 	
@@ -63,15 +67,17 @@ protected:
 	}
 
 public:
-
 	/// text and background colors
 	Color textColor, backgroundColor;
+	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
+	uinteger scrollTimer;
 	/// constructor
 	this(dstring newCaption = ""){
 		this.caption = newCaption;
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
 		this._size.maxHeight = 1;
+		scrollTimer = 500;
 	}
 
 	/// the text to display
