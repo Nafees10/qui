@@ -732,9 +732,9 @@ private:
 	/// Reads InputEvent[] and calls appropriate functions to address those events
 	/// 
 	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
-	bool readEvent(Event event){
+	void readEvent(Event event){
 		if (event.type == Event.Type.HangupInterrupt){
-			return false;
+			_isRunning = false;
 		}else if (event.type == Event.Type.Keyboard){
 			KeyboardEvent kPress = event.keyboard;
 			this.keyboardEventCall(kPress);
@@ -747,7 +747,6 @@ private:
 			//call size change on all widgets
 			resizeEventCall(_size);
 		}
-		return true;
 	}
 
 protected:
@@ -803,24 +802,20 @@ public:
 		StopWatch sw = StopWatch(AutoStart.no);
 		sw.start;
 		while (_isRunning){
-			bool doUpdate = false;
 			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			Event event;
 			while (_termWrap.getEvent(timeout, event) > 0){
-				doUpdate = true;
-				if (!readEvent(event))
-					break;
+				readEvent(event);
 				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
+				update();
 			}
 			if (sw.peek.total!"msecs" >= timerMsecs){
-				doUpdate = true;
 				foreach (widget; _widgets)
 					widget.timerEventCall(sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
-			}
-			if (doUpdate)
 				update();
+			}
 		}
 	}
 }
