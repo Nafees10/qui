@@ -5,7 +5,7 @@ version(demo){
 	import std.conv : to;
 	import std.path;
 	import std.file : thisExePath;
-	import utils.misc : fileToArray;
+	import utils.misc;
 	
 	void main (){
 		App appInstance = new App();
@@ -13,7 +13,7 @@ version(demo){
 		// not doing this causes an exception
 		.destroy (appInstance);
 	}
-	
+	/// the app
 	class App{
 	private:
 		QTerminal term;
@@ -25,6 +25,7 @@ version(demo){
 		QLayout hLayout;
 		SplitterWidget split;
 	public:
+		/// constructor
 		this(){
 			// construct all widgets
 			term = new QTerminal(QLayout.Type.Vertical);
@@ -52,9 +53,6 @@ version(demo){
 			// put all widgets in the order they are to appear in terminal
 			term.addWidget([label, edit, progressBar, hLayout]);
 
-			// register every single widget, if you don't, it'll segfault
-			term.registerWidget([label, edit, progressBar, hLayout, memo, split, log]);
-
 			// set some properties
 			label.caption = "Progress bar: increases/decreases every 1/2 second. 1 2 3 4 5 6 7 8 10 9 8 7 6 5 4 3 2 1";
 			progressBar.caption = "this is the progress bar";
@@ -63,7 +61,7 @@ version(demo){
 			progressBar.progress = 0;
 
 			// and this is how timerEvent can be used
-			progressBar.onTimerEvent = delegate(QWidget caller){
+			progressBar.onTimerEvent = delegate(QWidget caller, uinteger msecs){
 				static increasing = true;
 				// owner = caller (same thing)
 				ProgressbarWidget owner = cast(ProgressbarWidget)caller;
@@ -78,6 +76,7 @@ version(demo){
 				else
 					owner.progress = owner.progress -1;
 				log.add("progress: "~to!dstring(owner.progress));
+				return false;
 			};
 		}
 		~this(){
@@ -91,6 +90,7 @@ version(demo){
 			.destroy(hLayout);
 			.destroy(split);
 		}
+		/// run the app
 		void run(){
 			term.run;
 		}
