@@ -771,8 +771,7 @@ public:
 		update();
 		_isRunning = true;
 		// the stop watch, to count how much time has passed after each timerEvent
-		StopWatch sw = StopWatch(AutoStart.no);
-		sw.start;
+		StopWatch sw = StopWatch(AutoStart.yes);
 		while (_isRunning){
 			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			Event event;
