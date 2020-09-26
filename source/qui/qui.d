@@ -210,13 +210,13 @@ protected:
 	abstract void activateEvent(bool isActive);
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
 	abstract void timerEvent(uinteger msecs);
+public:
 	/// Called by itself when it needs to request an update
 	void requestUpdate(){
 		if (_parent && _indexInParent > -1 && _indexInParent < _parent._requestingUpdate.length && 
 		_parent._requestingUpdate[_indexInParent] == false)
 			_parent.requestUpdate(_indexInParent);
 	}
-public:
 	/// use to change the custom initialize event
 	@property InitFunction onInitEvent(InitFunction func){
 		return _customInitEvent = func;
