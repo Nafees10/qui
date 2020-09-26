@@ -24,9 +24,6 @@ private:
 	/// if in the last timerEvent, xOffset was increased
 	bool increasedXOffset = true;
 
-	/// whether this widget needs to update or not
-	bool needsUpdate = true;
-
 	/// calculates the maxXOffset, and changes xOffset if it's above it
 	void calculateMaxXOffset(){
 		if (_caption.length <= size.width){
@@ -39,8 +36,7 @@ private:
 		}
 	}
 protected:
-	override void timerEvent(){
-		super.timerEvent;
+	override void timerEvent(uinteger msecs){
 		if (maxXOffset > 0){
 			if (xOffset == maxXOffset){
 				xOffset --;
@@ -53,25 +49,22 @@ protected:
 			else
 				xOffset --;
 			// request update
-			_termInterface.requestUpdate(this);
-			needsUpdate = true;
+			super.requestUpdate();
 		}
 	}
 	
 	override void resizeEvent(Size size){
 		super.resizeEvent(size);
-		needsUpdate = true;
 		calculateMaxXOffset;
+		super.requestUpdate();
 	}
 	
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			_termInterface.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
-		}
+	override void update(){
+		_termInterface.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
 	}
 
 public:
+
 	/// text and background colors
 	Color textColor, backgroundColor;
 	/// constructor
@@ -92,12 +85,11 @@ public:
 		calculateMaxXOffset;
 		// request update
 		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+			super.requestUpdate();
 		return _caption;
 	}
 }
-
+/*
 /// Displays a left-to-right progress bar.
 /// 
 /// Can also display text (just like TextLabelWidget)
@@ -687,4 +679,4 @@ public:
 	this(){
 		this.color = DEFAULT_BG;
 	}
-}
+}*/
