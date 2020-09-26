@@ -174,11 +174,13 @@ protected:
 	bool _wantsTab = false;
 	/// whether the widget wants input
 	bool _wantsInput = false;
+	/// whether the cursor should be visible or not
+	bool _showCursor = false;
 	/// the interface used to "talk" to the terminal
 	QTermInterface _termInterface = null;
 
 	/// For cycling between widgets. Returns false, always.
-	bool cycleActiveWidget(bool forward = true){
+	bool cycleActiveWidget(){
 		return false;
 	}
 
@@ -260,6 +262,10 @@ public:
 	/// Returns: true if the widget wants input
 	@property bool wantsInput(){
 		return _wantsInput;
+	}
+	/// Returns: true if the cursor is visible when this widget is active
+	@property bool showCursor(){
+		return _showCursor;
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
 	@property uinteger sizeRatio(){
@@ -433,9 +439,10 @@ protected:
 	/// override activate event
 	override void activateEvent(bool isActive){
 		if (isActive){
-			cycleActiveWidgetLoop();
+			_activeWidgetIndex = -1;
+			cycleActiveWidget();
 		}else if (_activeWidgetIndex > -1){
-			_widgets[_activeWidgetIndex].activateEvent(isActive);
+			_widgets[_activeWidgetIndex].activateEventCall(isActive);
 		}
 	}
 	
@@ -452,29 +459,18 @@ protected:
 	/// called to cycle between actveWidgets. This is called by owner widget
 	/// 
 	/// Returns: true if cycled to another widget, false if _activeWidgetIndex set to -1
-	override bool cycleActiveWidget(bool forward = true){
+	override bool cycleActiveWidget(){
 		// check if need to cycle within current active widget
-		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget(forward))){
+		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
 			integer lastActiveWidgetIndex = _activeWidgetIndex;
-			if (forward){
-				if (_activeWidgetIndex < 0)
-					_activeWidgetIndex = 0;
-				for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-					if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
-						break;
-				}
-				if (_activeWidgetIndex >= _widgets.length)
-					_activeWidgetIndex = -1;
-			}else if (_widgets.length > 0){
-				if (_activeWidgetIndex < 0)
-					_activeWidgetIndex = cast(integer)(_widgets.length)-1;
-				for (; _activeWidgetIndex >= 0; _activeWidgetIndex --){
-					if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
-						break;
-				}
-				if (_activeWidgetIndex < 0)
-					_activeWidgetIndex = -1;
+			if (_activeWidgetIndex < 0)
+				_activeWidgetIndex = 0;
+			for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
+				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
+					break;
 			}
+			if (_activeWidgetIndex >= _widgets.length)
+				_activeWidgetIndex = -1;
 			
 			if (lastActiveWidgetIndex != _activeWidgetIndex){
 				if (lastActiveWidgetIndex > -1)
@@ -511,36 +507,10 @@ public:
 		}
 		return false;
 	}
-
-	/// Cycles between active widgets. If current active widget is last in the list, the first will be made active
-	/// 
-	/// does effectively nothing if no widgets added, or no widgets want input, or if this layout isn't the active widget
-	void cycleActiveWidgetLoop(bool forward = true){
-		if (this.isActive && _widgets.length > 0){
-			immutable integer lastActiveWidgetIndex = _activeWidgetIndex;
-			if (_activeWidgetIndex == -1)
-				_activeWidgetIndex = 0;
-			immutable integer startIndex = _activeWidgetIndex;
-			do{
-				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
-					break;
-				_activeWidgetIndex = _activeWidgetIndex + (forward ? 1 : -1);
-				if (_activeWidgetIndex >= _widgets.length)
-					_activeWidgetIndex = 0;
-				else if (_activeWidgetIndex < 0)
-					_activeWidgetIndex = cast(integer)_widgets.length - 1;
-			}while (_activeWidgetIndex != lastActiveWidgetIndex);
-			if (_activeWidgetIndex != lastActiveWidgetIndex){
-				if (lastActiveWidgetIndex != -1){
-					_widgets[lastActiveWidgetIndex]._isActive = false;
-					_widgets[lastActiveWidgetIndex].activateEventCall(false);
-				}
-				if (_activeWidgetIndex != -1){
-					_widgets[_activeWidgetIndex]._isActive = true;
-					_widgets[_activeWidgetIndex].activateEventCall(true);
-				}
-			}
-		}
+	/// Returns: true if the cursor should be visible if this widget is active
+	override @property bool showCursor(){
+		// just do a hack, and check only for active widget
+		return _activeWidgetIndex > -1 && _widgets[_activeWidgetIndex].showCursor;
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
@@ -610,10 +580,10 @@ private:
 		// flush
 		_qterminal._termWrap.flush();
 	}
-	/// called by QTerminal right before starting to update widgets
+	/// called by QTerminal right before starting to update widgets. *DOES NOTHING, _yet_*
 	void updateStarted(){
 		// set cursor position to (-1,-1), so if not set, its not visible
-		_qterminal._termWrap.cursorVisible = false;
+		//_qterminal._termWrap.cursorVisible = false;
 	}
 public:
 	/// Constructor
@@ -763,6 +733,8 @@ protected:
 		_termInterface.restrictWrite(0,0,_size.width,_size.height);
 		//_termInterface.fill(' ', DEFAULT_FG, DEFAULT_BG); // why'd I ever think this'd be a good idea?
 		super.update();
+		// check if need to show/hide cursor
+		_termWrap.cursorVisible = _activeWidgetIndex > -1 && _widgets[_activeWidgetIndex].showCursor;
 		_termInterface.updateFinished;
 	}
 
