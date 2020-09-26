@@ -53,7 +53,7 @@ version(demo){
 			term.addWidget([label, edit, progressBar, hLayout]);
 
 			// set some properties
-			label.caption = "Progress bar: increases/decreases every 1/2 second. 1 2 3 4 5 6 7 8 10 9 8 7 6 5 4 3 2 1";
+			label.caption = "this is a label widget. To show single line text. Below is a progress bar:";
 			progressBar.caption = "this is the progress bar";
 			progressBar.size.maxHeight = 1;
 			progressBar.max = 10;
@@ -74,7 +74,6 @@ version(demo){
 					owner.progress = owner.progress + 1;
 				else
 					owner.progress = owner.progress -1;
-				log.add("progress: "~to!dstring(owner.progress));
 				return false;
 			};
 		}
@@ -91,6 +90,7 @@ version(demo){
 		}
 		/// run the app
 		void run(){
+			term.timerMsecs = 1000;
 			term.run;
 		}
 	}
