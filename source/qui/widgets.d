@@ -254,7 +254,7 @@ public:
 		return cast(dstring)newText;
 	}
 }
-/*
+
 /// Can be used as a simple text editor, or to just display text
 class MemoWidget : QWidget{
 private:
@@ -265,8 +265,6 @@ private:
 	uinteger _cursorX, _cursorY;
 	/// whether the text in it will be editable
 	bool _enableEditing = true;
-	/// whether the widget needs update or not
-	bool needsUpdate = true;
 	/// used by widget itself to recalculate scrolling
 	void reScroll(){
 		// _scrollY
@@ -319,40 +317,36 @@ private:
 		return _lines.length+1;
 	}
 protected:
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			const uinteger count = lineCount;
-			if (count > 0){
-				//write lines to memo
-				for (uinteger i = _scrollY; i < count && _termInterface.cursor.y < _size.height; i++){
-					_termInterface.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
-						textColor, backgroundColor);
-				}
+	override void update(){
+		const uinteger count = lineCount;
+		if (count > 0){
+			//write lines to memo
+			for (uinteger i = _scrollY; i < count && _termInterface.cursor.y < _size.height; i++){
+				_termInterface.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
+					textColor, backgroundColor);
 			}
-			_termInterface.fill(' ', textColor, backgroundColor);
 		}
+		_termInterface.fill(' ', textColor, backgroundColor);
 		if (_enableEditing)
 			_termInterface.setCursorPos(this, _cursorX - _scrollX, _cursorY - _scrollY);
 	}
 	
 	override void mouseEvent(MouseEvent mouse){
-		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll
 		mouse.x = mouse.x + cast(int)_scrollX;
 		mouse.y = mouse.y + cast(int)_scrollY;
 		if (mouse.button == mouse.Button.Left){
-			needsUpdate = true;
+			requestUpdate();
 			moveCursor(mouse.x, mouse.y);
 		}else if (mouse.button == mouse.Button.ScrollDown){
 			if (_cursorY+1 < lineCount){
-				needsUpdate = true;
+				requestUpdate();
 				moveCursor(_cursorX, _cursorY + 4);
 				reScroll();
 			}
 		}else if (mouse.button == mouse.Button.ScrollUp){
 			if (_cursorY > 0){
-				needsUpdate = true;
+				requestUpdate();
 				if (_cursorY < 4){
 					moveCursor(_cursorX, 0);
 				}else{
@@ -364,10 +358,9 @@ protected:
 	}
 	// too big of a mess to be dealt with right now, TODO try to make this shorter
 	override void keyboardEvent(KeyboardEvent key){
-		super.keyboardEvent(key);
 		if (key.isChar){
 			if (_enableEditing){
-				needsUpdate = true;
+				requestUpdate();
 				dstring currentLine = readLine(_cursorY);
 				//check if backspace
 				if (key.key == '\b'){
@@ -426,7 +419,7 @@ protected:
 			}
 		}else{
 			if (key.key == Key.Delete && _enableEditing){
-				needsUpdate = true;
+				requestUpdate();
 				//check if is deleting \n
 				if (_cursorX == readLine(_cursorY).length && _cursorY+1 < lineCount){
 					//merge next line with this one
@@ -441,17 +434,17 @@ protected:
 				}
 			}else if (key.key == Key.DownArrow){
 				if (_cursorY+1 < lineCount){
-					needsUpdate = true;
+					requestUpdate();
 					_cursorY ++;
 				}
 			}else if (key.key == Key.UpArrow){
 				if (_cursorY > 0){
-					needsUpdate = true;
+					requestUpdate();
 					_cursorY --;
 				}
 			}else if (key.key == Key.LeftArrow){
 				if ((_cursorY >= 0 && _cursorX > 0) || (_cursorY > 0 && _cursorX == 0)){
-					needsUpdate = true;
+					requestUpdate();
 					if (_cursorX == 0){
 						_cursorY --;
 						_cursorX = readLine(_cursorY).length;
@@ -460,7 +453,7 @@ protected:
 					}
 				}
 			}else if (key.key == Key.RightArrow){
-				needsUpdate = true;
+				requestUpdate();
 				if (_cursorX == readLine(_cursorY).length){
 					if (_cursorY+1 < lineCount){
 						_cursorX = 0;
@@ -530,8 +523,6 @@ private:
 	uinteger _startIndex;
 	/// the maximum number of lines to store
 	uinteger _maxLines;
-	/// whether the widget needs update or not
-	bool needsUpdate = true;
 
 	/// Returns: how many cells in height will a string take (due to wrapping of long lines)
 	uinteger lineHeight(dstring s){
@@ -580,24 +571,20 @@ private:
 		return r;
 	}
 protected:
-	override void update(bool force){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			dstring[] lines = displayedLines();
-			foreach(line; lines){
-				_termInterface.write(line, textColor, backgroundColor);
-				// if there's empty space left in current line, fill it
-				if (_termInterface.cursor.x > 0)
-					_termInterface.fillLine(' ', textColor, backgroundColor);
-			}
-			// fill any remaining cell
-			_termInterface.fill(' ', textColor, backgroundColor);
+	override void update(){
+		dstring[] lines = displayedLines();
+		foreach(line; lines){
+			_termInterface.write(line, textColor, backgroundColor);
+			// if there's empty space left in current line, fill it
+			if (_termInterface.cursor.x > 0)
+				_termInterface.fillLine(' ', textColor, backgroundColor);
 		}
+		// fill any remaining cell
+		_termInterface.fill(' ', textColor, backgroundColor);
 	}
 	
 	override void resizeEvent(Size size) {
-		super.resizeEvent(size);
-		needsUpdate = true;
+		requestUpdate();
 	}
 public:
 	/// background and text color
@@ -623,16 +610,12 @@ public:
 			_startIndex ++;
 		}else
 			_logs.append(item);
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 	}
 	///clears the log
 	void clear(){
 		_logs.clear;
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 	}
 }
 
@@ -640,20 +623,13 @@ public:
 /// 
 /// To specify the size, use the minHeight, maxHeight, minWidth, and maxWidth. only specifying the width and/or height will have no effect
 class SplitterWidget : QWidget{
-private:
-	/// whether it needs an update or not
-	bool needsUpdate = true;
 protected:
 	override void resizeEvent(Size size) {
-		super.resizeEvent(size);
-		needsUpdate = true;
+		requestUpdate();
 	}
 	
-	override void update(bool force = false) {
-		if (needsUpdate || force){
-			needsUpdate = false;
-			_termInterface.fill(' ',DEFAULT_FG, color);
-		}
+	override void update(){
+		_termInterface.fill(' ',DEFAULT_FG, color);
 	}
 public:
 	/// color of this widget
@@ -662,4 +638,4 @@ public:
 	this(){
 		this.color = DEFAULT_BG;
 	}
-}*/
+}

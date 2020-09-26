@@ -196,20 +196,20 @@ protected:
 	TimerEventFunction _customTimerEvent;
 
 	/// Called by parent to update this widget
-	abstract void update();
+	void update();
 
 	/// Called after `_termInterface` has been set and this widget is ready to be used
-	abstract void initialize();
+	void initialize(){}
 	/// Called when mouse is clicked with cursor on this widget.
-	abstract void mouseEvent(MouseEvent mouse);
+	void mouseEvent(MouseEvent mouse){}
 	/// Called when key is pressed and this widget is active.
-	abstract void keyboardEvent(KeyboardEvent key);
+	void keyboardEvent(KeyboardEvent key){}
 	/// Called when widget size is changed.
-	abstract void resizeEvent(Size size);
+	void resizeEvent(Size size){}
 	/// called right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
-	abstract void activateEvent(bool isActive);
+	void activateEvent(bool isActive){}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
-	abstract void timerEvent(uinteger msecs);
+	void timerEvent(uinteger msecs){}
 public:
 	/// Called by itself when it needs to request an update
 	void requestUpdate(){
