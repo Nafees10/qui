@@ -1,8 +1,8 @@
 {
 	"name": "qui",
 	"description": "A Text User Interface library.",
-	"copyright": "Copyright © 2017-2020, nafees",
-	"authors": ["nafees"],
+	"copyright": "Copyright © 2017-2020, Nafees Hassan",
+	"authors": ["Nafees Hassan"],
 	"license":"MIT",
 	"dependencies": {
 		"utils": "~>0.3.8"
@@ -17,6 +17,6 @@
 			"targetType": "executable",
 			"targetName": "quidemo",
 			"versions": ["demo"]
-		},
-	],
+		}
+	]
 }
