@@ -50,7 +50,7 @@ version(demo){
 			split.color = Color.white;
 
 			// put all widgets in the order they are to appear in terminal
-			term.addWidget([label, edit, progressBar, hLayout]);
+			term.addWidget([label, /*edit,*/ progressBar, hLayout]);
 
 			// set some properties
 			label.caption = "this is a label widget. To show single line text. Below is a progress bar:";

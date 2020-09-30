@@ -6,6 +6,7 @@ module qui.qui;
 
 import std.datetime.stopwatch;
 import utils.misc;
+import utils.lists;
 import std.conv : to;
 import qui.termwrap;
 
@@ -27,7 +28,7 @@ public alias KeyboardEvent = Event.Keyboard;
 
 /// Used to store position for widgets
 struct Position{
-	/// x and u position
+	/// x and y position
 	integer x = 0, y = 0;
 	/// Returns: a string representation of Position
 	string tostring(){
@@ -131,6 +132,8 @@ private:
 	}
 	/// called by owner for mouseEvent
 	void mouseEventCall(MouseEvent mouse){
+		mouse.x = mouse.x - cast(int)this._position.x;
+		mouse.y = mouse.y - cast(int)this._position.y;
 		if (!_customMouseEvent || !_customMouseEvent(this, mouse))
 			this.mouseEvent(mouse);
 	}
@@ -415,7 +418,7 @@ protected:
 		// check if need to cycle
 		if ((key.key == '\t' && (_activeWidgetIndex == -1 || !_widgets[_activeWidgetIndex].wantsTab)) || 
 		key.key == KeyboardEvent.Key.Escape){
-			cycleActiveWidget();
+			this.cycleActiveWidget();
 		}else if (_activeWidgetIndex > -1){
 			_widgets[_activeWidgetIndex].keyboardEventCall(key);
 		}
@@ -440,7 +443,7 @@ protected:
 	override void activateEvent(bool isActive){
 		if (isActive){
 			_activeWidgetIndex = -1;
-			cycleActiveWidget();
+			this.cycleActiveWidget();
 		}else if (_activeWidgetIndex > -1){
 			_widgets[_activeWidgetIndex].activateEventCall(isActive);
 		}
@@ -463,7 +466,7 @@ protected:
 		// check if need to cycle within current active widget
 		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
 			integer lastActiveWidgetIndex = _activeWidgetIndex;
-			if (_activeWidgetIndex < 0)
+			if (_activeWidgetIndex == -1)
 				_activeWidgetIndex = 0;
 			for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
 				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
@@ -539,6 +542,98 @@ public:
 		reqUpdates.length = widgets.length;
 		reqUpdates[] = true;
 		_requestingUpdate ~= reqUpdates;
+	}
+}
+
+/// Used to store display buffer for widgets
+class DisplayBuffer{
+private:
+	/// to store a write command (i.e, where to start from, length, and fg and bg colors)
+	struct WriteCommand{
+		uinteger x, y, length; /// x, y, & length
+		Color fg, bg; /// fb and bg colors
+	}
+	/// width & height
+	uinteger _width, _height;
+	/// cursor position
+	Position _cursor;
+	/// cursor position after update
+	Position _postUpdateCursor;
+	/// whether to display cursor or not
+	bool _showCursor;
+	/// the buffer, storing only characters to write. This can be a slice to a bigger buffer
+	dchar[][] _buffer; // read as _buffer[y][x]
+	/// stores write command, so only areas that widgets actually changed are updated
+	FIFOStack!WriteCommand _writeCommands;
+	/// if the _buffer is actually a slice
+	bool _isSlice;
+	/// constructor for when this buffer is just a slice of the actual buffer
+	this(){
+		_isSlice = true;
+		_showCursor = false;
+	}
+public:
+	/// constructor
+	this(uinteger w, uinteger h){
+		_width = w;
+		_height = h;
+		_buffer.length = h;
+		foreach (i; 0 .. h){
+			_buffer[i].length = w;
+		}
+		_writeCommands = new FIFOStack!WriteCommand;
+		_isSlice = false;
+		_showCursor = false;
+	}
+	~this(){
+		if (!_isSlice){
+			.destroy(_writeCommands);
+		}
+	}
+	/// Returns: cursor  position
+	@property Position cursor(){
+		return _cursor;
+	}
+	/// ditto
+	@property Position cursor(Position newPos){
+		if (newPos.x >= _width)
+			newPos.x = _width-1;
+		if (newPos.y >= _height)
+			newPos.y = _height-1;
+		return _cursor = newPos;
+	}
+	/// set position of cursor after update
+	@property Position postUpdateCursor(Position pos){
+		if (pos.x >= _width)
+			pos.x = _width-1;
+		if (pos.y >= _height)
+			pos.y = _height-1;
+		return _postUpdateCursor = pos;
+	}
+	/// set whether to display cursor after update or not
+	@property bool showCursor(bool visibility){
+		return _showCursor = visibility;
+	}
+	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
+	/// Tab character is converted to a single space character
+	void write(dstring str, Color fg, Color bg){
+		str = str.dup;
+		while (str.length > 0){
+			if (_cursor.x == _width-1){
+				if (_cursor.y < _height){
+					_cursor.y ++;
+					_cursor.x = 0;
+				}else{
+					break;
+				}
+			}
+			dstring line = str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
+			str = str[line.length .. $];
+			// now write `line`
+			_buffer[_cursor.y][_cursor.x .. _cursor.x + line.length] = line;
+			_writeCommands.push(WriteCommand(_cursor.x, _cursor.y, line.length, fg, bg));
+			_cursor.x += line.length;
+		}
 	}
 }
 
