@@ -282,9 +282,9 @@ public:
 	@property bool wantsInput(){
 		return _wantsInput;
 	}
-	/// Returns: true if the cursor is visible when this widget is active
-	@property bool showCursor(){
-		return _showCursor;
+	/// Returns: position of cursor to be shown on terminal. (-1,-1) if dont show
+	@property Position cursorPosition(){
+		return Position(-1,-1);
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
 	@property uinteger sizeRatio(){
@@ -528,9 +528,9 @@ public:
 		return false;
 	}
 	/// Returns: true if the cursor should be visible if this widget is active
-	override @property bool showCursor(){
+	override @property Position cursorPosition(){
 		// just do a hack, and check only for active widget
-		return _activeWidgetIndex > -1 && _widgets[_activeWidgetIndex].showCursor;
+		return _activeWidgetIndex > -1 ? _widgets[_activeWidgetIndex].cursorPosition : Position(-1,-1);
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
@@ -665,13 +665,16 @@ public:
 		}
 	}
 	/// fills rest of current line with a character
-	void fillLine(dchar c, Color fg, Color bg){
+	void fillLine(dchar c, Color fg, Color bg, uinteger max = 0){
 		dchar[] line;
-		line.length = _width - _cursor.x;
+		line.length =  max < _width - _cursor.x ? max : _width - _cursor.x;
 		line[] = c;
 		_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
-		_cursor.x = 0;
-		_cursor.y++;
+		_cursor.x += line.length;
+		if (_cursor.x == _width){
+			_cursor.y ++;
+			_cursor.x = 0;
+		}
 	}
 }
 
@@ -705,11 +708,15 @@ private:
 
 protected:
 	
-	override public void update(){
+	override void update(){
 		super.update();
 		// check if need to show/hide cursor
-		// TODO move cursor to position
-		_termWrap.cursorVisible = _activeWidgetIndex > -1 && _widgets[_activeWidgetIndex].showCursor;
+		Position cursorPos = _widgets[_activeWidgetIndex].cursorPosition;
+		if (_activeWidgetIndex > -1 && cursorPos != Position(-1,-1)){
+			_termWrap.moveCursor(cast(int)cursorPos.x, cast(int)cursorPos.y);
+			_termWrap.cursorVisible = true;
+		}else
+			_termWrap.cursorVisible = false;
 		_termWrap.flush;
 	}
 
