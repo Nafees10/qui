@@ -63,7 +63,7 @@ protected:
 	}
 	
 	override void update(){
-		_termInterface.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
+		_display.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
 	}
 
 public:
@@ -89,8 +89,7 @@ public:
 		_caption = newCaption;
 		calculateMaxXOffset;
 		// request update
-		if (_termInterface)
-			requestUpdate();
+		requestUpdate();
 		return _caption;
 	}
 }
@@ -114,19 +113,19 @@ protected:
 		// line number on which the caption will be written
 		for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
 			if (i == captionLineNumber){
-				_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-				_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
+				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
+				_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 			}else{
 				if (fillCharCount)
-					_termInterface.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
+					_display.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
 				if (fillCharCount < this._size.width)
-					_termInterface.fillLine(' ', barColor, backgroundColor);
+					_display.fillLine(' ', barColor, backgroundColor);
 			}
 		}
 		// write till _progress
-		_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
+		_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
 		// write the empty bar
-		_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
+		_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 	}
 public:
 	/// background color, and bar's color
@@ -226,9 +225,7 @@ protected:
 		reScroll;
 	}
 	override void update(){
-		_termInterface.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
-		// set cursor position
-		_termInterface.setCursorPos(this, _x - _scrollX, 0);
+		_display.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width),textColor,backgroundColor);
 	}
 public:
 	/// background, text, caption, and caption's background colors
@@ -260,6 +257,10 @@ public:
 		// request update
 		requestUpdate();
 		return cast(dstring)newText;
+	}
+	// override cursor position
+	override @property Position cursorPosition(){
+		return Position(_x - _scrollX, 0);
 	}
 }
 
@@ -329,14 +330,12 @@ protected:
 		const uinteger count = lineCount;
 		if (count > 0){
 			//write lines to memo
-			for (uinteger i = _scrollY; i < count && _termInterface.cursor.y < _size.height; i++){
-				_termInterface.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
+			for (uinteger i = _scrollY; i < count && _display.cursor.y < _size.height; i++){
+				_display.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
 					textColor, backgroundColor);
 			}
 		}
-		_termInterface.fill(' ', textColor, backgroundColor);
-		if (_enableEditing)
-			_termInterface.setCursorPos(this, _cursorX - _scrollX, _cursorY - _scrollY);
+		_display.fill(' ', textColor, backgroundColor);
 	}
 	
 	override void mouseEvent(MouseEvent mouse){
@@ -515,6 +514,10 @@ public:
 		_showCursor = newPermission;
 		return _enableEditing = newPermission;
 	}
+	/// override cursor position
+	override @property Position cursorPosition(){
+		return	_enableEditing ? Position(_cursorX - _scrollX, _cursorY - _scrollY) : Position(-1,-1);
+	}
 }
 
 /// Displays an un-scrollable log
@@ -580,13 +583,13 @@ protected:
 	override void update(){
 		dstring[] lines = displayedLines();
 		foreach(line; lines){
-			_termInterface.write(line, textColor, backgroundColor);
+			_display.write(line, textColor, backgroundColor);
 			// if there's empty space left in current line, fill it
-			if (_termInterface.cursor.x > 0)
-				_termInterface.fillLine(' ', textColor, backgroundColor);
+			if (_display.cursor.x > 0)
+				_display.fillLine(' ', textColor, backgroundColor);
 		}
 		// fill any remaining cell
-		_termInterface.fill(' ', textColor, backgroundColor);
+		_display.fill(' ', textColor, backgroundColor);
 	}
 	
 	override void resizeEvent(Size size) {
@@ -635,7 +638,7 @@ protected:
 	}
 	
 	override void update(){
-		_termInterface.fill(' ',DEFAULT_FG, color);
+		_display.fill(' ',DEFAULT_FG, color);
 	}
 public:
 	/// color of this widget
