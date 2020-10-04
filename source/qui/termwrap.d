@@ -206,11 +206,22 @@ public:
 		_term.moveTo(x, y);
 		_term.write(ch);
 	}
-	/// writes a character `ch` at a position `(x, y)` with `fg` as foreground ang `bg` as background color
+	/// writes a character `ch` at a position `(x, y)` with `fg` as foreground and `bg` as background color
 	void put(int x, int y, dchar ch, Color fg, Color bg){
 		_term.color(fg, bg);
 		_term.moveTo(x, y);
 		_term.write(ch);
+	}
+	/// writes a string at position `(x, y)`
+	void write(int x, int y, dstring str){
+		_term.moveTo(x, y);
+		_term.write(str);
+	}
+	/// writes a string at position `(x, y)` with `fg` as foreground and `bg` as background color
+	void write(int x, int y, dstring str, Color fg, Color bg){
+		_term.color(fg, bg);
+		_term.moveTo(x, y);
+		_term.write(str);
 	}
 	/// moves cursor to position
 	void moveCursor(int x, int y){
