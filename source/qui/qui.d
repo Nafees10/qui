@@ -112,8 +112,6 @@ alias InitFunction = bool delegate(QWidget);
 abstract class QWidget{
 private:
 	/// stores the position of this widget, relative to it's parent widget's position
-	/// 
-	/// This is private so it won't be modified by the widget, only classes present in this module are concerned with it
 	Position _position;
 	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
 	integer _activeWidgetIndex = 0;
@@ -121,8 +119,10 @@ private:
 	bool _isActive = false;
 	/// stores what child widgets want updates
 	bool[] _requestingUpdate;
+	/// what key handlers are registered for what keys (key/index)
+	QWidget[dchar]  _keyHandlers;
 	/// the parent widget
-	QWidget _parent;
+	QWidget _parent = null;
 	/// the index it is stored at in _parent. -1 if no parent asigned yet
 	integer _indexInParent = -1;
 	/// called by owner for initialize event
@@ -144,6 +144,10 @@ private:
 	}
 	/// called by owner for resizeEvent
 	void resizeEventCall(Size size){
+		_display._width = size.width;
+		_display._height = size.height;
+		_display._xOff = _position.x;
+		_display._yOff = _position.y;
 		if (!_customResizeEvent || !_customResizeEvent(this, size))
 			this.resizeEvent(size);
 	}
@@ -164,6 +168,14 @@ private:
 			requestUpdate();
 		}
 	}
+	/// Called by children of this widget to register key handlers
+	bool registerKeyHandler(QWidget widget, dchar key){
+		if (key in _keyHandlers || _parent is null)
+			return false;
+		_keyHandlers[key] = widget;
+		this.registerKeyHandler(key);
+		return true;
+	}
 protected:
 	///size of this widget
 	Size _size;
@@ -179,8 +191,8 @@ protected:
 	bool _wantsInput = false;
 	/// whether the cursor should be visible or not
 	bool _showCursor = false;
-	/// the interface used to "talk" to the terminal
-	QTermInterface _termInterface = null;
+	/// used to write to terminal
+	Display _display = null;
 
 	/// For cycling between widgets. Returns false, always.
 	bool cycleActiveWidget(){
@@ -221,6 +233,10 @@ public:
 		if (_parent && _indexInParent > -1 && _indexInParent < _parent._requestingUpdate.length && 
 		_parent._requestingUpdate[_indexInParent] == false)
 			_parent.requestUpdate(_indexInParent);
+	}
+	/// Called by itself (not necessarily) to register itself as a key handler
+	bool registerKeyHandler(dchar key){
+		return _parent && _indexInParent > -1 && _parent.registerKeyHandler(this, key);
 	}
 	/// use to change the custom initialize event
 	@property InitFunction onInitEvent(InitFunction func){
@@ -345,18 +361,17 @@ private:
 	}
 	/// calculates and assigns widgets positions based on their sizes
 	void recalculateWidgetsPosition(QLayout.Type T)(QWidget[] widgets){
-		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical){
+		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
-		}
-		uinteger previousSpace = (T == QLayout.Type.Horizontal ? _position.x : _position.y);
+		uinteger previousSpace = 0;
 		foreach(widget; widgets){
 			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
-					widget._position.y = _position.y;
+					widget._position.y = 0;
 					widget._position.x = previousSpace;
 					previousSpace += widget.size.width;
 				}else{
-					widget._position.x = _position.x;
+					widget._position.x = 0;
 					widget._position.y = previousSpace;
 					previousSpace += widget.size.height;
 				}
@@ -415,6 +430,9 @@ protected:
 
 	/// Redirects the keyboardEvent to appropriate widget
 	override public void keyboardEvent(KeyboardEvent key){
+		// check if key handler registered
+		if (key.key in _keyHandlers)
+			_keyHandlers[key.key].keyboardEventCall(key);
 		// check if need to cycle
 		if ((key.key == '\t' && (_activeWidgetIndex == -1 || !_widgets[_activeWidgetIndex].wantsTab)) || 
 		key.key == KeyboardEvent.Key.Escape){
@@ -427,7 +445,7 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			widget._termInterface = _termInterface;
+			widget._display = _display.getSlice(1,1, _position.x, _position.y); // just throw in dummy size/position, resize event will fix that
 			widget.initializeCall();
 		}
 	}
@@ -453,7 +471,6 @@ protected:
 	override void update(){
 		foreach(i, widget; _widgets){
 			if (_requestingUpdate[i] && widget.show){
-				_termInterface.restrictWrite(widget._position.x, widget._position.y, widget.size.width, widget.size.height);
 				widget.update();
 				_requestingUpdate[i] = false;
 			}
@@ -545,50 +562,38 @@ public:
 	}
 }
 
-/// Used to store display buffer for widgets
-class DisplayBuffer{
+/// Used to write to display by widgets
+class Display{
 private:
-	/// to store a write command (i.e, where to start from, length, and fg and bg colors)
-	struct WriteCommand{
-		uinteger x, y, length; /// x, y, & length
-		Color fg, bg; /// fb and bg colors
-	}
 	/// width & height
 	uinteger _width, _height;
+	/// x and y offsets
+	uinteger _xOff, _yOff;
 	/// cursor position
 	Position _cursor;
-	/// cursor position after update
-	Position _postUpdateCursor;
-	/// whether to display cursor or not
-	bool _showCursor;
-	/// the buffer, storing only characters to write. This can be a slice to a bigger buffer
-	dchar[][] _buffer; // read as _buffer[y][x]
-	/// stores write command, so only areas that widgets actually changed are updated
-	FIFOStack!WriteCommand _writeCommands;
-	/// if the _buffer is actually a slice
-	bool _isSlice;
+	/// the terminal
+	TermWrapper _term;
 	/// constructor for when this buffer is just a slice of the actual buffer
-	this(){
-		_isSlice = true;
-		_showCursor = false;
+	this(uinteger w, uinteger h, uinteger xOff, uinteger yOff, TermWrapper terminal){
+		_xOff = xOff;
+		_yOff = yOff;
+		_width = w;
+		_height = h;
+		_term = terminal;
+	}
+	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
+	Display getSlice(uinteger w, uinteger h, uinteger x, uinteger y){
+		return new Display(w, h, x, y, _term);
 	}
 public:
 	/// constructor
-	this(uinteger w, uinteger h){
+	this(uinteger w, uinteger h, TermWrapper terminal){
 		_width = w;
 		_height = h;
-		_buffer.length = h;
-		foreach (i; 0 .. h){
-			_buffer[i].length = w;
-		}
-		_writeCommands = new FIFOStack!WriteCommand;
-		_isSlice = false;
-		_showCursor = false;
+		_term = terminal;
 	}
 	~this(){
-		if (!_isSlice){
-			.destroy(_writeCommands);
-		}
+
 	}
 	/// Returns: cursor  position
 	@property Position cursor(){
@@ -601,18 +606,6 @@ public:
 		if (newPos.y >= _height)
 			newPos.y = _height-1;
 		return _cursor = newPos;
-	}
-	/// set position of cursor after update
-	@property Position postUpdateCursor(Position pos){
-		if (pos.x >= _width)
-			pos.x = _width-1;
-		if (pos.y >= _height)
-			pos.y = _height-1;
-		return _postUpdateCursor = pos;
-	}
-	/// set whether to display cursor after update or not
-	@property bool showCursor(bool visibility){
-		return _showCursor = visibility;
 	}
 	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
 	/// Tab character is converted to a single space character
@@ -627,148 +620,58 @@ public:
 					break;
 				}
 			}
-			dstring line = str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
+			dchar[] line = cast(dchar[])str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
 			str = str[line.length .. $];
-			// now write `line`
-			_buffer[_cursor.y][_cursor.x .. _cursor.x + line.length] = line;
-			_writeCommands.push(WriteCommand(_cursor.x, _cursor.y, line.length, fg, bg));
+			// change `\t` to ` `
+			foreach (i; 0 .. line.length)
+				if (line[i] == '\t')
+					line[i] = ' ';
+			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line, fg, bg);
 			_cursor.x += line.length;
 		}
 	}
-}
-
-/// Used by widgets to draw on terminal & etc
-class QTermInterface{
-private:
-	/// The QTerminal
-	QTerminal _qterminal;
-	/// The current position of cursor, i.e where the next character will be written
-	Position _cursorPos;
-	/// The position that cursor will be moved to when its done drawing
-	Position _postUpdateCursorPos;
-	/// X coordinates of area where writing is allowed
-	uinteger _restrictX1, _restrictX2;
-	/// Y coordinates of area where writing is allowed
-	uinteger _restrictY1, _restrictY2;
-	/// restricts writing to a rectangle inside the terminal
-	/// 
-	/// The cursor is also moved to x and y
-	/// After applying this restriction, the cursor position returned will also be relative to x and y provided here
-	/// 
-	/// Returns: true if restricted, false if not restricted, because the area specified is outside terminal, or width || height == 0
-	bool restrictWrite(uinteger x, uinteger y, uinteger width, uinteger height){
-		if (x + width > _qterminal.size.width || y + height > _qterminal.size.height || width == 0 || height == 0)
-			return false;
-		_restrictX1 = x;
-		_restrictX2 = x + width;
-		_restrictY1 = y;
-		_restrictY2 = y + height;
-		// move to position
-		_qterminal._termWrap.moveCursor(cast(int)x, cast(int)y);
-		_cursorPos = Position(x, y);
-		return true;
-	}
-	/// called by QTerminal after all updating is finished, and right before checking for more events
-	void updateFinished(){
-		// set cursor position
-		_qterminal._termWrap.moveCursor(cast(int)_postUpdateCursorPos.x, cast(int)_postUpdateCursorPos.y);
-		// flush
-		_qterminal._termWrap.flush();
-	}
-	/// called by QTerminal right before starting to update widgets. *DOES NOTHING, _yet_*
-	void updateStarted(){
-		// set cursor position to (-1,-1), so if not set, its not visible
-		//_qterminal._termWrap.cursorVisible = false;
-	}
-public:
-	/// Constructor
-	this(QTerminal term){
-		_qterminal = term;
-	}
-	/// Writes characters on terminal
-	/// 
-	/// if `c` has more characters than there is space for, first few will be written, rest will be skipped.  
-	/// **and tab character is not supported, as in it will be read as a single space character. ` ('\t' == ' ') = true; `**
-	void write(dstring c, Color fg, Color bg){
-		for (uinteger i = 0; _cursorPos.y < _restrictY2;){
-			for (; _cursorPos.x < _restrictX2 && i < c.length; _cursorPos.x ++){
-				if (c[i] == '\t')
-					_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y,' ', fg, bg);
-				else
-					_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c[i], fg, bg);
-				i ++;
-			}
-			if (_cursorPos.x >= _restrictX2){
-				_cursorPos.x = _restrictX1;
-				_cursorPos.y ++;
-			}
-			if (i >= c.length)
-				break;
-		}
-	}
-	/// Fills the remaining part of curent line with `c`
-	/// 
-	/// `maxCount` is the maximum number of cells to fill. 0 for no limit
-	void fillLine(dchar c, Color fg, Color bg, uinteger maxCount = 0){
-		for (uinteger i = 0; _cursorPos.x < _restrictX2; _cursorPos.x ++){
-			_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c, fg, bg);
-			i ++;
-			if (i == maxCount)
-				break;
-		}
-		if (_cursorPos.x >= _restrictX2){
-			_cursorPos.x = _restrictX1;
-			_cursorPos.y ++;
-		}
-	}
-	/// Fills the terminal, or restricted area, with a character
-	void fill(dchar c, Color fg, Color bg){
-		for (; _cursorPos.y < _restrictY2; _cursorPos.y ++){
-			for (; _cursorPos.x < _restrictX2; _cursorPos.x ++){
-				_qterminal._termWrap.put(cast(int)_cursorPos.x, cast(int)_cursorPos.y, c, fg, bg);
-			}
-			_cursorPos.x = _restrictX1;
-		}
-	}
-	/// the position of next write
-	/// 
-	/// relative to the (0,0) of area where writing has been restricted (usually the area occupied by a widget)
-	/// 
-	/// Returns: position of cursor
-	@property Position cursor(){
-		return Position(_cursorPos.x - _restrictX1, _cursorPos.y - _restrictY1);
-	}
 	/// ditto
-	@property Position cursor(Position newPosition){
-		_cursorPos = newPosition;
-		_cursorPos.x += _restrictX1;
-		_cursorPos.y += _restrictY1;
-		if (_cursorPos.x > _restrictX2)
-			_cursorPos.x = _restrictX2;
-		if (_cursorPos.y > _restrictY2)
-			_cursorPos.y = _restrictY2;
-		_qterminal._termWrap.moveCursor(cast(int)_cursorPos.x, cast(int)_cursorPos.y);
-		return _cursorPos;
+	void write(dstring str){
+		str = str.dup;
+		while (str.length > 0){
+			if (_cursor.x == _width-1){
+				if (_cursor.y < _height){
+					_cursor.y ++;
+					_cursor.x = 0;
+				}else{
+					break;
+				}
+			}
+			dchar[] line = cast(dchar[])str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
+			str = str[line.length .. $];
+			// change `\t` to ` `
+			foreach (i; 0 .. line.length)
+				if (line[i] == '\t')
+					line[i] = ' ';
+			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
+			_cursor.x += line.length;
+		}
 	}
-	/// sets position of cursor on terminal, after updating is done
-	/// 
-	/// position is relative to caller widget's position.
-	/// 
-	/// Returns: true if successful, false if not
-	void setCursorPos(QWidget caller, uinteger x, uinteger y){
-		_postUpdateCursorPos.x = caller._position.x + x;
-		_postUpdateCursorPos.y = caller._position.y + y;
-		_qterminal._termWrap.cursorVisible = true;
+	/// fills all remaining cells with a character
+	void fill(dchar c, Color fg, Color bg){
+		dchar[] line;
+		line.length = _width;
+		line[] = c;
+		while (_cursor.y < _height){
+			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line[0 .. _width - _cursor.x],
+				fg, bg);
+			_cursor.y ++;
+			_cursor.x = 0;
+		}
 	}
-	/// Registers a keypress to a QWidget. When that key is pressed, the keyboardEvent of that widget will be called, regardless of _activeWidget
-	/// 
-	/// Returns: true if successfully set, false if not, for example if key is already registered
-	bool setKeyHandler(Key key, QWidget handlerWidget){
-		return _qterminal.registerKeyHandler(key, handlerWidget);
-	}
-	/// Call to terminate UI loop
-	void terminate(){
-		_qterminal._isRunning = false;
+	/// fills rest of current line with a character
+	void fillLine(dchar c, Color fg, Color bg){
+		dchar[] line;
+		line.length = _width - _cursor.x;
+		line[] = c;
+		_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
+		_cursor.x = 0;
+		_cursor.y++;
 	}
 }
 
@@ -777,22 +680,8 @@ class QTerminal : QLayout{
 private:
 	/// To actually access the terminal
 	TermWrapper _termWrap;
-	/// stores list of keys and widgets that will catch their KeyPress event
-	QWidget[dchar] _keysToCatch;
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
-
-	/// registers a key with a widget, so regardless of _activeWidget, that widget will catch that key's KeyPress event
-	/// 
-	/// Returns:  true on success, false on failure, which can occur because that key is already registered, or if widget is not registered
-	bool registerKeyHandler(dchar key, QWidget widget){
-		if (key in _keysToCatch){
-			return false;
-		}else{
-			_keysToCatch[key] = widget;
-			return true;
-		}
-	}
 
 	/// Reads InputEvent[] and calls appropriate functions to address those events
 	/// 
@@ -815,22 +704,13 @@ private:
 	}
 
 protected:
-
-	override void keyboardEvent(KeyboardEvent key){
-		if (key.key in _keysToCatch){
-			_keysToCatch[key.key].keyboardEventCall(key);
-		}
-		super.keyboardEvent(key);
-	}
 	
 	override public void update(){
-		_termInterface.updateStarted;
-		_termInterface.restrictWrite(0,0,_size.width,_size.height);
-		//_termInterface.fill(' ', DEFAULT_FG, DEFAULT_BG); // why'd I ever think this'd be a good idea?
 		super.update();
 		// check if need to show/hide cursor
+		// TODO move cursor to position
 		_termWrap.cursorVisible = _activeWidgetIndex > -1 && _widgets[_activeWidgetIndex].showCursor;
-		_termInterface.updateFinished;
+		_termWrap.flush;
 	}
 
 public:
@@ -847,11 +727,16 @@ public:
 		timerMsecs = timerDuration;
 
 		_termWrap = new TermWrapper();
-		_termInterface = new QTermInterface(this);
+		_display = new Display(1,1, _termWrap);
 	}
 	~this(){
 		.destroy(_termWrap);
-		.destroy(_termInterface);
+		.destroy(_display);
+	}
+
+	/// stops UI loop. **not instantly**, if it is in-between updates, calling event functions, or timers, it will complete those first
+	void terminate(){
+		_isRunning = false;
 	}
 	
 	/// starts the UI loop
