@@ -144,6 +144,7 @@ private:
 	}
 	/// called by owner for resizeEvent
 	void resizeEventCall(Size size){
+		this._size = size;
 		_display._width = size.width;
 		_display._height = size.height;
 		_display._xOff = _position.x;
@@ -687,8 +688,6 @@ private:
 	bool _isRunning;
 
 	/// Reads InputEvent[] and calls appropriate functions to address those events
-	/// 
-	/// Returns: true when there is no need to terminate (no CTRL+C pressed). false when it should terminate
 	void readEvent(Event event){
 		if (event.type == Event.Type.HangupInterrupt){
 			_isRunning = false;
