@@ -113,8 +113,6 @@ abstract class QWidget{
 private:
 	/// stores the position of this widget, relative to it's parent widget's position
 	Position _position;
-	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
-	integer _activeWidgetIndex = 0;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// stores what child widgets want updates
@@ -313,6 +311,8 @@ private:
 	QWidget[] _widgets;
 	/// stores the layout type, horizontal or vertical
 	QLayout.Type _type;
+	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
+	integer _activeWidgetIndex = -1;
 	
 	/// recalculates the size of every widget inside layout
 	void recalculateWidgetsSize(QLayout.Type T)(QWidget[] widgets, uinteger totalSpace, uinteger totalRatio){
@@ -479,9 +479,7 @@ protected:
 		// check if need to cycle within current active widget
 		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
 			integer lastActiveWidgetIndex = _activeWidgetIndex;
-			if (_activeWidgetIndex == -1)
-				_activeWidgetIndex = 0;
-			for (; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
+			for (_activeWidgetIndex ++; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
 				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
 					break;
 			}
