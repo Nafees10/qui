@@ -97,7 +97,7 @@ alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
 ///keyboardEvent function. Return true if the event should be dropped
 alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent);
 /// resizeEvent function. Return true if the event should be dropped
-alias ResizeEventFunction = bool delegate(QWidget, Size);
+alias ResizeEventFunction = bool delegate(QWidget);
 /// activateEvent function. Return true if the event should be dropped
 alias ActivateEventFunction = bool delegate(QWidget, bool);
 /// TimerEvent function. Return true if the event should be dropped
@@ -120,7 +120,7 @@ private:
 	/// stores what child widgets want updates
 	bool[] _requestingUpdate;
 	/// what key handlers are registered for what keys (key/index)
-	QWidget[dchar]  _keyHandlers;
+	QWidget[dchar] _keyHandlers;
 	/// the parent widget
 	QWidget _parent = null;
 	/// the index it is stored at in _parent. -1 if no parent asigned yet
@@ -143,14 +143,9 @@ private:
 			this.keyboardEvent(key);
 	}
 	/// called by owner for resizeEvent
-	void resizeEventCall(Size size){
-		this._size = size;
-		_display._width = size.width;
-		_display._height = size.height;
-		_display._xOff = _position.x;
-		_display._yOff = _position.y;
-		if (!_customResizeEvent || !_customResizeEvent(this, size))
-			this.resizeEvent(size);
+	void resizeEventCall(){
+		if (!_customResizeEvent || !_customResizeEvent(this))
+			this.resizeEvent();
 	}
 	/// called by owner for activateEvent
 	void activateEventCall(bool isActive){
@@ -223,7 +218,7 @@ protected:
 	/// Called when key is pressed and this widget is active.
 	void keyboardEvent(KeyboardEvent key){}
 	/// Called when widget size is changed.
-	void resizeEvent(Size size){}
+	void resizeEvent(){}
 	/// called right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
 	void activateEvent(bool isActive){}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
@@ -382,7 +377,7 @@ private:
 protected:
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
-	override void resizeEvent(Size size){
+	override void resizeEvent(){
 		uinteger ratioTotal;
 		foreach(w; _widgets){
 			if (w.show){
@@ -397,7 +392,7 @@ protected:
 			recalculateWidgetsPosition!(QLayout.Type.Vertical)(_widgets);
 		}
 		foreach (widget; _widgets){
-			widget.resizeEventCall(size);
+			widget.resizeEventCall();
 		}
 	}
 	
@@ -446,7 +441,7 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			widget._display = _display.getSlice(1,1, _position.x, _position.y); // just throw in dummy size/position, resize event will fix that
+			widget._display = this._display; // just throw in dummy size/position, resize event will fix that
 			widget.initializeCall();
 		}
 	}
@@ -569,7 +564,7 @@ private:
 	/// width & height
 	uinteger _width, _height;
 	/// x and y offsets
-	uinteger _xOff, _yOff;
+	integer _xOff, _yOff;
 	/// cursor position
 	Position _cursor;
 	/// the terminal
@@ -584,7 +579,18 @@ private:
 	}
 	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
 	Display getSlice(uinteger w, uinteger h, uinteger x, uinteger y){
-		return new Display(w, h, x, y, _term);
+		return new Display(w, h, _xOff + x, _yOff + y, _term);
+	}
+	/// Changes x and y offset
+	/// 
+	/// Returns: true if still within width and height, false if outside and so offsets not altered
+	bool offsets(integer x, integer y){
+		immutable integer newXOff = _xOff + x, newYOff = _yOff + y;
+		if (newXOff < 0 || newXOff >= _width || newYOff < 0 || newYOff >= _height)
+			return false;
+		_xOff = newXOff;
+		_yOff = newYOff;
+		return true;
 	}
 public:
 	/// constructor
@@ -621,7 +627,9 @@ public:
 					break;
 				}
 			}
-			dchar[] line = cast(dchar[])str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
+			dchar[] line = cast(dchar[])str[0 .. (_width - _cursor.x > str.length ? str.length : _width - _cursor.x)];
+			if (line.length == 0)
+				break;
 			str = str[line.length .. $];
 			// change `\t` to ` `
 			foreach (i; 0 .. line.length)
@@ -701,7 +709,7 @@ private:
 			_size.height = event.resize.height;
 			_size.width = event.resize.width;
 			//call size change on all widgets
-			resizeEventCall(_size);
+			resizeEventCall();
 		}
 	}
 
@@ -752,7 +760,7 @@ public:
 		_size.height = _termWrap.height();
 		//ready
 		initializeCall();
-		resizeEventCall(_size);
+		resizeEventCall();
 		//draw the whole thing
 		update();
 		_isRunning = true;
