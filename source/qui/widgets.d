@@ -57,7 +57,7 @@ protected:
 		}
 	}
 	
-	override void resizeEvent(Size size){
+	override void resizeEvent(){
 		calculateMaxXOffset;
 		requestUpdate();
 	}
@@ -179,7 +179,7 @@ private:
 	}
 protected:
 	/// override resize to re-scroll
-	override void resizeEvent(Size size){
+	override void resizeEvent(){
 		requestUpdate();
 		reScroll;
 	}
@@ -592,7 +592,7 @@ protected:
 		_display.fill(' ', textColor, backgroundColor);
 	}
 	
-	override void resizeEvent(Size size) {
+	override void resizeEvent() {
 		requestUpdate();
 	}
 public:
@@ -633,7 +633,7 @@ public:
 /// To specify the size, use the minHeight, maxHeight, minWidth, and maxWidth. only specifying the width and/or height will have no effect
 class SplitterWidget : QWidget{
 protected:
-	override void resizeEvent(Size size) {
+	override void resizeEvent() {
 		requestUpdate();
 	}
 	
