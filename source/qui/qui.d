@@ -144,11 +144,6 @@ private:
 	}
 	/// called by owner for resizeEvent
 	void resizeEventCall(){
-		this._size = _size;
-		_display._width = _size.width;
-		_display._height = _size.height;
-		_display._xOff = _position.x;
-		_display._yOff = _position.y;
 		if (!_customResizeEvent || !_customResizeEvent(this))
 			this.resizeEvent();
 	}
@@ -190,8 +185,6 @@ protected:
 	bool _wantsTab = false;
 	/// whether the widget wants input
 	bool _wantsInput = false;
-	/// whether the cursor should be visible or not
-	bool _showCursor = false;
 	/// used to write to terminal
 	Display _display = null;
 
@@ -397,6 +390,7 @@ protected:
 			recalculateWidgetsPosition!(QLayout.Type.Vertical)(_widgets);
 		}
 		foreach (widget; _widgets){
+			this._display.getSlice(widget._display, widget.size.width, widget.size.height, widget._position.x, widget._position.y);
 			widget.resizeEventCall();
 		}
 	}
@@ -412,7 +406,7 @@ protected:
 			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
-				if (widget.show && widget._wantsInput &&
+				if (widget.show && widget.wantsInput &&
 					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget.size.width &&
 					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget.size.height){
 					// make it active only if this layout is itself active
@@ -472,6 +466,7 @@ protected:
 	override void update(){
 		foreach(i, widget; _widgets){
 			if (_requestingUpdate[i] && widget.show){
+				widget._display.cursor = Position(0,0);
 				widget.update();
 				_requestingUpdate[i] = false;
 			}
@@ -531,7 +526,13 @@ public:
 	/// Returns: true if the cursor should be visible if this widget is active
 	override @property Position cursorPosition(){
 		// just do a hack, and check only for active widget
-		return _activeWidgetIndex > -1 ? _widgets[_activeWidgetIndex].cursorPosition : Position(-1,-1);
+		if (_activeWidgetIndex == -1)
+			return Position(-1, -1);
+		Position cursorPosition = _widgets[_activeWidgetIndex].cursorPosition;
+		if (cursorPosition == Position(-1, -1))
+			return cursorPosition;
+		return Position(_widgets[_activeWidgetIndex]._position.x + cursorPosition.x,
+			_widgets[_activeWidgetIndex]._position.y + cursorPosition.y);
 	}
 	
 	/// adds (appends) a widget to the widgetList, and makes space for it
@@ -570,7 +571,7 @@ private:
 	uinteger _width, _height;
 	/// x and y offsets
 	uinteger _xOff, _yOff;
-	/// cursor position
+	/// cursor position, relative to _xOff and _yOff
 	Position _cursor;
 	/// the terminal
 	TermWrapper _term;
@@ -584,7 +585,14 @@ private:
 	}
 	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
 	Display getSlice(uinteger w, uinteger h, uinteger x, uinteger y){
-		return new Display(w, h, x, y, _term);
+		return new Display(w, h, _xOff + x, _yOff + y, _term);
+	}
+	/// modifies an existing Display to act as a "slice"
+	void getSlice(Display sliced, uinteger w, uinteger h, uinteger x, uinteger y){
+		sliced._width = w;
+		sliced._height = h;
+		sliced._xOff = _xOff + x;
+		sliced._yOff = _yOff + y;
 	}
 public:
 	/// constructor
@@ -611,39 +619,22 @@ public:
 	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
 	/// Tab character is converted to a single space character
 	void write(dstring str, Color fg, Color bg){
-		str = str.dup;
-		while (str.length > 0){
-			if (_cursor.x == _width-1){
-				if (_cursor.y < _height){
-					_cursor.y ++;
-					_cursor.x = 0;
-				}else{
-					break;
-				}
-			}
-			dchar[] line = cast(dchar[])str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
-			str = str[line.length .. $];
-			// change `\t` to ` `
-			foreach (i; 0 .. line.length)
-				if (line[i] == '\t')
-					line[i] = ' ';
-			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line, fg, bg);
-			_cursor.x += line.length;
-		}
+		_term.color(fg, bg);
+		this.write(str);
 	}
 	/// ditto
 	void write(dstring str){
 		str = str.dup;
 		while (str.length > 0){
-			if (_cursor.x == _width-1){
-				if (_cursor.y < _height){
+			if (_cursor.x >= _width-1){
+				if (_cursor.y < _height-1){
 					_cursor.y ++;
 					_cursor.x = 0;
 				}else{
 					break;
 				}
 			}
-			dchar[] line = cast(dchar[])str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
+			dchar[] line = cast(dchar[])str[0 .. (_width - _cursor.x > str.length ? str.length : _width - _cursor.x)];
 			str = str[line.length .. $];
 			// change `\t` to ` `
 			foreach (i; 0 .. line.length)
@@ -658,9 +649,9 @@ public:
 		dchar[] line;
 		line.length = _width;
 		line[] = c;
+		_term.color(fg, bg);
 		while (_cursor.y < _height){
-			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line[0 .. _width - _cursor.x],
-				fg, bg);
+			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line[0 .. _width - _cursor.x]);
 			_cursor.y ++;
 			_cursor.x = 0;
 		}
@@ -668,11 +659,11 @@ public:
 	/// fills rest of current line with a character
 	void fillLine(dchar c, Color fg, Color bg, uinteger max = 0){
 		dchar[] line;
-		line.length =  max < _width - _cursor.x ? max : _width - _cursor.x;
+		line.length =  max < _width - _cursor.x && max > 0 ? max : _width - _cursor.x;
 		line[] = c;
 		_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
 		_cursor.x += line.length;
-		if (_cursor.x == _width){
+		if (_cursor.x >= _width -1){
 			_cursor.y ++;
 			_cursor.x = 0;
 		}
@@ -710,12 +701,13 @@ protected:
 	override void update(){
 		super.update();
 		// check if need to show/hide cursor
-		Position cursorPos = _widgets[_activeWidgetIndex].cursorPosition;
-		if (_activeWidgetIndex > -1 && cursorPos != Position(-1,-1)){
+		Position cursorPos = this.cursorPosition;
+		if (cursorPos == Position(-1, -1)){
+			_termWrap.cursorVisible = false;
+		}else{
 			_termWrap.moveCursor(cast(int)cursorPos.x, cast(int)cursorPos.y);
 			_termWrap.cursorVisible = true;
-		}else
-			_termWrap.cursorVisible = false;
+		}
 		_termWrap.flush;
 	}
 
@@ -734,6 +726,7 @@ public:
 
 		_termWrap = new TermWrapper();
 		_display = new Display(1,1, _termWrap);
+		this._isActive = true; // so it can make other widgets active on mouse events
 	}
 	~this(){
 		.destroy(_termWrap);
