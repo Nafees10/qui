@@ -147,6 +147,7 @@ private:
 	}
 	/// called by owner for activateEvent
 	void activateEventCall(bool isActive){
+		_isActive = isActive;
 		if (!_customActivateEvent || !_customActivateEvent(this, isActive))
 			this.activateEvent(isActive);
 	}
@@ -412,8 +413,8 @@ protected:
 					// make it active only if this layout is itself active
 					if (this.isActive){
 						if (activeWidget)
-							activeWidget._isActive = false;
-						widget._isActive = true;
+							activeWidget.activateEventCall(false);
+						widget.activateEventCall(true);
 						_activeWidgetIndex = i;
 					}
 					widget.mouseEventCall(mouse);
