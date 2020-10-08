@@ -24,9 +24,6 @@ private:
 	/// if in the last timerEvent, xOffset was increased
 	bool increasedXOffset = true;
 
-	/// whether this widget needs to update or not
-	bool needsUpdate = true;
-
 	/// calculates the maxXOffset, and changes xOffset if it's above it
 	void calculateMaxXOffset(){
 		if (_caption.length <= size.width){
@@ -39,47 +36,48 @@ private:
 		}
 	}
 protected:
-	override void timerEvent(){
-		super.timerEvent;
+	override void timerEvent(uinteger msecs){
+		static uinteger accumulatedTime;
 		if (maxXOffset > 0){
-			if (xOffset == maxXOffset){
-				xOffset --;
+			accumulatedTime += msecs;
+			if (xOffset >= maxXOffset)
 				increasedXOffset = false;
-			}else if (xOffset == 0){
-				xOffset ++;
+			else if (xOffset == 0)
 				increasedXOffset = true;
-			}else if (increasedXOffset)
-				xOffset ++;
-			else
-				xOffset --;
-			// request update
-			_termInterface.requestUpdate(this);
-			needsUpdate = true;
+			while (accumulatedTime >= scrollTimer){
+				accumulatedTime -= scrollTimer;
+				if (increasedXOffset){
+					if (xOffset < maxXOffset)
+						xOffset ++;
+				}else if (xOffset > 0)
+					xOffset --;
+				// request update
+				requestUpdate();
+			}
 		}
 	}
 	
-	override void resizeEvent(Size size){
-		super.resizeEvent(size);
-		needsUpdate = true;
+	override void resizeEvent(){
 		calculateMaxXOffset;
+		requestUpdate();
 	}
 	
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			_termInterface.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
-		}
+	override void update(){
+		_display.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
 	}
 
 public:
 	/// text and background colors
 	Color textColor, backgroundColor;
+	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
+	uinteger scrollTimer;
 	/// constructor
 	this(dstring newCaption = ""){
 		this.caption = newCaption;
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
 		this._size.maxHeight = 1;
+		scrollTimer = 500;
 	}
 
 	/// the text to display
@@ -91,9 +89,7 @@ public:
 		_caption = newCaption;
 		calculateMaxXOffset;
 		// request update
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 		return _caption;
 	}
 }
@@ -105,34 +101,31 @@ class ProgressbarWidget : TextLabelWidget{
 private:
 	uinteger _max, _progress;
 protected:
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			// if caption fits in width, center align it
-			dstring text;
-			if (_caption.length < _size.width)
-				text = centerAlignText(_caption, _size.width);
-			else
-				text = _caption.scrollHorizontal(xOffset, _size.width);
-			// number of chars to be colored in barColor
-			uinteger fillCharCount = (_progress * _size.width) / _max;
-			// line number on which the caption will be written
-			for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
-				if (i == captionLineNumber){
-					_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-					_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
-				}else{
-					if (fillCharCount)
-						_termInterface.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
-					if (fillCharCount < this._size.width)
-						_termInterface.fillLine(' ', barColor, backgroundColor);
-				}
+	override void update(){
+		// if caption fits in width, center align it
+		dstring text;
+		if (_caption.length < _size.width)
+			text = centerAlignText(_caption, _size.width);
+		else
+			text = _caption.scrollHorizontal(xOffset, _size.width);
+		// number of chars to be colored in barColor
+		uinteger fillCharCount = (_progress * _size.width) / _max;
+		// line number on which the caption will be written
+		for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
+			if (i == captionLineNumber){
+				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
+				_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
+			}else{
+				if (fillCharCount)
+					_display.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
+				if (fillCharCount < this._size.width)
+					_display.fillLine(' ', barColor, backgroundColor);
 			}
-			// write till _progress
-			_termInterface.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-			// write the empty bar
-			_termInterface.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 		}
+		// write till _progress
+		_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
+		// write the empty bar
+		_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 	}
 public:
 	/// background color, and bar's color
@@ -155,9 +148,7 @@ public:
 	/// The 'total' or the max-progress. setter
 	@property uinteger max(uinteger newMax){
 		_max = newMax;
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 		return _max;
 	}
 	/// the amount of progress. getter
@@ -167,9 +158,7 @@ public:
 	/// the amount of progress. setter
 	@property uinteger progress(uinteger newProgress){
 		_progress = newProgress;
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 		return _progress;
 	}
 }
@@ -183,8 +172,6 @@ private:
 	uinteger _x;
 	/// how many chars wont be displayed on left
 	uinteger _scrollX;
-	/// stores whether the widget needs update or not
-	bool needsUpdate = true;
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
@@ -192,21 +179,18 @@ private:
 	}
 protected:
 	/// override resize to re-scroll
-	override void resizeEvent(Size size){
-		super.resizeEvent(size);
-		needsUpdate = true;
+	override void resizeEvent(){
+		requestUpdate();
 		reScroll;
 	}
 	override void mouseEvent(MouseEvent mouse){
-		super.mouseEvent(mouse);
 		if (mouse.button == MouseEvent.Button.Left){
 			_x = mouse.x + _scrollX;
 		}
-		needsUpdate = true;
+		requestUpdate();
 		reScroll;
 	}
 	override void keyboardEvent(KeyboardEvent key){
-		super.keyboardEvent(key);
 		if (key.isChar){
 			//insert that key
 			if (key.key == '\b'){
@@ -237,16 +221,11 @@ protected:
 				_text = _text.deleteElement(_x);
 			}
 		}
-		needsUpdate = true;
+		requestUpdate();
 		reScroll;
 	}
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			_termInterface.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width), textColor, backgroundColor);
-			// set cursor position
-			_termInterface.setCursorPos(this, _x - _scrollX, 0);
-		}
+	override void update(){
+		_display.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width),textColor,backgroundColor);
 	}
 public:
 	/// background, text, caption, and caption's background colors
@@ -274,9 +253,12 @@ public:
 	@property dstring text(dstring newText){
 		_text = cast(dchar[])newText.dup;
 		// request update
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
+		requestUpdate();
 		return cast(dstring)newText;
+	}
+	// override cursor position
+	override @property Position cursorPosition(){
+		return Position(_x - _scrollX, 0);
 	}
 }
 
@@ -290,8 +272,6 @@ private:
 	uinteger _cursorX, _cursorY;
 	/// whether the text in it will be editable
 	bool _enableEditing = true;
-	/// whether the widget needs update or not
-	bool needsUpdate = true;
 	/// used by widget itself to recalculate scrolling
 	void reScroll(){
 		// _scrollY
@@ -344,40 +324,39 @@ private:
 		return _lines.length+1;
 	}
 protected:
-	override void update(bool force=false){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			const uinteger count = lineCount;
-			if (count > 0){
-				//write lines to memo
-				for (uinteger i = _scrollY; i < count && _termInterface.cursor.y < _size.height; i++){
-					_termInterface.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
-						textColor, backgroundColor);
-				}
+	override void update(){
+		const uinteger count = lineCount;
+		if (count > 0){
+			//write lines to memo
+			for (uinteger i = _scrollY; i < count && _display.cursor.y < _size.height; i++){
+				_display.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
+					textColor, backgroundColor);
 			}
-			_termInterface.fill(' ', textColor, backgroundColor);
 		}
-		if (_enableEditing)
-			_termInterface.setCursorPos(this, _cursorX - _scrollX, _cursorY - _scrollY);
+		_display.fill(' ', textColor, backgroundColor);
+	}
+
+	override void resizeEvent(){
+		requestUpdate();
+		reScroll();
 	}
 	
 	override void mouseEvent(MouseEvent mouse){
-		super.mouseEvent(mouse);
 		//calculate mouse position, relative to scroll
 		mouse.x = mouse.x + cast(int)_scrollX;
 		mouse.y = mouse.y + cast(int)_scrollY;
 		if (mouse.button == mouse.Button.Left){
-			needsUpdate = true;
+			requestUpdate();
 			moveCursor(mouse.x, mouse.y);
 		}else if (mouse.button == mouse.Button.ScrollDown){
 			if (_cursorY+1 < lineCount){
-				needsUpdate = true;
+				requestUpdate();
 				moveCursor(_cursorX, _cursorY + 4);
 				reScroll();
 			}
 		}else if (mouse.button == mouse.Button.ScrollUp){
 			if (_cursorY > 0){
-				needsUpdate = true;
+				requestUpdate();
 				if (_cursorY < 4){
 					moveCursor(_cursorX, 0);
 				}else{
@@ -389,10 +368,9 @@ protected:
 	}
 	// too big of a mess to be dealt with right now, TODO try to make this shorter
 	override void keyboardEvent(KeyboardEvent key){
-		super.keyboardEvent(key);
 		if (key.isChar){
 			if (_enableEditing){
-				needsUpdate = true;
+				requestUpdate();
 				dstring currentLine = readLine(_cursorY);
 				//check if backspace
 				if (key.key == '\b'){
@@ -451,7 +429,7 @@ protected:
 			}
 		}else{
 			if (key.key == Key.Delete && _enableEditing){
-				needsUpdate = true;
+				requestUpdate();
 				//check if is deleting \n
 				if (_cursorX == readLine(_cursorY).length && _cursorY+1 < lineCount){
 					//merge next line with this one
@@ -466,17 +444,17 @@ protected:
 				}
 			}else if (key.key == Key.DownArrow){
 				if (_cursorY+1 < lineCount){
-					needsUpdate = true;
+					requestUpdate();
 					_cursorY ++;
 				}
 			}else if (key.key == Key.UpArrow){
 				if (_cursorY > 0){
-					needsUpdate = true;
+					requestUpdate();
 					_cursorY --;
 				}
 			}else if (key.key == Key.LeftArrow){
 				if ((_cursorY >= 0 && _cursorX > 0) || (_cursorY > 0 && _cursorX == 0)){
-					needsUpdate = true;
+					requestUpdate();
 					if (_cursorX == 0){
 						_cursorY --;
 						_cursorX = readLine(_cursorY).length;
@@ -485,7 +463,7 @@ protected:
 					}
 				}
 			}else if (key.key == Key.RightArrow){
-				needsUpdate = true;
+				requestUpdate();
 				if (_cursorX == readLine(_cursorY).length){
 					if (_cursorY+1 < lineCount){
 						_cursorX = 0;
@@ -505,18 +483,13 @@ public:
 	/// background and text colors
 	Color backgroundColor, textColor;
 	/// constructor
-	this(bool editable = true){
+	this(bool allowEditing = true){
 		_lines = new List!dstring;
 		_scrollX = 0;
 		_scrollY = 0;
 		_cursorX = 0;
 		_cursorY = 0;
-		_enableEditing = editable; //cause if readOnly, then writeProtected = true also
-
-		if (_enableEditing)
-			_wantsTab = true;
-		// and input too, obviously
-		_wantsInput = true;
+		this.editable = allowEditing;
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -539,7 +512,13 @@ public:
 	}
 	///sets whether to allow modifying of contents (false) or not (true)
 	@property bool editable(bool newPermission){
+		_wantsTab = newPermission;
+		_wantsInput = newPermission;
 		return _enableEditing = newPermission;
+	}
+	/// override cursor position
+	override @property Position cursorPosition(){
+		return	_enableEditing ? Position(_cursorX - _scrollX, _cursorY - _scrollY) : Position(-1,-1);
 	}
 }
 
@@ -555,8 +534,6 @@ private:
 	uinteger _startIndex;
 	/// the maximum number of lines to store
 	uinteger _maxLines;
-	/// whether the widget needs update or not
-	bool needsUpdate = true;
 
 	/// Returns: how many cells in height will a string take (due to wrapping of long lines)
 	uinteger lineHeight(dstring s){
@@ -605,24 +582,20 @@ private:
 		return r;
 	}
 protected:
-	override void update(bool force){
-		if (needsUpdate || force){
-			needsUpdate = false;
-			dstring[] lines = displayedLines();
-			foreach(line; lines){
-				_termInterface.write(line, textColor, backgroundColor);
-				// if there's empty space left in current line, fill it
-				if (_termInterface.cursor.x > 0)
-					_termInterface.fillLine(' ', textColor, backgroundColor);
-			}
-			// fill any remaining cell
-			_termInterface.fill(' ', textColor, backgroundColor);
+	override void update(){
+		dstring[] lines = displayedLines();
+		foreach(line; lines){
+			_display.write(line, textColor, backgroundColor);
+			// if there's empty space left in current line, fill it
+			if (_display.cursor.x > 0)
+				_display.fillLine(' ', textColor, backgroundColor);
 		}
+		// fill any remaining cell
+		_display.fill(' ', textColor, backgroundColor);
 	}
 	
-	override void resizeEvent(Size size) {
-		super.resizeEvent(size);
-		needsUpdate = true;
+	override void resizeEvent() {
+		requestUpdate();
 	}
 public:
 	/// background and text color
@@ -648,16 +621,12 @@ public:
 			_startIndex ++;
 		}else
 			_logs.append(item);
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 	}
 	///clears the log
 	void clear(){
 		_logs.clear;
-		if (_termInterface)
-			_termInterface.requestUpdate(this);
-		needsUpdate = true;
+		requestUpdate();
 	}
 }
 
@@ -665,20 +634,13 @@ public:
 /// 
 /// To specify the size, use the minHeight, maxHeight, minWidth, and maxWidth. only specifying the width and/or height will have no effect
 class SplitterWidget : QWidget{
-private:
-	/// whether it needs an update or not
-	bool needsUpdate = true;
 protected:
-	override void resizeEvent(Size size) {
-		super.resizeEvent(size);
-		needsUpdate = true;
+	override void resizeEvent() {
+		requestUpdate();
 	}
 	
-	override void update(bool force = false) {
-		if (needsUpdate || force){
-			needsUpdate = false;
-			_termInterface.fill(' ',DEFAULT_FG, color);
-		}
+	override void update(){
+		_display.fill(' ',DEFAULT_FG, color);
 	}
 public:
 	/// color of this widget
