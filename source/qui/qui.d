@@ -120,7 +120,7 @@ private:
 	/// stores what child widgets want updates
 	bool[] _requestingUpdate;
 	/// what key handlers are registered for what keys (key/index)
-	QWidget[dchar] _keyHandlers;
+	QWidget[dchar]  _keyHandlers;
 	/// the parent widget
 	QWidget _parent = null;
 	/// the index it is stored at in _parent. -1 if no parent asigned yet
@@ -144,6 +144,11 @@ private:
 	}
 	/// called by owner for resizeEvent
 	void resizeEventCall(){
+		this._size = _size;
+		_display._width = _size.width;
+		_display._height = _size.height;
+		_display._xOff = _position.x;
+		_display._yOff = _position.y;
 		if (!_customResizeEvent || !_customResizeEvent(this))
 			this.resizeEvent();
 	}
@@ -441,7 +446,7 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			widget._display = this._display; // just throw in dummy size/position, resize event will fix that
+			widget._display = _display.getSlice(1,1, _position.x, _position.y); // just throw in dummy size/position, resize event will fix that
 			widget.initializeCall();
 		}
 	}
@@ -564,7 +569,7 @@ private:
 	/// width & height
 	uinteger _width, _height;
 	/// x and y offsets
-	integer _xOff, _yOff;
+	uinteger _xOff, _yOff;
 	/// cursor position
 	Position _cursor;
 	/// the terminal
@@ -579,18 +584,7 @@ private:
 	}
 	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
 	Display getSlice(uinteger w, uinteger h, uinteger x, uinteger y){
-		return new Display(w, h, _xOff + x, _yOff + y, _term);
-	}
-	/// Changes x and y offset
-	/// 
-	/// Returns: true if still within width and height, false if outside and so offsets not altered
-	bool offsets(integer x, integer y){
-		immutable integer newXOff = _xOff + x, newYOff = _yOff + y;
-		if (newXOff < 0 || newXOff >= _width || newYOff < 0 || newYOff >= _height)
-			return false;
-		_xOff = newXOff;
-		_yOff = newYOff;
-		return true;
+		return new Display(w, h, x, y, _term);
 	}
 public:
 	/// constructor
@@ -627,9 +621,7 @@ public:
 					break;
 				}
 			}
-			dchar[] line = cast(dchar[])str[0 .. (_width - _cursor.x > str.length ? str.length : _width - _cursor.x)];
-			if (line.length == 0)
-				break;
+			dchar[] line = cast(dchar[])str[0 .. _width - (_cursor.x > str.length ? str.length : _width - _cursor.x)];
 			str = str[line.length .. $];
 			// change `\t` to ` `
 			foreach (i; 0 .. line.length)
