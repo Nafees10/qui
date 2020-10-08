@@ -64,7 +64,6 @@ version(demo){
 				static increasing = true;
 				// owner = caller (same thing)
 				ProgressbarWidget owner = cast(ProgressbarWidget)caller;
-				log.add("timer called");
 				if (owner.progress >= owner.max){
 					increasing = false;
 				}else if (owner.progress == 0){
@@ -76,6 +75,14 @@ version(demo){
 					owner.progress = owner.progress -1;
 				return false;
 			};
+			memo.onActivateEvent = delegate(QWidget, bool isActive){
+				log.add(to!dstring("Memo is now "~(isActive?"active":"inactive")));
+				return false;
+			};
+			edit.onActivateEvent = delegate(QWidget, bool isActive){
+				log.add(to!dstring("EditLine is now "~(isActive?"active":"inactive")));
+				return false;
+			};	
 		}
 		~this(){
 			// destroy all widgets
