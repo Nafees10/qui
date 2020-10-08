@@ -240,8 +240,6 @@ public:
 		_wantsTab = false;
 		// and input too, obvious
 		_wantsInput = true;
-		// and needs to show cursor
-		_showCursor = true;
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -511,7 +509,6 @@ public:
 	@property bool editable(bool newPermission){
 		_wantsTab = newPermission;
 		_wantsInput = newPermission;
-		_showCursor = newPermission;
 		return _enableEditing = newPermission;
 	}
 	/// override cursor position
