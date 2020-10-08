@@ -335,6 +335,11 @@ protected:
 		}
 		_display.fill(' ', textColor, backgroundColor);
 	}
+
+	override void resizeEvent(){
+		requestUpdate();
+		reScroll();
+	}
 	
 	override void mouseEvent(MouseEvent mouse){
 		//calculate mouse position, relative to scroll
