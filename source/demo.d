@@ -5,7 +5,7 @@ version(demo){
 	import std.conv : to;
 	import std.path;
 	import std.file : thisExePath;
-	import utils.misc;
+	import utils.misc : uinteger, integer, fileToArray;
 	
 	void main (){
 		App appInstance = new App();
