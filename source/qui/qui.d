@@ -208,7 +208,7 @@ protected:
 	/// Called by parent to update this widget
 	void update(){}
 
-	/// Called after `_termInterface` has been set and this widget is ready to be used
+	/// Called after `_display` has been set and this widget is ready to be used
 	void initialize(){}
 	/// Called when mouse is clicked with cursor on this widget.
 	void mouseEvent(MouseEvent mouse){}
