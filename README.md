@@ -28,7 +28,7 @@ To use qui in your dub package, run this in your dub package's directory:
 ## Getting Started
 
 All the widgets are contained in `qui.widgets`, and the base classes are in `qui.qui`.  
-Documentation for this package can be found [here](https://qui.dpldocs.info/qui.html).
+You should also read through `docs/*.md` for a quick start on how to use and write new widgets.
 
 ### Building demo
 
@@ -43,7 +43,8 @@ dub run qui --b=release --c=quidemo
 
 ### Writing Widgets
 
-See `docs/` for documentation on how to write widgets. // TODO, currently empty
+See `docs/` for documentation on how to write widgets.  
+Additionally, you could also see `source/qui/widgets.d` and see some existing widgets.
 
 ---
 
