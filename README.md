@@ -56,6 +56,12 @@ Additionally, you could also see `source/qui/widgets.d` and see some existing wi
 
 ---
 
+## Known Issues
+
+See the issues tab. If you came across some new issue, start a new one.
+
+---
+
 ## TODO for upcoming versions
 
 1. Key release events
