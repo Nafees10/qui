@@ -48,10 +48,18 @@ dub run qui --b=release --c=quidemo
 
 ---
 
-### Writing Widgets
+## Documentation
 
-See `docs/` for documentation on how to write widgets.  
-Additionally, you could also see `source/qui/widgets.d` and see some existing widgets.
+See `docs/` for documentation on how to use qui and how to write widgets.  
+
+Additionally, you could also see `source/qui/widgets.d` and see some existing widgets, this can be helpful in writing new widgets.
+
+---
+
+## TODO for upcoming versions
+
+1. Key release events
+2. Modifider keys
 
 ---
 
