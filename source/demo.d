@@ -62,7 +62,6 @@ version(demo){
 			// and this is how timerEvent can be used
 			progressBar.onTimerEvent = delegate(QWidget caller, uinteger msecs){
 				static increasing = true;
-				// owner = caller (same thing)
 				ProgressbarWidget owner = cast(ProgressbarWidget)caller;
 				if (owner.progress >= owner.max){
 					increasing = false;
@@ -82,7 +81,11 @@ version(demo){
 			edit.onActivateEvent = delegate(QWidget, bool isActive){
 				log.add(to!dstring("EditLine is now "~(isActive?"active":"inactive")));
 				return false;
-			};	
+			};
+			memo.onMouseEvent = delegate(QWidget, MouseEvent mouse){
+				log.add(to!dstring("Memo mouse event: (" ~ mouse.x.to!string ~ ',' ~ mouse.y.to!string~')'));
+				return false;
+			};
 		}
 		~this(){
 			// destroy all widgets
