@@ -45,7 +45,7 @@ struct Size{
 		bool _changed = false; /// specifies if has been changed.
 	}
 	/// returns whether the size was changed since the last time this property was read
-	@property bool changed(){
+	private @property bool changed(){
 		if (_changed){
 			_changed = false;
 			return true;
@@ -677,7 +677,7 @@ private:
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
 
-	/// Reads InputEvent[] and calls appropriate functions to address those events
+	/// Reads InputEvent and calls appropriate functions to address those events
 	void readEvent(Event event){
 		if (event.type == Event.Type.HangupInterrupt){
 			_isRunning = false;
