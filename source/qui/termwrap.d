@@ -57,7 +57,7 @@ public struct Event{
 			Middle, /// Middle mouse btn clicked
 			ScrollUp, /// Scroll up clicked
 			ScrollDown, /// Scroll Down clicked
-			None, /// no button pressed, mouse was hovered
+			None, /// no button pressed, mouse was hovered. Not supported on all terminals (works on xterm, not on konsole)
 		}
 		/// x and y position of cursor
 		int x, y;
@@ -246,9 +246,9 @@ public:
 					event = Event(Event.Type.HangupInterrupt);
 					return true;
 				}
-				if (e.type == InputEvent.Type.KeyboardEvent){
-					KeyboardEvent ke = e.get!(InputEvent.Type.KeyboardEvent);
-					event = Event(Event.Keyboard(ke.which));
+				if (e.type == InputEvent.Type.KeyboardEvent && 
+				e.get!(InputEvent.Type.KeyboardEvent).pressed){
+					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent).which));
 					return true;
 				}
 				if (e.type == InputEvent.Type.MouseEvent){
