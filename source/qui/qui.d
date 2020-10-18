@@ -613,6 +613,10 @@ public:
 			newPos.x = _width-1;
 		if (newPos.y >= _height)
 			newPos.y = _height-1;
+		if (newPos.x < 0)
+			newPos.x = 0;
+		if (newPos.y < 0)
+			newPos.y = 0;
 		return _cursor = newPos;
 	}
 	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
