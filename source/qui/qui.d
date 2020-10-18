@@ -619,6 +619,10 @@ public:
 			newPos.y = 0;
 		return _cursor = newPos;
 	}
+	/// sets background and foreground color
+	void colors(Color fg, Color bg){
+		_term.color(fg, bg);
+	}
 	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
 	/// Tab character is converted to a single space character
 	void write(dstring str, Color fg, Color bg){
