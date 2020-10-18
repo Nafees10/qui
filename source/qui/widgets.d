@@ -525,7 +525,7 @@ public:
 /// Displays an un-scrollable log
 /// 
 /// It's content cannot be modified by user, like a MemoWidget with editing disabled, but automatically scrolls down as new lines 
-/// are added, and it wraps long lines. And it supports newline characters
+/// are added, and it wraps long lines.
 class LogWidget : QWidget{
 private:
 	/// stores the logs
@@ -534,67 +534,52 @@ private:
 	uinteger _startIndex;
 	/// the maximum number of lines to store
 	uinteger _maxLines;
-
-	/// Returns: how many cells in height will a string take (due to wrapping of long lines)
-	uinteger lineHeight(dstring s){
-		const uinteger width = this._size.width;
-		uinteger widthTaken = 0, count = 1;
-		for (uinteger i = 0; i < s.length; i++){
-			widthTaken ++;
-			if (s[i] == '\n' || widthTaken >= width){
-				count ++;
-				widthTaken = 0;
-			}
-		}
-		return count;
+	/// Returns: line at an index
+	dstring getLine(uinteger index){
+		return _logs.read((index + _startIndex) % _maxLines);
 	}
-	/// Returns: wrapped lines
-	dstring[] wrapLine(dstring s){
-		const uinteger width = this._size.width;
-		uinteger widthTaken = 0;
-		dstring[] r;
-		for (uinteger i = 0, startIndex = 0, endIndex = s.length-1; i < s.length; i ++){
-			widthTaken ++;
-			if (s[i] == '\n' || widthTaken >= width || i == endIndex){
-				r ~= s[startIndex .. s[i] == '\n' ? i : i+1];
-				startIndex = i+1;
-				widthTaken = 0;
-			}
-		}
-		return r;
-	}
-	/// Returns: lines to be displayed
-	dstring[] displayedLines(){
-		uinteger availableHeight = this._size.height;
-		dstring[] r;
-		r.length = this._size.height;
-		for (integer i = _logs.length - 1, index = r.length-1; i >= 0 && index >= 0; i --){
-			dstring[] line = wrapLine(_logs.read(i));
-			if (line.length > availableHeight)
-				line = line[line.length - availableHeight .. line.length];
-			foreach_reverse(wrapped; line){
-				r[index] = wrapped;
-				if (index == 0)
+	/// wraps all lines in _logs
+	void wrap(){
+		if (_size.width == 0)
+			return;
+		List!dstring wrappedList = new List!dstring(_maxLines);
+		for (uinteger i = 0; i < _logs.length; i ++){
+			dstring line = getLine(i);
+			do{
+				if (wrappedList.length >= _maxLines)
 					break;
-				index --;
-			}
+				wrappedList.append(line[0 .. $ < _size.width ? $ : _size.width]);
+				line = _size.width < line.length ? line[_size.width .. $] : [];
+			}while (line.length > 0);
+			if (wrappedList.length >= _maxLines)
+				break;
+		}
+		.destroy(_logs);
+		_logs = wrappedList;
+		_startIndex = 0;
+	}
+	/// wrap a line
+	dstring[] wrap(dstring str){
+		dstring[] r;
+		str = str.dup;
+		while (str.length > 0){
+			r ~= _size.width > str.length ? str : str[0 .. _size.width];
+			str = _size.width < str.length ? str[_size.width .. $] : [];
 		}
 		return r;
 	}
 protected:
 	override void update(){
-		dstring[] lines = displayedLines();
-		foreach(line; lines){
-			_display.write(line, textColor, backgroundColor);
-			// if there's empty space left in current line, fill it
-			if (_display.cursor.x > 0)
-				_display.fillLine(' ', textColor, backgroundColor);
+		_display.colors(textColor, backgroundColor);
+		for (uinteger i = _logs.length < _size.height ? 0 : _logs.length - _size.height; i < _logs.length; i ++){
+			_display.write(getLine(i));
+			_display.fillLine(cast(dchar)' ', textColor, backgroundColor);
 		}
-		// fill any remaining cell
-		_display.fill(' ', textColor, backgroundColor);
+		_display.fill(cast(dchar)' ', textColor, backgroundColor);
 	}
 	
 	override void resizeEvent() {
+		wrap();
 		requestUpdate();
 	}
 public:
@@ -613,14 +598,21 @@ public:
 		_logs.destroy;
 	}
 	
-	///adds string to the log, and scrolls down to it
+	///adds string to the log, and scrolls down to it.
+	/// newline character is not allowed
 	void add(dstring item){
 		//check if needs to overwrite
-		if (_logs.length > _maxLines){
-			_logs.set(_startIndex, item);
-			_startIndex ++;
-		}else
-			_logs.append(item);
+		dstring[] lines = wrap(item);
+		foreach (line; lines){
+			if (_logs.length >= _maxLines){
+				if (_startIndex >= _logs.length)
+					_startIndex = 0;
+				_logs.set(_startIndex, item);
+				_startIndex ++;
+				continue;
+			}
+			_logs.append(line);
+		}
 		requestUpdate();
 	}
 	///clears the log
