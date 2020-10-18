@@ -635,11 +635,8 @@ public:
 			}
 			dchar[] line = cast(dchar[])str[0 .. (_width - _cursor.x > str.length ? str.length : _width - _cursor.x)];
 			str = str[line.length .. $];
-			// change `\t` to ` `
-			foreach (i; 0 .. line.length)
-				if (line[i] == '\t')
-					line[i] = ' ';
-			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
+			foreach (i, c; line)
+				_term.put(cast(int)(i + _cursor.x + _xOff), cast(int)(_cursor.y + _yOff), c);
 			_cursor.x += line.length;
 		}
 	}
