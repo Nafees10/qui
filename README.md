@@ -64,8 +64,8 @@ See the issues tab. If you came across some new issue, start a new one.
 
 ## TODO for upcoming versions
 
-1. Key release events
-2. Modifider keys
+1. ~~Key release events~~
+2. Modifider keys, planned for next version.
 
 ---
 
