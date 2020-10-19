@@ -82,8 +82,12 @@ version(demo){
 				log.add(to!dstring("EditLine is now "~(isActive?"active":"inactive")));
 				return false;
 			};
-			memo.onMouseEvent = delegate(QWidget, MouseEvent mouse){
-				log.add(to!dstring("Memo mouse event: (" ~ mouse.x.to!string ~ ',' ~ mouse.y.to!string~')'));
+			term.onMouseEvent = delegate(QWidget, MouseEvent mouse){
+				log.add(to!dstring("Terminal MouseEvent: (" ~ mouse.x.to!string ~ ',' ~ mouse.y.to!string~')'));
+				return false;
+			};
+			term.onKeyboardEvent = delegate(QWidget, KeyboardEvent keyboard){
+				log.add(to!dstring("Terminal Keyboard Event: "~keyboard.tostring));
 				return false;
 			};
 		}
