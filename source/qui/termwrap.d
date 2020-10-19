@@ -5,6 +5,7 @@ module qui.termwrap;
 
 import arsd.terminal;
 import std.datetime.stopwatch;
+import std.conv : to;
 
 public alias Color = arsd.terminal.Color;
 
@@ -12,12 +13,15 @@ public alias Color = arsd.terminal.Color;
 public struct Event{
 	/// Keyboard Event
 	struct Keyboard{
+		private this(KeyboardEvent event){
+			key = event.which;
+		}
 		//// what key was pressed
 		dchar key;
 		/// Non character keys (can match against `this.key`)
 		/// 
 		/// copied from arsd.terminal
-		enum Key{
+		enum Key : dchar{
 			Escape = 0x1b + 0xF0000,
 			F1 = 0x70 + 0xF0000,
 			F2 = 0x71 + 0xF0000,
@@ -42,10 +46,49 @@ public struct Event{
 			PageUp = 0x21 + 0xF0000,
 			PageDown = 0x22 + 0xF0000,
 		}
+		/// Ctrl+Letter keys
+		enum CtrlKeys : dchar{
+			CtrlA = 1,
+			CtrlB = 2,
+			CtrlC = 3,
+			CtrlD = 4,
+			CtrlE = 5,
+			CtrlF = 6,
+			CtrlG = 7,
+			CtrlJ = 10,
+			CtrlK = 11,
+			CtrlL = 12,
+			CtrlM = 13,
+			CtrlN = 14,
+			CtrlO = 15,
+			CtrlP = 16,
+			CtrlQ = 17,
+			CtrlR = 18,
+			CtrlS = 19,
+			CtrlT = 20,
+			CtrlU = 21,
+			CtrlV = 22,
+			CtrlW = 23,
+			CtrlX = 24,
+			CtrlY = 25,
+			CtrlZ = 26,
+		}
 		/// Returns: true if the key pressed is a character
 		/// backspace, space, and tab are characters!
 		@property bool isChar(){
-			return !(key >= Key.min && key <= Key.max);
+			return !(key >= Key.min && key <= Key.max) && !isCtrlKey();
+		}
+		/// Returns: true if key is a Ctrl+Letter key
+		@property bool isCtrlKey(){
+			return key >= CtrlKeys.min && key <= CtrlKeys.max && key!=8 && key!=9;
+		}
+		/// Returns: a string representation of the key pressed
+		@property string tostring(){
+			if (isChar())
+				return to!string(key);
+			if (isCtrlKey())
+				return to!string(cast(CtrlKeys)key);
+			return to!string(cast(Key)key);
 		}
 	}
 	/// Mouse Event
@@ -155,7 +198,7 @@ public:
 	/// constructor
 	this(){
 		_term = Terminal(ConsoleOutputType.cellular);
-		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEvents);
+		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEvents | ConsoleInputFlags.raw);
 	}
 	~this(){
 		_term.clear;
@@ -248,7 +291,7 @@ public:
 				}
 				if (e.type == InputEvent.Type.KeyboardEvent && 
 				e.get!(InputEvent.Type.KeyboardEvent).pressed){
-					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent).which));
+					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent)));
 					return true;
 				}
 				if (e.type == InputEvent.Type.MouseEvent){
