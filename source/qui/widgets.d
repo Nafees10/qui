@@ -536,30 +536,12 @@ private:
 	uinteger _maxLines;
 	/// Returns: line at an index
 	dstring getLine(uinteger index){
+		if (index >= _logs.length)
+			return "";
 		return _logs.read((index + _startIndex) % _maxLines);
 	}
-	/// wraps all lines in _logs
-	void wrap(){
-		if (_size.width == 0)
-			return;
-		List!dstring wrappedList = new List!dstring(_maxLines);
-		for (uinteger i = 0; i < _logs.length; i ++){
-			dstring line = getLine(i);
-			do{
-				if (wrappedList.length >= _maxLines)
-					break;
-				wrappedList.append(line[0 .. $ < _size.width ? $ : _size.width]);
-				line = _size.width < line.length ? line[_size.width .. $] : [];
-			}while (line.length > 0);
-			if (wrappedList.length >= _maxLines)
-				break;
-		}
-		.destroy(_logs);
-		_logs = wrappedList;
-		_startIndex = 0;
-	}
 	/// wrap a line
-	dstring[] wrap(dstring str){
+	dstring[] wrapLine(dstring str){
 		dstring[] r;
 		str = str.dup;
 		while (str.length > 0){
@@ -571,22 +553,36 @@ private:
 protected:
 	override void update(){
 		_display.colors(textColor, backgroundColor);
-		for (uinteger i = _logs.length < _size.height ? 0 : _logs.length - _size.height; i < _logs.length; i ++){
-			_display.write(getLine(i));
-			_display.fillLine(cast(dchar)' ', textColor, backgroundColor);
+		integer lastY = _size.height;
+		for (integer i = _logs.length-1; i >= 0; i --){
+			dstring line = getLine(i);
+			dstring[] wrappedLine = wrapLine(line);
+			if (wrappedLine.length == 0)
+				continue;
+			if (lastY < wrappedLine.length)
+				wrappedLine = wrappedLine[wrappedLine.length - lastY .. $];
+			immutable integer startY = lastY - wrappedLine.length;
+			foreach (lineno, currentLine; wrappedLine){
+				_display.cursor = Position(0, lineno + startY);
+				_display.write(currentLine);
+				if (currentLine.length < _size.width)
+					_display.fillLine(' ', textColor, backgroundColor);
+			}
+			lastY = startY;
 		}
-		_display.fill(cast(dchar)' ', textColor, backgroundColor);
+		_display.cursor = Position(0, 0);
+		foreach (y; 0 .. lastY)
+			_display.fillLine(' ', textColor, backgroundColor);
 	}
 	
 	override void resizeEvent() {
-		wrap();
 		requestUpdate();
 	}
 public:
 	/// background and text color
 	Color backgroundColor, textColor;
 	/// constructor
-	this(uinteger maxLen=200){
+	this(uinteger maxLen=100){
 		_maxLines = maxLen;
 		_logs = new List!dstring;
 		_startIndex = 0;
@@ -602,17 +598,11 @@ public:
 	/// newline character is not allowed
 	void add(dstring item){
 		//check if needs to overwrite
-		dstring[] lines = wrap(item);
-		foreach (line; lines){
-			if (_logs.length >= _maxLines){
-				if (_startIndex >= _logs.length)
-					_startIndex = 0;
-				_logs.set(_startIndex, item);
-				_startIndex ++;
-				continue;
-			}
-			_logs.append(line);
-		}
+		if (_logs.length > _maxLines){
+			_startIndex = (_startIndex + 1) % _maxLines;
+			_logs.set(_startIndex, item);
+		}else
+			_logs.append(item);
 		requestUpdate();
 	}
 	///clears the log
