@@ -64,8 +64,7 @@ See the issues tab. If you came across some new issue, start a new one.
 
 ## TODO for upcoming versions
 
-1. ~~Key release events~~
-2. Modifider keys, planned for next version.
+1. Have `QLayout` manage scrolling of long widgets instead of implementing it in each widget
 
 ---
 
