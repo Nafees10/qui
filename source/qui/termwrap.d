@@ -55,7 +55,7 @@ public struct Event{
 			CtrlE = 5,
 			CtrlF = 6,
 			CtrlG = 7,
-			CtrlJ = 10,
+			//CtrlJ = 10,
 			CtrlK = 11,
 			CtrlL = 12,
 			CtrlM = 13,
@@ -80,7 +80,7 @@ public struct Event{
 		}
 		/// Returns: true if key is a Ctrl+Letter key
 		@property bool isCtrlKey(){
-			return key >= CtrlKeys.min && key <= CtrlKeys.max && key!=8 && key!=9;
+			return key >= CtrlKeys.min && key <= CtrlKeys.max && key!=8 && key!=9 && key!=10;
 		}
 		/// Returns: a string representation of the key pressed
 		@property string tostring(){
