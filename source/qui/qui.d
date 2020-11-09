@@ -631,21 +631,16 @@ public:
 	}
 	/// ditto
 	void write(dstring str){
-		str = str.dup;
-		while (str.length > 0){
-			if (_cursor.x >= _width-1){
-				if (_cursor.y < _height-1){
-					_cursor.y ++;
-					_cursor.x = 0;
-				}else{
-					break;
-				}
+		foreach (c; str){
+			if (_cursor.x >= _width){
+				_cursor.x = 0;
+				_cursor.y ++;
 			}
-			dchar[] line = cast(dchar[])str[0 .. (_width - _cursor.x > str.length ? str.length : _width - _cursor.x)];
-			str = str[line.length .. $];
-			foreach (i, c; line)
-				_term.put(cast(int)(i + _cursor.x + _xOff), cast(int)(_cursor.y + _yOff), c);
-			_cursor.x += line.length;
+			if (_cursor.x < _width && _cursor.y < _height)
+				_term.put(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), c == '\t' || c == '\n' ? ' ' : c);
+			else
+				break;
+			_cursor.x ++;
 		}
 	}
 	/// fills all remaining cells with a character
