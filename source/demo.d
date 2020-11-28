@@ -62,12 +62,18 @@ version(demo){
 			// hide progress bar on Ctrl+O
 			term.onKeyboardEvent = delegate(QWidget caller, KeyboardEvent key){
 				log.add(to!dstring("Terminal Keyboard Event: "~key.tostring));
-				if (key.isCtrlKey && key.key == KeyboardEvent.CtrlKeys.CtrlO){
-					progressBar.show = !progressBar.show;
-					if (progressBar.show)
-						log.add("progressbar shown");
-					else
-						log.add("progressbar hidden");
+				if (key.isCtrlKey){
+					if (key.key == KeyboardEvent.CtrlKeys.CtrlO){
+						progressBar.show = !progressBar.show;
+						if (progressBar.show)
+							log.add("progressbar shown");
+						else
+							log.add("progressbar hidden");
+					}else if (key.key == KeyboardEvent.CtrlKeys.CtrlP){
+						progressBar.size.maxHeight = (progressBar.size.maxHeight % 3) + 1;
+						progressBar.requestResize();
+						log.add("progressbar resized: "~progressBar.size.maxHeight.to!dstring);
+					}
 				}
 				return false;
 			};
