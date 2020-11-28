@@ -112,12 +112,13 @@ protected:
 		uinteger fillCharCount = (_progress * _size.width) / _max;
 		// line number on which the caption will be written
 		for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
+			_display.cursor = Position(0, i);
 			if (i == captionLineNumber){
 				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
 				_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
 			}else{
 				if (fillCharCount)
-					_display.fillLine(' ', backgroundColor, barColor, fillCharCount+1);
+					_display.fillLine(' ', backgroundColor, barColor, fillCharCount);
 				if (fillCharCount < this._size.width)
 					_display.fillLine(' ', barColor, backgroundColor);
 			}
