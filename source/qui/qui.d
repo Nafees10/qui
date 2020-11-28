@@ -214,7 +214,7 @@ protected:
 	void mouseEvent(MouseEvent mouse){}
 	/// Called when key is pressed and this widget is active.
 	void keyboardEvent(KeyboardEvent key){}
-	/// Called when widget size is changed.
+	/// Called when widget size is changed, or widget should recalculate it's child widgets' sizes;
 	void resizeEvent(){}
 	/// called right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
 	void activateEvent(bool isActive){}
@@ -226,6 +226,11 @@ public:
 		if (_parent && _indexInParent > -1 && _indexInParent < _parent._requestingUpdate.length && 
 		_parent._requestingUpdate[_indexInParent] == false)
 			_parent.requestUpdate(_indexInParent);
+	}
+	/// Called to request this widget to resize at next update
+	void requestResize(){
+		if (_parent)
+			_parent.requestResize();
 	}
 	/// Called by itself (not necessarily) to register itself as a key handler
 	bool registerKeyHandler(dchar key){
@@ -285,6 +290,7 @@ public:
 	}
 	/// ditto
 	@property uinteger sizeRatio(uinteger newRatio){
+		requestResize;
 		return _sizeRatio = newRatio;
 	}
 	/// visibility of the widget. getter
@@ -293,14 +299,17 @@ public:
 	}
 	/// visibility of the widget. setter
 	@property bool show(bool visibility){
+		requestResize;
 		return _show = visibility;
 	}
 	/// size of the widget. getter
+	/// **NOTE: call this.requestResize() if you change the size!**
 	@property ref Size size(){
 		return _size;
 	}
 	/// size of the widget. setter
 	@property ref Size size(Size newSize){
+		requestResize;
 		return _size = newSize;
 	}
 }
@@ -674,6 +683,8 @@ class QTerminal : QLayout{
 private:
 	/// To actually access the terminal
 	TermWrapper _termWrap;
+	/// Whether to call resize before next update
+	bool _requestingResize;
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
 
@@ -696,8 +707,16 @@ private:
 	}
 
 protected:
+
+	override void resizeEvent(){
+		_requestingResize = false;
+		super.resizeEvent();
+	}
 	
 	override void update(){
+		// resize if needed
+		if (_requestingResize)
+			this.resizeEventCall();
 		super.update();
 		// check if need to show/hide cursor
 		Position cursorPos = this.cursorPosition;
@@ -730,6 +749,11 @@ public:
 	~this(){
 		.destroy(_termWrap);
 		.destroy(_display);
+	}
+
+	/// Called to make container widgets (QLayouts) recalcualte widgets' sizes before update;
+	override void requestResize(){
+		_requestingResize = true;
 	}
 
 	/// stops UI loop. **not instantly**, if it is in-between updates, calling event functions, or timers, it will complete those first
