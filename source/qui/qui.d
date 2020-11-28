@@ -669,6 +669,7 @@ public:
 		dchar[] line;
 		line.length =  max < _width - _cursor.x && max > 0 ? max : _width - _cursor.x;
 		line[] = c;
+		_term.color(fg, bg);
 		_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
 		_cursor.x += line.length;
 		if (_cursor.x >= _width -1){
