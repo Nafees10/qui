@@ -92,9 +92,9 @@ Keep in mind that backspace (`\b`), space, and Tab (`\t`) are characters.
 
 # resizeEvent()
 
-This is called when the widget has been resized. The widget should call `this.requestUpdate()` so 
-that it's parent widget will update it, so it can re-draw itself to fit the new size.  
-Keep in mind that widgets should never alter their size.
+This is called when the widget has been resized, _or_ if it's parent was resized. This being called does not necessary mean the widget's size was changed. If a widget needs to know if it's size changes, it should keep a copy of `this._size` or `this.size` and match in `resizeEvent()`.  
+The widget should call `this.requestUpdate()` in `resizeEvent` so 
+that it's parent widget will update it, so it can re-draw itself to fit the new size.
 
 # activateEvent(bool)
 

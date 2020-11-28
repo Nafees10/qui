@@ -29,17 +29,18 @@ In case the cursor should not be displayed, this should return `Position(-1, -1)
 ## uinteger sizeRatio;
 QUI sizes widget using a "ratio" system. For example, in a Horizontal layout, if two widget have _sizeRatio's 
 of `1`, they will each occupy 50% of the horizonal space.  
-This should not be changed after `QTerminal.run()` has been called.
+Modifying this will call `QWidget.requestResize()` so that before next update, widgets' sizes are adjusted again.
 
 ## bool show;
 This can be safely changed to false if the widget has to be hidden. But be aware that a widget with `show=false`
 can not become an activeWidget and thus cannot receive input.  
+Modifying this will call `QWidget.requestResize()` so that before next update, widgets' sizes are adjusted again.
   
 A parent widget may also set this to false in case there is not enough space to draw this widget.
 
 ## Size size;
 This stores the `width` and `height` along with `minWidth`, `minHeight`, `maxWidth`, & `maxHeight`.  
-This should **not** be changed after `QTerminal.run()` has been called.
+If this is modified, be sure to call `QWidget.requestResize()` or the the new size will confuse everything.
 
 # Events
 
