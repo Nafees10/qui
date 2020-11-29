@@ -42,44 +42,38 @@ struct Position{
 struct Size{
 	private{
 		uinteger _w = 0, _h = 0;
-		bool _changed = false; /// specifies if has been changed.
-	}
-	/// returns whether the size was changed since the last time this property was read
-	private @property bool changed(){
-		if (_changed){
-			_changed = false;
-			return true;
+		/// width
+		@property uinteger width(uinteger newWidth){
+			if (newWidth == 0)
+				return _w = 0;
+			if (minWidth > 0 && newWidth < minWidth){
+				return _w = minWidth;
+			}else if (maxWidth > 0 && newWidth > maxWidth){
+				return _w = maxWidth;
+			}
+			return _w = newWidth;
 		}
-		return false;
+		/// height
+		@property uinteger height(uinteger newHeight){
+			if (newHeight == 0)
+				return _h = 0;
+			if (minHeight > 0 && newHeight < minHeight){
+				return _h = minHeight;
+			}else if (maxHeight > 0 && newHeight > maxHeight){
+				return _h = maxHeight;
+			}
+			return _h = newHeight;
+		}
 	}
 	/// width
 	@property uinteger width(){
 		return _w;
 	}
-	/// width
-	@property uinteger width(uinteger newWidth){
-		_changed = true;
-		if (minWidth > 0 && newWidth < minWidth){
-			return _w = minWidth;
-		}else if (maxWidth > 0 && newWidth > maxWidth){
-			return _w = maxWidth;
-		}
-		return _w = newWidth;
-	}
 	/// height
 	@property uinteger height(){
 		return _h;
 	}
-	/// height
-	@property uinteger height(uinteger newHeight){
-		_changed = true;
-		if (minHeight > 0 && newHeight < minHeight){
-			return _h = minHeight;
-		}else if (maxHeight > 0 && newHeight > maxHeight){
-			return _h = maxHeight;
-		}
-		return _h = newHeight;
-	}
+	
 	/// minimun width & height. These are "applied" automatically when setting value using `width` or `height`
 	uinteger minWidth = 0, minHeight = 0;
 	/// maximum width & height. These are "applied" automatically when setting value using `width` or `height`
@@ -325,50 +319,52 @@ private:
 	integer _activeWidgetIndex = -1;
 	
 	/// recalculates the size of every widget inside layout
-	void recalculateWidgetsSize(QLayout.Type T)(QWidget[] widgets, uinteger totalSpace, uinteger totalRatio){
-		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical){
+	void recalculateWidgetsSize(QLayout.Type T)(){
+		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
+		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
+		uinteger totalRatio = 0;
+		uinteger totalSpace = T == QLayout.Type.Horizontal ? _size.width : _size.height;
+		foreach (widget; _widgets){
+			if (!widget.show)
+				continue;
+			totalRatio += widget.sizeRatio;
+			widget._size.height = _size.height;
+			widget._size.width = _size.width;
+			widgetStack.push(widget);
 		}
-		bool repeat;
-		do{
-			repeat = false;
-			foreach(i, widget; widgets){
-				if (widget.show){
-					// calculate width or height
-					uinteger newSpace = ratioToRaw(widget._sizeRatio, totalRatio, totalSpace);
-					const uinteger calculatedSpace = newSpace;
-					//apply size
-					static if (T == QLayout.Type.Horizontal){
-						widget.size.height = _size.height;
-						widget.size.width = newSpace;
-						newSpace = widget.size.width;
-					}else{
-						widget.size.width = _size.width;
-						widget.size.height = newSpace;
-						newSpace = widget.size.height;
-					}
-					if (newSpace != calculatedSpace){
-						totalRatio -= widget._sizeRatio;
-						totalSpace -= newSpace;
-						widgets = widgets.dup.deleteElement(i);
-						repeat = true;
-						break;
-					}
-					// check if there's enough space to contain that widget
-					if (newSpace > totalSpace){
-						newSpace = 0;
-						widget.show = false;
-					}
-				}
+		for (integer i = 0; i < widgetStack.count; i ++){
+			QWidget widget = widgetStack.pop;
+			// calculate width or height
+			immutable uinteger calculatedSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
+			uinteger newSpace;
+			//apply size
+			static if (T == QLayout.Type.Horizontal){
+				widget._size.width = calculatedSpace;
+				newSpace = widget._size.width;
+			}else{
+				widget._size.height = calculatedSpace;
+				newSpace = widget._size.height;
 			}
-		} while (repeat);
+			if (newSpace > totalSpace){
+				widget._size.height = 0;
+				widget._size.width = 0;
+			}else if (newSpace != calculatedSpace){
+				totalRatio -= widget._sizeRatio;
+				totalSpace -= newSpace;
+				i = - 1; // start over, but not this widget
+				continue;
+			}
+			widgetStack.push(widget);
+		}
+		.destroy(widgetStack);
 	}
 	/// calculates and assigns widgets positions based on their sizes
-	void recalculateWidgetsPosition(QLayout.Type T)(QWidget[] widgets){
+	void recalculateWidgetsPosition(QLayout.Type T)(){
 		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
 		uinteger previousSpace = 0;
-		foreach(widget; widgets){
+		foreach(widget; _widgets){
 			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
 					widget._position.y = 0;
@@ -393,14 +389,14 @@ protected:
 			}
 		}
 		if (_type == QLayout.Type.Horizontal){
-			recalculateWidgetsSize!(QLayout.Type.Horizontal)(_widgets, _size.width, ratioTotal);
-			recalculateWidgetsPosition!(QLayout.Type.Horizontal)(_widgets);
+			recalculateWidgetsSize!(QLayout.Type.Horizontal);
+			recalculateWidgetsPosition!(QLayout.Type.Horizontal);
 		}else{
-			recalculateWidgetsSize!(QLayout.Type.Vertical)(_widgets, _size.height, ratioTotal);
-			recalculateWidgetsPosition!(QLayout.Type.Vertical)(_widgets);
+			recalculateWidgetsSize!(QLayout.Type.Vertical);
+			recalculateWidgetsPosition!(QLayout.Type.Vertical);
 		}
 		foreach (widget; _widgets){
-			this._display.getSlice(widget._display, widget.size.width, widget.size.height, widget._position.x, widget._position.y);
+			this._display.getSlice(widget._display, widget.size.width, widget.size.height,widget._position.x,widget._position.y);
 			widget.resizeEventCall();
 		}
 	}
@@ -411,7 +407,7 @@ protected:
 		QWidget activeWidget = null;
 		if (_activeWidgetIndex > -1)
 			activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x + activeWidget.size.width 
+		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x +activeWidget.size.width 
 		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget.size.height){
 			activeWidget.mouseEventCall(mouse);
 		}else{
