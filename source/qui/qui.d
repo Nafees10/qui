@@ -453,9 +453,8 @@ protected:
 
 	/// override timer event to call child widgets' timers
 	override void timerEvent(uinteger msecs){
-		foreach (widget; _widgets){
+		foreach (widget; _widgets)
 			widget.timerEventCall(msecs);
-		}
 	}
 
 	/// override activate event
@@ -780,8 +779,7 @@ public:
 				update();
 			}
 			if (sw.peek.total!"msecs" >= timerMsecs){
-				foreach (widget; _widgets)
-					widget.timerEventCall(sw.peek.total!"msecs");
+				this.timerEventCall(sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
 				update();
