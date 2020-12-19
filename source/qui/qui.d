@@ -333,29 +333,35 @@ private:
 			widget._size.width = _size.width;
 			widgetStack.push(widget);
 		}
+		// do widgets with size limits
+		uinteger limitWRatio, limitWSize; /// totalRatio, and space used of widgets with limits
 		for (integer i = 0; i < widgetStack.count; i ++){
 			QWidget widget = widgetStack.pop;
-			// calculate width or height
-			immutable uinteger calculatedSpace = ratioToRaw(widget.sizeRatio, totalRatio, totalSpace);
-			uinteger newSpace;
-			//apply size
-			static if (T == QLayout.Type.Horizontal){
-				widget._size.width = calculatedSpace;
-				newSpace = widget._size.width;
-			}else{
-				widget._size.height = calculatedSpace;
-				newSpace = widget._size.height;
-			}
-			if (newSpace > totalSpace){
-				widget._size.height = 0;
-				widget._size.width = 0;
-			}else if (newSpace != calculatedSpace){
-				totalRatio -= widget._sizeRatio;
-				totalSpace -= newSpace;
-				i = - 1; // start over, but not this widget
+			bool free;
+			immutable uinteger space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
+			if (free){
+				widgetStack.push(widget);
 				continue;
 			}
-			widgetStack.push(widget);
+			static if (T == QLayout.Type.Horizontal)
+				widget._size.width = space;
+			else
+				widget._size.height = space;
+			limitWRatio += widget.sizeRatio;
+			limitWSize += space;
+		}
+		totalSpace -= limitWSize;
+		totalRatio -= limitWRatio;
+		while (widgetStack.count){
+			QWidget widget = widgetStack.pop;
+			bool free;
+			immutable uinteger space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
+			static if (T == QLayout.Type.Horizontal)
+				widget._size.width = space;
+			else
+				widget._size.height = space;
+			totalRatio -= widget.sizeRatio;
+			totalSpace -= space;
 		}
 		.destroy(widgetStack);
 	}

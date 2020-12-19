@@ -4,6 +4,8 @@
 +/
 module qui.utils;
 
+import qui.qui;
+
 import utils.baseconv;
 import utils.misc;
 import std.conv : to;
@@ -120,4 +122,19 @@ uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total)
 	uinteger r;
 	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
 	return r;
+}
+
+/// gets height/width of a widget using it's sizeRatio and min/max-height/width
+uinteger calculateWidgetSize(QLayout.Type type)(QWidget widget, uinteger ratioTotal, uinteger totalSpace, ref bool free){
+	Size wSize = widget.size;
+	immutable calculatedSize = cast(uinteger)((widget.sizeRatio*totalSpace)/ratioTotal);
+	static if (type == QLayout.Type.Horizontal){
+		wSize.width = calculatedSize;
+		free = wSize.minWidth == 0 && wSize.maxWidth == 0;
+		return wSize.width;
+	}else{ // this else just exists to shut up compiler about "statement not reachable"
+		wSize.height = calculatedSize;
+		free = wSize.minHeight == 0 && wSize.maxHeight == 0;
+		return wSize.height;
+	}
 }
