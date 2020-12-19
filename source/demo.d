@@ -35,10 +35,9 @@ version(demo){
 			hLayout = new QLayout(QLayout.Type.Horizontal);
 			memo = new MemoWidget();
 			log = new LogWidget();
-			split = new SplitterWidget();
 
 			// prepare the layout in for the Memo and log
-			hLayout.addWidget([memo, split, log]);
+			hLayout.addWidget([memo, log]);
 			{
 				string[] lines = fileToArray(dirName(thisExePath)~dirSeparator~"README.md");
 				foreach (line; lines){
@@ -46,8 +45,6 @@ version(demo){
 				}
 			}
 			memo.wantsTab = false;
-			split.size.maxWidth = 1;
-			split.color = Color.white;
 
 			// put all widgets in the order they are to appear in terminal
 			term.addWidget([label, edit, progressBar, hLayout]);
@@ -73,6 +70,9 @@ version(demo){
 						progressBar.size.maxHeight = (progressBar.size.maxHeight % 3) + 1;
 						progressBar.requestResize();
 						log.add("progressbar resized: "~progressBar.size.maxHeight.to!dstring);
+					}else if (key.key == KeyboardEvent.CtrlKeys.CtrlL){
+						log.show = !log.show;
+						log.add("log "~to!dstring(log.show ? "shown" : "hidden"));
 					}
 				}
 				return false;
@@ -115,7 +115,6 @@ version(demo){
 			.destroy(memo);
 			.destroy(log);
 			.destroy(hLayout);
-			.destroy(split);
 		}
 		/// run the app
 		void run(){
