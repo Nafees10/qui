@@ -317,6 +317,22 @@ private:
 	QLayout.Type _type;
 	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
 	integer _activeWidgetIndex = -1;
+
+	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
+	static uinteger calculateWidgetSize(QLayout.Type type)(QWidget widget, uinteger ratioTotal, uinteger totalSpace,
+	ref bool free){
+		Size wSize = widget.size;
+		immutable calculatedSize = cast(uinteger)((widget.sizeRatio*totalSpace)/ratioTotal);
+		static if (type == QLayout.Type.Horizontal){
+			wSize.width = calculatedSize;
+			free = wSize.minWidth == 0 && wSize.maxWidth == 0;
+			return wSize.width;
+		}else{ // this else just exists to shut up compiler about "statement not reachable"
+			wSize.height = calculatedSize;
+			free = wSize.minHeight == 0 && wSize.maxHeight == 0;
+			return wSize.height;
+		}
+	}
 	
 	/// recalculates the size of every widget inside layout
 	void recalculateWidgetsSize(QLayout.Type T)(){
