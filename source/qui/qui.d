@@ -534,14 +534,17 @@ protected:
 	/// activate the passed widget if it's in the current layout, return if it was activated or not
 	override bool searchAndActivateWidget(QWidget target){
 		integer lastActiveWidgetIndex = _activeWidgetIndex;
-		for (_activeWidgetIndex = 0; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-			auto widget = _widgets[_activeWidgetIndex];
-			if (widget.wantsInput && widget.show && widget.searchAndActivateWidget(target))
-				break;
-		}
-		if (_activeWidgetIndex >= _widgets.length)
-			_activeWidgetIndex = -1;
 
+		// search and activate recursively
+		_activeWidgetIndex = -1;
+		foreach (integer index, widget; _widgets) {
+			if (widget.wantsInput && widget.show && widget.searchAndActivateWidget(target)) {
+				_activeWidgetIndex = index;
+				break;
+			}
+		}
+
+		// and then manipulate the current layout
 		if (lastActiveWidgetIndex != _activeWidgetIndex){
 			if (lastActiveWidgetIndex > -1)
 				_widgets[lastActiveWidgetIndex].activateEventCall(false);
