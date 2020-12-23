@@ -185,6 +185,14 @@ protected:
 	bool cycleActiveWidget(){
 		return false;
 	}
+	/// activate the passed widget if this is actually the correct widget, return if it was activated or not
+	bool searchAndActivateWidget(QWidget target) {
+		if (this == target) {
+			this.activateEvent(true);
+			return true;
+		}
+		return false;
+	}
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
 	InitFunction _customInitEvent;
@@ -522,6 +530,29 @@ protected:
 		}
 		return _activeWidgetIndex != -1;
 	}
+
+	/// activate the passed widget if it's in the current layout, return if it was activated or not
+	override bool searchAndActivateWidget(QWidget target){
+		integer lastActiveWidgetIndex = _activeWidgetIndex;
+
+		// search and activate recursively
+		_activeWidgetIndex = -1;
+		foreach (integer index, widget; _widgets) {
+			if (widget.wantsInput && widget.show && widget.searchAndActivateWidget(target)) {
+				_activeWidgetIndex = index;
+				break;
+			}
+		}
+
+		// and then manipulate the current layout
+		if (lastActiveWidgetIndex != _activeWidgetIndex){
+			if (lastActiveWidgetIndex > -1)
+				_widgets[lastActiveWidgetIndex].activateEventCall(false);
+			if (_activeWidgetIndex > -1)
+				_widgets[_activeWidgetIndex].activateEventCall(true);
+		}
+		return _activeWidgetIndex != -1;
+	}
 public:
 	/// Layout type
 	enum Type{
@@ -807,5 +838,10 @@ public:
 				update();
 			}
 		}
+	}
+
+	/// search the passed widget recursively and activate it, returns if the activation was successful
+	bool activateWidget(QWidget target) {
+		return this.searchAndActivateWidget(target);
 	}
 }

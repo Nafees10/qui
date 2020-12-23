@@ -73,6 +73,9 @@ version(demo){
 					}else if (key.key == KeyboardEvent.CtrlKeys.CtrlL){
 						log.show = !log.show;
 						log.add("log "~to!dstring(log.show ? "shown" : "hidden"));
+					}else if (key.key == KeyboardEvent.CtrlKeys.CtrlE){
+						log.add("jump to the EditLine");
+						term.activateWidget(edit);
 					}
 				}
 				return false;
