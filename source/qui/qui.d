@@ -117,6 +117,8 @@ private:
 	QWidget _parent = null;
 	/// the index it is stored at in _parent. -1 if no parent asigned yet
 	integer _indexInParent = -1;
+	/// the key used for cycling active widget, defaults to tab
+	dchar _activeWidgetCycleKey = '\t';
 	/// called by owner for initialize event
 	void initializeCall(){
 		if (!_customInitEvent || !_customInitEvent(this))
@@ -188,10 +190,15 @@ protected:
 	/// activate the passed widget if this is actually the correct widget, return if it was activated or not
 	bool searchAndActivateWidget(QWidget target) {
 		if (this == target) {
-			this.activateEvent(true);
+			this.activateEventCall(true);
 			return true;
 		}
 		return false;
+	}
+
+	/// changes the key used for cycling active widgets
+	void setActiveWidgetCycleKey(dchar newKey){
+		this._activeWidgetCycleKey = newKey;
 	}
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
@@ -465,12 +472,20 @@ protected:
 		if (key.key in _keyHandlers)
 			_keyHandlers[key.key].keyboardEventCall(key);
 		// check if need to cycle
-		if ((key.key == '\t' && (_activeWidgetIndex == -1 || !_widgets[_activeWidgetIndex].wantsTab)) || 
-		key.key == KeyboardEvent.Key.Escape){
-			this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1){
+		if (key.key == _activeWidgetCycleKey || key.key == KeyboardEvent.Key.Escape){
+			if (key.key == '\t'){ // now need to make sure active widget doesnt want to catch tab
+				if (_activeWidgetIndex == -1)
+					this.cycleActiveWidget();
+				else{
+					if (_widgets[_activeWidgetIndex].wantsTab)
+						_widgets[_activeWidgetIndex].keyboardEventCall(key);
+					else
+						this.cycleActiveWidget();
+				}
+			}else
+				this.cycleActiveWidget();
+		}else if (_activeWidgetIndex > -1 && (key.key != '\t' || _widgets[_activeWidgetIndex].wantsTab))
 			_widgets[_activeWidgetIndex].keyboardEventCall(key);
-		}
 	}
 
 	/// override initialize to initliaze child widgets
@@ -545,13 +560,17 @@ protected:
 		}
 
 		// and then manipulate the current layout
-		if (lastActiveWidgetIndex != _activeWidgetIndex){
-			if (lastActiveWidgetIndex > -1)
-				_widgets[lastActiveWidgetIndex].activateEventCall(false);
-			if (_activeWidgetIndex > -1)
-				_widgets[_activeWidgetIndex].activateEventCall(true);
-		}
+		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1)
+			_widgets[lastActiveWidgetIndex].activateEventCall(false);
+			// no need to call activateEvent on new activeWidget, doing `searchAndActivateWidget` in above loop should've done that
 		return _activeWidgetIndex != -1;
+	}
+
+	/// Change the key used for cycling active widgets, changes it for all added widgets as well
+	override void setActiveWidgetCycleKey(dchar newKey){
+		_activeWidgetCycleKey = newKey;
+		foreach (widget; _widgets)
+			widget.setActiveWidgetCycleKey(newKey);
 	}
 public:
 	/// Layout type
@@ -597,6 +616,7 @@ public:
 	void addWidget(QWidget widget){
 		widget._parent = this;
 		widget._indexInParent = _widgets.length;
+		widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		//add it to array
 		_widgets ~= widget;
 		// make space in _requestingUpdate
@@ -609,6 +629,7 @@ public:
 		foreach (i, widget; widgets){
 			widget._parent = this;
 			widget._indexInParent = _widgets.length+i;
+			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
 		// add to array
 		_widgets ~= widgets.dup;
@@ -843,5 +864,12 @@ public:
 	/// search the passed widget recursively and activate it, returns if the activation was successful
 	bool activateWidget(QWidget target) {
 		return this.searchAndActivateWidget(target);
+	}
+
+	/// Changes the key used to cycle between active widgets.
+	/// 
+	/// for `key`, use either ASCII value of keyboard key, or use KeyboardEvent.Key or KeyboardEvent.CtrlKeys
+	override void setActiveWidgetCycleKey(dchar key){
+		super.setActiveWidgetCycleKey(key);
 	}
 }
