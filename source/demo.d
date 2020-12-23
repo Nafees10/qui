@@ -46,6 +46,9 @@ version(demo){
 			}
 			memo.wantsTab = false;
 
+			// lets change active widget cycling key to something else too
+			term.setActiveWidgetCycleKey('`'); // this is that key that's usually right above tab, on left of `1`
+
 			// put all widgets in the order they are to appear in terminal
 			term.addWidget([label, edit, progressBar, hLayout]);
 
