@@ -292,6 +292,9 @@ public:
 				if (e.type == InputEvent.Type.KeyboardEvent && 
 				e.get!(InputEvent.Type.KeyboardEvent).pressed){
 					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent)));
+					// fix for issue #16 ("Escape key registered as a character event as well")
+					if (event._key.key == 27)
+						continue;
 					return true;
 				}
 				if (e.type == InputEvent.Type.MouseEvent){
