@@ -61,7 +61,7 @@ version(demo){
 
 			// hide progress bar on Ctrl+O
 			term.onKeyboardEvent = delegate(QWidget caller, KeyboardEvent key){
-				log.add(to!dstring("Terminal Keyboard Event: "~key.tostring));
+				log.add(to!dstring("Terminal Keyboard Event; code:"~(cast(uinteger)key.key).to!string~"; char:"~key.tostring));
 				if (key.isCtrlKey){
 					if (key.key == KeyboardEvent.CtrlKeys.CtrlO){
 						progressBar.show = !progressBar.show;
