@@ -1,7 +1,7 @@
 {
 	"name": "qui",
 	"description": "A Text User Interface library.",
-	"copyright": "Copyright © 2017-2020, Nafees Hassan",
+	"copyright": "Copyright © 2017-2021, Nafees Hassan",
 	"authors": ["Nafees Hassan"],
 	"license":"MIT",
 	"dependencies": {
