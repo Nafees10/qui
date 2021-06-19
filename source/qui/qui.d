@@ -332,6 +332,8 @@ private:
 	QLayout.Type _type;
 	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
 	integer _activeWidgetIndex = -1;
+	/// Color to fill with in unoccupied space
+	Color _fillColor;
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
 	static uinteger calculateWidgetSize(QLayout.Type type)(QWidget widget, uinteger ratioTotal, uinteger totalSpace,
@@ -432,7 +434,7 @@ protected:
 			recalculateWidgetsSize!(QLayout.Type.Vertical);
 			recalculateWidgetsPosition!(QLayout.Type.Vertical);
 		}
-		foreach (widget; _widgets){
+		foreach (i, widget; _widgets){
 			this._display.getSlice(widget._display, widget.size.width, widget.size.height,widget._position.x,widget._position.y);
 			widget.resizeEventCall();
 		}
@@ -515,12 +517,24 @@ protected:
 	/// called by owner widget to update
 	override void update(){
 		foreach(i, widget; _widgets){
-			if (_requestingUpdate[i] && widget.show){
-				widget._display.cursor = Position(0,0);
-				widget.update();
-				_requestingUpdate[i] = false;
+			if (widget.show){
+				if (_requestingUpdate[i]){
+					widget._display.cursor = Position(0,0);
+					widget.update();
+					_requestingUpdate[i] = false;
+				}
+				if (_type == Type.Horizontal && widget._size.height < _size.height){
+					foreach (j; widget._size.height .. _size.height)
+						_display.fillLine(' ', fillColor, fillColor, widget._size.width);
+				}else if (_type == Type.Vertical && widget._size.width < _size.width){
+					immutable lineWidth = _size.width - widget._size.width;
+					foreach (j; 0 .. widget._size.height)
+						_display.fillLine(' ', fillColor, fillColor, lineWidth);
+				}
 			}
 		}
+		// update unoccupied space as well
+		// TODO
 	}
 	/// called to cycle between actveWidgets. This is called by owner widget
 	/// 
@@ -581,6 +595,15 @@ public:
 	/// constructor
 	this(QLayout.Type type){
 		_type = type;
+		this._fillColor = DEFAULT_BG;
+	}
+	/// Color for unoccupied space
+	@property Color fillColor(){
+		return _fillColor;
+	}
+	/// ditto
+	@property Color fillColor(Color newColor){
+		return _fillColor = newColor;
 	}
 	/// Returns: whether the widget is receiving the Tab key press or not
 	override @property bool wantsTab(){
@@ -634,10 +657,8 @@ public:
 		// add to array
 		_widgets ~= widgets.dup;
 		// make space in _requestingUpdate
-		bool[] reqUpdates;
-		reqUpdates.length = widgets.length;
-		reqUpdates[] = true;
-		_requestingUpdate ~= reqUpdates;
+		_requestingUpdate.length += widgets.length;
+		_requestingUpdate[$ - widgets.length .. $] = true;
 	}
 }
 
@@ -702,7 +723,7 @@ public:
 		_term.color(fg, bg);
 	}
 	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
-	/// Tab character is converted to a single space character
+	/// Each character is written in a 1 cell.
 	void write(dstring str, Color fg, Color bg){
 		_term.color(fg, bg);
 		this.write(str);
@@ -800,16 +821,11 @@ protected:
 	}
 
 public:
-	/// text color, and background color
-	Color textColor, backgroundColor;
 	/// time to wait between timer events (milliseconds)
 	ushort timerMsecs;
 	/// constructor
 	this(QLayout.Type displayType = QLayout.Type.Vertical, ushort timerDuration = 500){
 		super(displayType);
-
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
 		timerMsecs = timerDuration;
 
 		_termWrap = new TermWrapper();
@@ -826,7 +842,7 @@ public:
 		_requestingResize = true;
 	}
 
-	/// stops UI loop. **not instantly**, if it is in-between updates, calling event functions, or timers, it will complete those first
+	/// stops UI loop. **not instant**, if it is in-between updates, event functions, or timers, it will complete those first
 	void terminate(){
 		_isRunning = false;
 	}
