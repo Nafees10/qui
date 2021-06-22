@@ -794,6 +794,8 @@ private:
 			//update self size
 			_size.height = event.resize.height;
 			_size.width = event.resize.width;
+			_display._height = _size.height;
+			_display._width = _size.width;
 			//call size change on all widgets
 			resizeEventCall();
 		}
@@ -851,9 +853,11 @@ public:
 	
 	/// starts the UI loop
 	void run(){
-		// init termbox
+		// set size
 		_size.width = _termWrap.width();
 		_size.height = _termWrap.height();
+		_display._width = _size.width;
+		_display._height = _size.height;
 		//ready
 		initializeCall();
 		resizeEventCall();
