@@ -684,10 +684,14 @@ private:
 		_term = terminal;
 	}
 	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
+	/// 
+	/// no bound checking is done
 	Display getSlice(uinteger w, uinteger h, uinteger x, uinteger y){
 		return new Display(w, h, _xOff + x, _yOff + y, _term);
 	}
 	/// modifies an existing Display to act as a "slice"
+	/// 
+	/// no bound checking is done
 	void getSlice(Display sliced, uinteger w, uinteger h, uinteger x, uinteger y){
 		sliced._width = w;
 		sliced._height = h;
