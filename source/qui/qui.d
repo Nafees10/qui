@@ -516,6 +516,7 @@ protected:
 	
 	/// called by owner widget to update
 	override void update(){
+		uinteger space = 0;
 		foreach(i, widget; _widgets){
 			if (widget.show){
 				if (_requestingUpdate[i]){
@@ -523,18 +524,36 @@ protected:
 					widget.update();
 					_requestingUpdate[i] = false;
 				}
-				if (_type == Type.Horizontal && widget._size.height < this._size.height){
-					foreach (y; 0 .. this._size.height - widget._size.height){
-						_display.cursor = Position(widget._position.x, y + widget._size.height);
-						_display.fillLine(' ', fillColor, fillColor, widget._size.width);
+				if (_type == Type.Horizontal){
+					space += widget.size.width;
+					if (widget.size.height < this._size.height){
+						foreach (y; widget.size.height ..  this._size.height){
+							_display.cursor = Position(widget._position.x, y);
+							_display.fillLine(' ', _fillColor, _fillColor, widget.size.width);
+						}
 					}
-				}else if (_type == Type.Vertical && widget._size.width < this._size.width){
-					immutable lineWidth = _size.width - widget._size.width;
-					foreach (y; 0 .. widget._size.height){
-						_display.cursor = Position(widget._size.width, widget._position.y + y);
-						_display.fillLine(' ', fillColor, fillColor, lineWidth);
+				}else{
+					space += widget.size.height;
+					if (widget.size.width < this._size.width){
+						immutable lineWidth = _size.width - widget.size.width;
+						foreach (y; 0 .. widget.size.height){
+							_display.cursor = Position(widget.size.width, widget._position.y + y);
+							_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
+						}
 					}
 				}
+			}
+		}
+		if (_type == Type.Horizontal && space < this._size.width){
+			immutable uinteger lineWidth = this._size.width - space;
+			foreach (y; 0 .. this._size.height){
+				_display.cursor = Position(space, y);
+				_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
+			}
+		}else if (_type == Type.Vertical && space < this._size.height){
+			foreach (y; space .. this._size.height){
+				_display.cursor = Position(0, y);
+				_display.fillLine(' ', _fillColor, _fillColor, this._size.width);
 			}
 		}
 	}
