@@ -523,18 +523,20 @@ protected:
 					widget.update();
 					_requestingUpdate[i] = false;
 				}
-				if (_type == Type.Horizontal && widget._size.height < _size.height){
-					foreach (j; widget._size.height .. _size.height)
+				if (_type == Type.Horizontal && widget._size.height < this._size.height){
+					foreach (y; 0 .. this._size.height - widget._size.height){
+						_display.cursor = Position(widget._position.x, y + widget._size.height);
 						_display.fillLine(' ', fillColor, fillColor, widget._size.width);
-				}else if (_type == Type.Vertical && widget._size.width < _size.width){
+					}
+				}else if (_type == Type.Vertical && widget._size.width < this._size.width){
 					immutable lineWidth = _size.width - widget._size.width;
-					foreach (j; 0 .. widget._size.height)
+					foreach (y; 0 .. widget._size.height){
+						_display.cursor = Position(widget._size.width, widget._position.y + y);
 						_display.fillLine(' ', fillColor, fillColor, lineWidth);
+					}
 				}
 			}
 		}
-		// update unoccupied space as well
-		// TODO
 	}
 	/// called to cycle between actveWidgets. This is called by owner widget
 	/// 
