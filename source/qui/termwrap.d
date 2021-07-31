@@ -85,10 +85,10 @@ public struct Event{
 		/// Returns: a string representation of the key pressed
 		@property string tostring(){
 			if (isChar())
-				return to!string(key);
+				return "{key:\'"~to!string(key)~"\'}";
 			if (isCtrlKey())
-				return to!string(cast(CtrlKeys)key);
-			return to!string(cast(Key)key);
+				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\'}";
+			return "{key:\'"~to!string(cast(Key)key)~"\'}";
 		}
 	}
 	/// Mouse Event
@@ -139,19 +139,19 @@ public struct Event{
 		}
 		/// constructor, from arsd.terminal.MouseEvent
 		private this(MouseEvent mouseE){
-			if (mouseE.buttons == MouseEvent.Button.Left)
+			if (mouseE.buttons & MouseEvent.Button.Left)
 				this.button = this.Button.Left;
-			else if (mouseE.buttons == MouseEvent.Button.Right)
+			else if (mouseE.buttons & MouseEvent.Button.Right)
 				this.button = this.Button.Right;
-			else if (mouseE.buttons == MouseEvent.Button.Middle)
+			else if (mouseE.buttons & MouseEvent.Button.Middle)
 				this.button = this.Button.Middle;
-			else if (mouseE.buttons == MouseEvent.Button.ScrollUp)
+			else if (mouseE.buttons & MouseEvent.Button.ScrollUp)
 				this.button = this.Button.ScrollUp;
-			else if (mouseE.buttons == MouseEvent.Button.ScrollDown)
+			else if (mouseE.buttons & MouseEvent.Button.ScrollDown)
 				this.button = this.Button.ScrollDown;
 			else
 				this.button = this.Button.None;
-			if (mouseE.eventType == mouseE.Type.Clicked)
+			if (mouseE.eventType == mouseE.Type.Clicked || mouseE.eventType == mouseE.Type.Pressed)
 				this.state = State.Click;
 			else if (mouseE.eventType == mouseE.Type.Released)
 				this.state = State.Release;
@@ -159,6 +159,10 @@ public struct Event{
 				this.state = State.Hover;
 			this.x = mouseE.x;
 			this.y = mouseE.y;
+		}
+		/// Returns: string representation of this
+		@property string tostring(){
+			return "{button:"~button.to!string~", state:"~state.to!string~", x:"~x.to!string~", y:"~y.to!string~"}";
 		}
 	}
 	/// Resize event
