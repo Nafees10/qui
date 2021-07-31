@@ -545,7 +545,7 @@ private:
 	/// wrap a line
 	dstring[] wrapLine(dstring str){
 		dstring[] r;
-		str = str.dup;
+		str = str;
 		while (str.length > 0){
 			r ~= _size.width > str.length ? str : str[0 .. _size.width];
 			str = _size.width < str.length ? str[_size.width .. $] : [];

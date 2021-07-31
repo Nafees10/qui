@@ -676,7 +676,7 @@ public:
 			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
 		// add to array
-		_widgets ~= widgets.dup;
+		_widgets ~= widgets;
 		// make space in _requestingUpdate
 		_requestingUpdate.length += widgets.length;
 		_requestingUpdate[$ - widgets.length .. $] = true;
