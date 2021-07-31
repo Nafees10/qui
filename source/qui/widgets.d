@@ -111,7 +111,8 @@ protected:
 		// number of chars to be colored in barColor
 		uint fillCharCount = (_progress * _size.width) / _max;
 		// line number on which the caption will be written
-		for (uint i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
+		immutable uint captionLineNumber = this._size.height / 2;
+		for (uint i = 0; i < this._size.height; i ++){
 			_display.cursor = Position(0, i);
 			if (i == captionLineNumber){
 				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);

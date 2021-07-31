@@ -57,9 +57,8 @@ char[] scrollHorizontal(char[] line, int xOffset, uint width){
 /// * `offset` is the variable storing the offset (_xOffset or _yOffset)
 void adjustScrollingOffset(ref uint selected, uint size, uint lineWidth, ref uint offset){
 	// if selected is outside size, it shouldn't be
-	if (selected > lineWidth){
+	if (selected > lineWidth)
 		selected = lineWidth;
-	}
 	// range of characters' index that's visible (1 is inclusive, 2 is not)
 	uint visible1, visible2;
 	visible1 = offset;
@@ -70,7 +69,7 @@ void adjustScrollingOffset(ref uint selected, uint size, uint lineWidth, ref uin
 			offset = selected;
 		}else if (selected >= visible2){
 			// scroll ahead
-			offset = selected+1 - (size);
+			offset = selected+1 - size;
 		}
 	}
 }
@@ -82,25 +81,26 @@ void adjustScrollingOffset(ref uint selected, uint size, uint lineWidth, ref uin
 /// Returns: the text center aligned in a string
 dstring centerAlignText(dstring text, uint width, dchar fill = ' '){
 	dchar[] r;
+	r.length = width;
 	if (text.length < width){
-		r.length = width;
 		uint offset = (width - cast(uint)text.length)/2;
 		r[0 .. offset] = fill;
 		r[offset .. offset+text.length][] = text;
 		r[offset+text.length .. r.length] = fill;
-	}else{
-		r = cast(dchar[])text[0 .. width].dup;
-	}
+	}else
+		r[] = text[0 .. r.length];
 	return cast(dstring)r;
 }
 ///
 unittest{
 	assert("qwr".centerAlignText(7) == "  qwr  ");
+	assert("qwerty".centerAlignText(6) == "qwerty");
+	assert("qwerty".centerAlignText(5) == "qwert");
 }
 
 /// To calculate size of widgets using their sizeRatio
 deprecated uint ratioToRaw(uint selectedRatio, uint ratioTotal, uint total){
 	uint r;
-	r = cast(uint)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
+	r = cast(uint)( ((selectedRatio.to!float)*(total.to!float)) / ratioTotal.to!float);
 	return r;
 }
