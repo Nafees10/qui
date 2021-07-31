@@ -228,6 +228,7 @@ protected:
 	}
 	override void update(){
 		_display.write(cast(dstring)this._text.scrollHorizontal(cast(int)_scrollX, _size.width),textColor,backgroundColor);
+		_cursorPosition = Position(_x - _scrollX, 0);
 	}
 public:
 	/// background, text, caption, and caption's background colors
@@ -257,10 +258,6 @@ public:
 		// request update
 		requestUpdate();
 		return cast(dstring)newText;
-	}
-	// override cursor position
-	override @property Position cursorPosition(){
-		return Position(_x - _scrollX, 0);
 	}
 }
 
@@ -336,6 +333,11 @@ protected:
 			}
 		}
 		_display.fill(' ', textColor, backgroundColor);
+		// cursor position, in case this is active
+		if (editable)
+			_cursorPosition = Position(-1,-1);
+		else
+			_cursorPosition = Position(_cursorX - _scrollX, _cursorY - _scrollY);
 	}
 
 	override void resizeEvent(){
@@ -517,10 +519,6 @@ public:
 		_wantsTab = newPermission;
 		_wantsInput = newPermission;
 		return _enableEditing = newPermission;
-	}
-	/// override cursor position
-	override @property Position cursorPosition(){
-		return	_enableEditing ? Position(_cursorX - _scrollX, _cursorY - _scrollY) : Position(-1,-1);
 	}
 }
 
