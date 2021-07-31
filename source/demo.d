@@ -61,7 +61,7 @@ version(demo){
 
 			// hide progress bar on Ctrl+O
 			term.onKeyboardEvent = delegate(QWidget caller, KeyboardEvent key){
-				log.add(to!dstring("Terminal Keyboard Event; code:"~(cast(uint)key.key).to!string~"; char:"~key.tostring));
+				log.add(to!dstring("Terminal Keyboard Event: "~key.tostring));
 				if (key.isCtrlKey){
 					if (key.key == KeyboardEvent.CtrlKeys.CtrlO){
 						progressBar.show = !progressBar.show;
@@ -108,7 +108,7 @@ version(demo){
 				return false;
 			};
 			term.onMouseEvent = delegate(QWidget, MouseEvent mouse){
-				log.add(to!dstring("Terminal MouseEvent: (" ~ mouse.x.to!string ~ ',' ~ mouse.y.to!string~')'));
+				log.add(to!dstring("Terminal MouseEvent: "~mouse.tostring));
 				return false;
 			};
 		}
