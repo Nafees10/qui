@@ -94,18 +94,43 @@ public struct Event{
 	/// Mouse Event
 	struct Mouse{
 		/// Buttons
-		enum Button{
-			Left, /// Left mouse btn clicked
-			Right, /// Right mouse btn clicked
-			Middle, /// Middle mouse btn clicked
-			ScrollUp, /// Scroll up clicked
-			ScrollDown, /// Scroll Down clicked
-			None, /// no button pressed, mouse was hovered. Not supported on all terminals (works on xterm, not on konsole)
+		enum Button : ubyte{
+			Left 		=	0x00, /// Left mouse btn clicked
+			Right 		=	0x10, /// Right mouse btn clicked
+			Middle 		= 	0x20, /// Middle mouse btn clicked
+			ScrollUp 	=	0x30, /// Scroll up clicked
+			ScrollDown 	= 	0x40, /// Scroll Down clicked
+			None 		=	0x50, /// .
+		}
+		/// State
+		enum State : ubyte{
+			Click	=	0x00, /// Clicked
+			Release	=	0x01, /// Released
+			Hover	=	0x02, /// Hovered
 		}
 		/// x and y position of cursor
 		int x, y;
+		/// button and type (press/release/hover)
+		/// access this using `this.button` and `this.state`
+		ubyte type;
 		/// what button was clicked
-		Button button;
+		@property Button button(){
+			return cast(Button)(type & 0xF0);
+		}
+		/// ditto
+		@property Button button(Button newVal){
+			type = this.state | newVal;
+			return newVal;
+		}
+		/// State (Clicked/Released/...)
+		@property State state(){
+			return cast(State)(type & 0x0F);
+		}
+		/// ditto
+		@property State state(State newVal){
+			type = this.button | newVal;
+			return newVal;
+		}
 		/// constructor
 		this (Button btn, int xPos, int yPos){
 			x = xPos;
@@ -124,8 +149,14 @@ public struct Event{
 				this.button = this.Button.ScrollUp;
 			else if (mouseE.buttons == MouseEvent.Button.ScrollDown)
 				this.button = this.Button.ScrollDown;
-			else if (mouseE.buttons == MouseEvent.Button.None)
+			else
 				this.button = this.Button.None;
+			if (mouseE.eventType == mouseE.Type.Clicked)
+				this.state = State.Click;
+			else if (mouseE.eventType == mouseE.Type.Released)
+				this.state = State.Release;
+			else
+				this.state = State.Hover;
 			this.x = mouseE.x;
 			this.y = mouseE.y;
 		}
@@ -198,7 +229,7 @@ public:
 	/// constructor
 	this(){
 		_term = Terminal(ConsoleOutputType.cellular);
-		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEvents | ConsoleInputFlags.raw);
+		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEventsWithRelease | ConsoleInputFlags.raw);
 	}
 	~this(){
 		_term.clear;
