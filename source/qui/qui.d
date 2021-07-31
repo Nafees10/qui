@@ -168,18 +168,22 @@ private:
 		return true;
 	}
 protected:
-	///size of this widget
+	/// size of this widget. **qui will read this, not the public property**
 	Size _size;
-	///whether this widget should be drawn or not
+	/// whether this widget should be drawn or not. **qui will read this, not the public property**
 	bool _show = true;
-	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
-	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
+	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.  
+	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.  
+	/// **qui will read this, not the public property**
 	uint _sizeRatio = 1;
-	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true
-	/// if only required, for example, in text editors
+	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true  
+	/// if only required, for example, in text editors.  
+	/// **qui will read this, not the public property**
 	bool _wantsTab = false;
-	/// whether the widget wants input
+	/// whether the widget wants input. **qui will read this, not the public property**
 	bool _wantsInput = false;
+	/// where to draw cursor if this is active widget. **qui will read this, not the public property**
+	Position _cursorPosition = Position(-1,-1);
 	/// used to write to terminal
 	Display _display = null;
 
@@ -214,7 +218,7 @@ protected:
 	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
 	TimerEventFunction _customTimerEvent;
 
-	/// Called by parent to update this widget
+	/// Called to update this widget
 	void update(){}
 
 	/// Called after `_display` has been set and this widget is ready to be used
@@ -291,7 +295,7 @@ public:
 	}
 	/// Returns: position of cursor to be shown on terminal. (-1,-1) if dont show
 	@property Position cursorPosition(){
-		return Position(-1,-1);
+		return _cursorPosition;
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
 	@property uint sizeRatio(){
@@ -338,8 +342,8 @@ private:
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
 	static uint calculateWidgetSize(QLayout.Type type)(QWidget widget, uint ratioTotal, uint totalSpace,
 	ref bool free){
-		Size wSize = widget.size;
-		immutable calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
+		Size wSize = widget._size;
+		immutable calculatedSize = cast(uint)((widget._sizeRatio*totalSpace)/ratioTotal);
 		static if (type == QLayout.Type.Horizontal){
 			wSize.width = calculatedSize;
 			free = wSize.minWidth == 0 && wSize.maxWidth == 0;
@@ -350,6 +354,11 @@ private:
 			return wSize.height;
 		}
 	}
+	/// ditto
+	static uint calculateWidgetSize(QLayout.Type type)(QWidget widget, uint ratioTotal, uint totalSpace){
+		bool free; // @suppress(dscanner.suspicious.unmodified) shut up vscode
+		return calculateWidgetSize!type(widget, ratioTotal, totalSpace, free);
+	}
 	
 	/// recalculates the size of every widget inside layout
 	void recalculateWidgetsSize(QLayout.Type T)(){
@@ -359,9 +368,9 @@ private:
 		uint totalRatio = 0;
 		uint totalSpace = T == QLayout.Type.Horizontal ? _size.width : _size.height;
 		foreach (widget; _widgets){
-			if (!widget.show)
+			if (!widget._show)
 				continue;
-			totalRatio += widget.sizeRatio;
+			totalRatio += widget._sizeRatio;
 			widget._size.height = _size.height;
 			widget._size.width = _size.width;
 			widgetStack.push(widget);
@@ -370,7 +379,7 @@ private:
 		uint limitWRatio, limitWSize; /// totalRatio, and space used of widgets with limits
 		for (int i = 0; i < widgetStack.count; i ++){
 			QWidget widget = widgetStack.pop;
-			bool free;
+			bool free; // @suppress(dscanner.suspicious.unmodified) shut up vscode
 			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
 			if (free){
 				widgetStack.push(widget);
@@ -380,20 +389,19 @@ private:
 				widget._size.width = space;
 			else
 				widget._size.height = space;
-			limitWRatio += widget.sizeRatio;
+			limitWRatio += widget._sizeRatio;
 			limitWSize += space;
 		}
 		totalSpace -= limitWSize;
 		totalRatio -= limitWRatio;
 		while (widgetStack.count){
 			QWidget widget = widgetStack.pop;
-			bool free;
-			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
+			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace);
 			static if (T == QLayout.Type.Horizontal)
 				widget._size.width = space;
 			else
 				widget._size.height = space;
-			totalRatio -= widget.sizeRatio;
+			totalRatio -= widget._sizeRatio;
 			totalSpace -= space;
 		}
 		.destroy(widgetStack);
@@ -404,15 +412,15 @@ private:
 			assert(false);
 		uint previousSpace = 0;
 		foreach(widget; _widgets){
-			if (widget.show){
+			if (widget._show){
 				static if (T == QLayout.Type.Horizontal){
 					widget._position.y = 0;
 					widget._position.x = previousSpace;
-					previousSpace += widget.size.width;
+					previousSpace += widget._size.width;
 				}else{
 					widget._position.x = 0;
 					widget._position.y = previousSpace;
-					previousSpace += widget.size.height;
+					previousSpace += widget._size.height;
 				}
 			}
 		}
@@ -423,7 +431,7 @@ protected:
 	override void resizeEvent(){
 		uint ratioTotal;
 		foreach(w; _widgets){
-			if (w.show){
+			if (w._show){
 				ratioTotal += w._sizeRatio;
 			}
 		}
@@ -435,7 +443,7 @@ protected:
 			recalculateWidgetsPosition!(QLayout.Type.Vertical);
 		}
 		foreach (i, widget; _widgets){
-			this._display.getSlice(widget._display, widget.size.width, widget.size.height,widget._position.x,widget._position.y);
+			this._display.getSlice(widget._display,widget._size.width,widget._size.height,widget._position.x,widget._position.y);
 			widget.resizeEventCall();
 		}
 	}
@@ -446,16 +454,16 @@ protected:
 		QWidget activeWidget = null;
 		if (_activeWidgetIndex > -1)
 			activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x +activeWidget.size.width 
-		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget.size.height){
+		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x+activeWidget._size.width
+		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._size.height){
 			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
-				if (widget.show && widget.wantsInput &&
-					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget.size.width &&
-					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget.size.height){
+				if (widget._show && widget._wantsInput &&
+					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
+					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
 					// make it active only if this layout is itself active
-					if (this.isActive){
+					if (this._isActive){
 						if (activeWidget)
 							activeWidget.activateEventCall(false);
 						widget.activateEventCall(true);
@@ -479,14 +487,14 @@ protected:
 				if (_activeWidgetIndex == -1)
 					this.cycleActiveWidget();
 				else{
-					if (_widgets[_activeWidgetIndex].wantsTab)
+					if (_widgets[_activeWidgetIndex]._wantsTab)
 						_widgets[_activeWidgetIndex].keyboardEventCall(key);
 					else
 						this.cycleActiveWidget();
 				}
 			}else
 				this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1 && (key.key != '\t' || _widgets[_activeWidgetIndex].wantsTab))
+		}else if (_activeWidgetIndex > -1 && (key.key != '\t' || _widgets[_activeWidgetIndex]._wantsTab))
 			_widgets[_activeWidgetIndex].keyboardEventCall(key);
 	}
 
@@ -518,26 +526,26 @@ protected:
 	override void update(){
 		uint space = 0;
 		foreach(i, widget; _widgets){
-			if (widget.show){
+			if (widget._show){
 				if (_requestingUpdate[i]){
 					widget._display.cursor = Position(0,0);
 					widget.update();
 					_requestingUpdate[i] = false;
 				}
 				if (_type == Type.Horizontal){
-					space += widget.size.width;
-					if (widget.size.height < this._size.height){
-						foreach (y; widget.size.height ..  this._size.height){
+					space += widget._size.width;
+					if (widget._size.height < this._size.height){
+						foreach (y; widget._size.height ..  this._size.height){
 							_display.cursor = Position(widget._position.x, y);
-							_display.fillLine(' ', _fillColor, _fillColor, widget.size.width);
+							_display.fillLine(' ', _fillColor, _fillColor, widget._size.width);
 						}
 					}
 				}else{
-					space += widget.size.height;
-					if (widget.size.width < this._size.width){
-						immutable lineWidth = _size.width - widget.size.width;
-						foreach (y; 0 .. widget.size.height){
-							_display.cursor = Position(widget.size.width, widget._position.y + y);
+					space += widget._size.height;
+					if (widget._size.width < this._size.width){
+						immutable lineWidth = _size.width - widget._size.width;
+						foreach (y; 0 .. widget._size.height){
+							_display.cursor = Position(widget._size.width, widget._position.y + y);
 							_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
 						}
 					}
@@ -565,7 +573,7 @@ protected:
 		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
 			int lastActiveWidgetIndex = _activeWidgetIndex;
 			for (_activeWidgetIndex ++; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
+				if (_widgets[_activeWidgetIndex]._wantsInput && _widgets[_activeWidgetIndex]._show)
 					break;
 			}
 			if (_activeWidgetIndex >= _widgets.length)
@@ -588,7 +596,7 @@ protected:
 		// search and activate recursively
 		_activeWidgetIndex = -1;
 		foreach (index, widget; _widgets) {
-			if (widget.wantsInput && widget.show && widget.searchAndActivateWidget(target)) {
+			if (widget._wantsInput && widget._show && widget.searchAndActivateWidget(target)) {
 				_activeWidgetIndex = cast(int)index;
 				break;
 			}
@@ -629,7 +637,7 @@ public:
 	/// Returns: whether the widget is receiving the Tab key press or not
 	override @property bool wantsTab(){
 		foreach (widget; _widgets){
-			if (widget.wantsTab)
+			if (widget._wantsTab)
 				return true;
 		}
 		return false;
@@ -637,7 +645,7 @@ public:
 	/// Returns: true if the widget wants input
 	override @property bool wantsInput(){
 		foreach (widget; _widgets){
-			if (widget.wantsInput)
+			if (widget._wantsInput)
 				return true;
 		}
 		return false;
@@ -647,16 +655,13 @@ public:
 		// just do a hack, and check only for active widget
 		if (_activeWidgetIndex == -1)
 			return Position(-1, -1);
-		Position cursorPosition = _widgets[_activeWidgetIndex].cursorPosition;
-		if (cursorPosition == Position(-1, -1))
-			return cursorPosition;
-		return Position(_widgets[_activeWidgetIndex]._position.x + cursorPosition.x,
-			_widgets[_activeWidgetIndex]._position.y + cursorPosition.y);
+		if (_widgets[_activeWidgetIndex]._cursorPosition == Position(-1, -1))
+			return _widgets[_activeWidgetIndex]._cursorPosition;
+		return Position(_widgets[_activeWidgetIndex]._position.x + _widgets[_activeWidgetIndex]._cursorPosition.x,
+			_widgets[_activeWidgetIndex]._position.y + _widgets[_activeWidgetIndex]._cursorPosition.y);
 	}
 	
-	/// adds (appends) a widget to the widgetList, and makes space for it
-	/// 
-	/// If there a widget is too large, it's marked as not visible
+	/// adds a widget, and makes space for it
 	void addWidget(QWidget widget){
 		widget._parent = this;
 		widget._indexInParent = cast(int)_widgets.length;
@@ -666,9 +671,7 @@ public:
 		// make space in _requestingUpdate
 		_requestingUpdate ~= true;
 	}
-	/// adds (appends) widgets to the widgetList, and makes space for them
-	/// 
-	/// If there a widget is too large, it's marked as not visible
+	/// ditto
 	void addWidget(QWidget[] widgets){
 		foreach (i, widget; widgets){
 			widget._parent = this;
