@@ -96,10 +96,3 @@ unittest{
 	assert("qwerty".centerAlignText(6) == "qwerty");
 	assert("qwerty".centerAlignText(5) == "qwert");
 }
-
-/// To calculate size of widgets using their sizeRatio
-deprecated uint ratioToRaw(uint selectedRatio, uint ratioTotal, uint total){
-	uint r;
-	r = cast(uint)( ((selectedRatio.to!float)*(total.to!float)) / ratioTotal.to!float);
-	return r;
-}
