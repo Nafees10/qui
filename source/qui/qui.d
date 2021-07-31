@@ -583,7 +583,7 @@ protected:
 
 	/// activate the passed widget if it's in the current layout, return if it was activated or not
 	override bool searchAndActivateWidget(QWidget target){
-		int lastActiveWidgetIndex = _activeWidgetIndex;
+		immutable int lastActiveWidgetIndex = _activeWidgetIndex;
 
 		// search and activate recursively
 		_activeWidgetIndex = -1;
