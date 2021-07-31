@@ -6,7 +6,6 @@ module qui.utils;
 
 import qui.qui;
 
-import utils.baseconv;
 import utils.misc;
 import std.conv : to;
 
