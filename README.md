@@ -23,13 +23,6 @@ QUI is a widget based Text User Interface library for the [D Language](http://dl
 To use qui in your dub package, run this in your dub package's directory:  
 `dub add qui`  
 
-qui also uses `utils` package, and you will also need it in your package, so you also need to do:  
-`dub add utils`  
-and add following import to your code.
-```D
-import utils.misc : uinteger, integer;
-```
-
 ---
 
 ## Getting Started

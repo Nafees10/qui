@@ -5,7 +5,7 @@ version(demo){
 	import std.conv : to;
 	import std.path;
 	import std.file : thisExePath;
-	import utils.misc : uinteger, integer, fileToArray;
+	import utils.misc :fileToArray;
 	
 	void main (){
 		App appInstance = new App();
@@ -61,7 +61,7 @@ version(demo){
 
 			// hide progress bar on Ctrl+O
 			term.onKeyboardEvent = delegate(QWidget caller, KeyboardEvent key){
-				log.add(to!dstring("Terminal Keyboard Event; code:"~(cast(uinteger)key.key).to!string~"; char:"~key.tostring));
+				log.add(to!dstring("Terminal Keyboard Event; code:"~(cast(uint)key.key).to!string~"; char:"~key.tostring));
 				if (key.isCtrlKey){
 					if (key.key == KeyboardEvent.CtrlKeys.CtrlO){
 						progressBar.show = !progressBar.show;
@@ -85,7 +85,7 @@ version(demo){
 			};
 
 			// and this is how timerEvent can be used
-			progressBar.onTimerEvent = delegate(QWidget caller, uinteger msecs){
+			progressBar.onTimerEvent = delegate(QWidget caller, uint msecs){
 				static increasing = true;
 				ProgressbarWidget owner = cast(ProgressbarWidget)caller;
 				if (owner.progress >= owner.max){

@@ -9,7 +9,7 @@ QWidget.onInitEvent = delegate(QWidget callerWidget){
 	// do stuff
 	return false; // return true in case you dont want the event handler of widget to be called
 }
-QWidget.onTimerEvent = delegate(QWidget callerWidget, uinteger msecs){
+QWidget.onTimerEvent = delegate(QWidget callerWidget, uint msecs){
 	// do stuff
 	return false;
 }
@@ -102,7 +102,7 @@ Called by parent when this widget has been made the active widget or if it was a
 no longer is.  
 In case it is made the active widget, the argument is `true`, otherwise, it is `false`.
 
-# timerEvent(uinteger)
+# timerEvent(uint)
 
 _Be aware that the duration between timerEvents is not fixed, it can be changed by_ 
 _changing `QTerminal.timerMsecs` even while the application is running._  

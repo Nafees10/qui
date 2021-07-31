@@ -26,7 +26,7 @@ and this widget cannot become active. To change it's value, change `protected bo
 The position of cursor to be displayed on terminal. This is only considered if this widget is active.  
 In case the cursor should not be displayed, this should return `Position(-1, -1)`;
 
-## uinteger sizeRatio;
+## uint sizeRatio;
 QUI sizes widget using a "ratio" system. For example, in a Horizontal layout, if two widget have _sizeRatio's 
 of `1`, they will each occupy 50% of the horizonal space.  
 Modifying this will call `QWidget.requestResize()` so that before next update, widgets' sizes are adjusted again.
@@ -80,6 +80,6 @@ because if you do not change the colors, any writing will be done in the colors 
 ## fill(dchar c, Color fg, Color bg)
 This will start at cursor position, and fill the rest of area of the widget with the character `c`.
 
-## fillLine(dchar c, Color fg, Color bg, uinteger max=0)
+## fillLine(dchar c, Color fg, Color bg, uint max=0)
 If `max=0`, this will start at cursor, and fill the rest of line with `c`.
 If `max!=0`, and there are more characters in line after cursor, it will only fill `max` number of cells, and move cursor there.
