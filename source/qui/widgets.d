@@ -16,9 +16,9 @@ import utils.lists;
 class TextLabelWidget : QWidget{
 private:
 	/// number of chars not displayed on left
-	uinteger xOffset = 0;
+	uint xOffset = 0;
 	/// max xOffset
-	uinteger maxXOffset;
+	uint maxXOffset;
 	/// the text to display
 	dstring _caption;
 	/// if in the last timerEvent, xOffset was increased
@@ -30,14 +30,14 @@ private:
 			maxXOffset = 0;
 			xOffset = 0;
 		}else{
-			maxXOffset = _caption.length - _size.width;
+			maxXOffset = cast(uint)_caption.length - _size.width;
 			if (xOffset > maxXOffset)
 				xOffset = maxXOffset;
 		}
 	}
 protected:
-	override void timerEvent(uinteger msecs){
-		static uinteger accumulatedTime;
+	override void timerEvent(uint msecs){
+		static uint accumulatedTime;
 		if (maxXOffset > 0){
 			accumulatedTime += msecs;
 			if (xOffset >= maxXOffset)
@@ -70,7 +70,7 @@ public:
 	/// text and background colors
 	Color textColor, backgroundColor;
 	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
-	uinteger scrollTimer;
+	uint scrollTimer;
 	/// constructor
 	this(dstring newCaption = ""){
 		this.caption = newCaption;
@@ -99,7 +99,7 @@ public:
 /// Can also display text (just like TextLabelWidget)
 class ProgressbarWidget : TextLabelWidget{
 private:
-	uinteger _max, _progress;
+	uint _max, _progress;
 protected:
 	override void update(){
 		// if caption fits in width, center align it
@@ -109,9 +109,9 @@ protected:
 		else
 			text = _caption.scrollHorizontal(xOffset, _size.width);
 		// number of chars to be colored in barColor
-		uinteger fillCharCount = (_progress * _size.width) / _max;
+		uint fillCharCount = (_progress * _size.width) / _max;
 		// line number on which the caption will be written
-		for (uinteger i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
+		for (uint i = 0,captionLineNumber = this._size.height / 2; i < this._size.height; i ++){
 			_display.cursor = Position(0, i);
 			if (i == captionLineNumber){
 				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
@@ -132,7 +132,7 @@ public:
 	/// background color, and bar's color
 	Color backgroundColor, barColor;
 	/// constructor
-	this(uinteger max = 100, uinteger progress = 0){
+	this(uint max = 100, uint progress = 0){
 		_caption = null;
 		this.max = max;
 		this.progress = progress;
@@ -143,21 +143,21 @@ public:
 		backgroundColor = DEFAULT_BG;
 	}
 	/// The 'total', or the max-progress. getter
-	@property uinteger max(){
+	@property uint max(){
 		return _max;
 	}
 	/// The 'total' or the max-progress. setter
-	@property uinteger max(uinteger newMax){
+	@property uint max(uint newMax){
 		_max = newMax;
 		requestUpdate();
 		return _max;
 	}
 	/// the amount of progress. getter
-	@property uinteger progress(){
+	@property uint progress(){
 		return _progress;
 	}
 	/// the amount of progress. setter
-	@property uinteger progress(uinteger newProgress){
+	@property uint progress(uint newProgress){
 		_progress = newProgress;
 		requestUpdate();
 		return _progress;
@@ -170,13 +170,13 @@ private:
 	/// text that's been input-ed
 	dchar[] _text;
 	/// position of cursor
-	uinteger _x;
+	uint _x;
 	/// how many chars wont be displayed on left
-	uinteger _scrollX;
+	uint _scrollX;
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
-		adjustScrollingOffset(_x, _size.width, _text.length, _scrollX);
+		adjustScrollingOffset(_x, _size.width, cast(uint)_text.length, _scrollX);
 	}
 protected:
 	/// override resize to re-scroll
@@ -226,7 +226,7 @@ protected:
 		reScroll;
 	}
 	override void update(){
-		_display.write(cast(dstring)this._text.scrollHorizontal(cast(integer)_scrollX, _size.width),textColor,backgroundColor);
+		_display.write(cast(dstring)this._text.scrollHorizontal(cast(int)_scrollX, _size.width),textColor,backgroundColor);
 	}
 public:
 	/// background, text, caption, and caption's background colors
@@ -268,9 +268,9 @@ class MemoWidget : QWidget{
 private:
 	List!dstring _lines;
 	/// how many characters/lines are skipped
-	uinteger _scrollX, _scrollY;
+	uint _scrollX, _scrollY;
 	/// whether the cursor is, relative to line#0 character#0
-	uinteger _cursorX, _cursorY;
+	uint _cursorX, _cursorY;
 	/// whether the text in it will be editable
 	bool _enableEditing = true;
 	/// used by widget itself to recalculate scrolling
@@ -278,26 +278,26 @@ private:
 		// _scrollY
 		adjustScrollingOffset(_cursorY, this._size.height, lineCount, _scrollY);
 		// _scrollX
-		adjustScrollingOffset(_cursorX, this._size.width, readLine(_cursorY).length, _scrollX);
+		adjustScrollingOffset(_cursorX, this._size.width, cast(uint)readLine(_cursorY).length, _scrollX);
 	}
 	/// used by widget itself to move cursor
-	void moveCursor(uinteger x, uinteger y){
+	void moveCursor(uint x, uint y){
 		_cursorX = x;
 		_cursorY = y;
 		
 		if (_cursorY > lineCount)
 			_cursorY = lineCount-1;
 		if (_cursorX > readLine(_cursorY).length)
-			_cursorX = readLine(_cursorY).length;
+			_cursorX = cast(uint)readLine(_cursorY).length;
 	}
 	/// Reads a line from widgetLines
-	dstring readLine(uinteger index){
+	dstring readLine(uint index){
 		if (index >= _lines.length)
 			return "";
 		return _lines.read(index);
 	}
 	/// overwrites a line
-	void overwriteLine(uinteger index, dstring line){
+	void overwriteLine(uint index, dstring line){
 		if (index == _lines.length)
 			_lines.append(line);
 		else
@@ -305,12 +305,12 @@ private:
 		
 	}
 	/// deletes a line
-	void removeLine(uinteger index){
+	void removeLine(uint index){
 		if (index < _lines.length)
 			_lines.remove(index);
 	}
 	/// inserts a line
-	void insertLine(uinteger index, dstring line){
+	void insertLine(uint index, dstring line){
 		if (index == _lines.length)
 			_lines.append(line);
 		else
@@ -321,15 +321,15 @@ private:
 		_lines.append(line);
 	}
 	/// returns lines count
-	@property uinteger lineCount(){
-		return _lines.length+1;
+	@property uint lineCount(){
+		return cast(uint)_lines.length+1;
 	}
 protected:
 	override void update(){
-		const uinteger count = lineCount;
+		const uint count = lineCount;
 		if (count > 0){
 			//write lines to memo
-			for (uinteger i = _scrollY; i < count && _display.cursor.y < _size.height; i++){
+			for (uint i = _scrollY; i < count && _display.cursor.y < _size.height; i++){
 				_display.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
 					textColor, backgroundColor);
 			}
@@ -381,7 +381,7 @@ protected:
 						if (_cursorX == 0){
 							_cursorY --;
 							//if line's not empty, append it to previous line
-							_cursorX = readLine(_cursorY).length;
+							_cursorX = cast(uint)readLine(_cursorY).length;
 							if (currentLine != ""){
 								//else, append this line to previous
 								overwriteLine(_cursorY, readLine(_cursorY)~currentLine);
@@ -458,7 +458,7 @@ protected:
 					requestUpdate();
 					if (_cursorX == 0){
 						_cursorY --;
-						_cursorX = readLine(_cursorY).length;
+						_cursorX = cast(uint)readLine(_cursorY).length;
 					}else{
 						_cursorX --;
 					}
@@ -532,11 +532,11 @@ private:
 	/// stores the logs
 	List!dstring _logs;
 	/// The index in _logs where the oldest added line is
-	uinteger _startIndex;
+	uint _startIndex;
 	/// the maximum number of lines to store
-	uinteger _maxLines;
+	uint _maxLines;
 	/// Returns: line at an index
-	dstring getLine(uinteger index){
+	dstring getLine(uint index){
 		if (index >= _logs.length)
 			return "";
 		return _logs.read((index + _startIndex) % _maxLines);
@@ -554,17 +554,17 @@ private:
 protected:
 	override void update(){
 		_display.colors(textColor, backgroundColor);
-		integer lastY = _size.height;
-		for (integer i = _logs.length-1; i >= 0; i --){
+		int lastY = _size.height;
+		for (int i = cast(uint)_logs.length-1; i >= 0; i --){
 			dstring line = getLine(i);
 			dstring[] wrappedLine = wrapLine(line);
 			if (wrappedLine.length == 0)
 				continue;
 			if (lastY < wrappedLine.length)
 				wrappedLine = wrappedLine[wrappedLine.length - lastY .. $];
-			immutable integer startY = lastY - wrappedLine.length;
+			immutable int startY = lastY - cast(uint)wrappedLine.length;
 			foreach (lineno, currentLine; wrappedLine){
-				_display.cursor = Position(0, lineno + startY);
+				_display.cursor = Position(0, cast(uint)lineno + startY);
 				_display.write(currentLine);
 				if (currentLine.length < _size.width)
 					_display.fillLine(' ', textColor, backgroundColor);
@@ -583,7 +583,7 @@ public:
 	/// background and text color
 	Color backgroundColor, textColor;
 	/// constructor
-	this(uinteger maxLen=100){
+	this(uint maxLen=100){
 		_maxLines = maxLen;
 		_logs = new List!dstring;
 		_startIndex = 0;

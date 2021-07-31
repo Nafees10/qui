@@ -21,11 +21,11 @@ import std.conv : to;
 /// * `width` is the number of characters that are to be displayed
 /// 
 /// Returns: the text that should be displayed
-dstring scrollHorizontal(dstring line, integer xOffset, uinteger width, dchar spaceChar = ' '){
+dstring scrollHorizontal(dstring line, int xOffset, uint width, dchar spaceChar = ' '){
 	dchar[] r;
 	r.length = width;
 	r[] = spaceChar;
-	for (uinteger i = xOffset < 0 ? -xOffset : 0; i + xOffset < line.length && i < width; i ++)
+	for (uint i = xOffset < 0 ? -xOffset : 0; i + xOffset < line.length && i < width; i ++)
 		r[i] = line[i + xOffset];
 	return cast(dstring)r;
 }
@@ -41,11 +41,11 @@ unittest{
 }
 
 /// ditto
-dchar[] scrollHorizontal(dchar[] line, integer xOffset, uinteger width){
+dchar[] scrollHorizontal(dchar[] line, int xOffset, uint width){
 	return cast(dchar[])(cast(dstring)line).scrollHorizontal(xOffset, width);
 }
 /// ditto
-char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
+char[] scrollHorizontal(char[] line, int xOffset, uint width){
 	return cast(char[])(cast(dstring)line).scrollHorizontal(xOffset, width);
 }
 
@@ -55,13 +55,13 @@ char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
 /// * `selected` is the character on which the cursor is. If it's >lineWidth, `selected=lineWidth`
 /// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
 /// * `offset` is the variable storing the offset (_xOffset or _yOffset)
-void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWidth, ref uinteger offset){
+void adjustScrollingOffset(ref uint selected, uint size, uint lineWidth, ref uint offset){
 	// if selected is outside size, it shouldn't be
 	if (selected > lineWidth){
 		selected = lineWidth;
 	}
 	// range of characters' index that's visible (1 is inclusive, 2 is not)
-	uinteger visible1, visible2;
+	uint visible1, visible2;
 	visible1 = offset;
 	visible2 = offset + size;
 	if (selected < visible1 || selected >= visible2){
@@ -80,11 +80,11 @@ void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWi
 /// If `text.length > width`, the exceeding characters are removed
 /// 
 /// Returns: the text center aligned in a string
-dstring centerAlignText(dstring text, uinteger width, dchar fill = ' '){
+dstring centerAlignText(dstring text, uint width, dchar fill = ' '){
 	dchar[] r;
 	if (text.length < width){
 		r.length = width;
-		uinteger offset = (width - text.length)/2;
+		uint offset = (width - cast(uint)text.length)/2;
 		r[0 .. offset] = fill;
 		r[offset .. offset+text.length][] = text;
 		r[offset+text.length .. r.length] = fill;
@@ -99,8 +99,8 @@ unittest{
 }
 
 /// To calculate size of widgets using their sizeRatio
-deprecated uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
-	uinteger r;
-	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
+deprecated uint ratioToRaw(uint selectedRatio, uint ratioTotal, uint total){
+	uint r;
+	r = cast(uint)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
 	return r;
 }

@@ -29,7 +29,7 @@ public alias KeyboardEvent = Event.Keyboard;
 /// Used to store position for widgets
 struct Position{
 	/// x and y position
-	integer x = 0, y = 0;
+	int x = 0, y = 0;
 	/// Returns: a string representation of Position
 	string tostring(){
 		return "{x:"~to!string(x)~",y:"~to!string(y)~"}";
@@ -41,9 +41,9 @@ struct Position{
 /// zero in min/max means no limit
 struct Size{
 	private{
-		uinteger _w = 0, _h = 0;
+		uint _w = 0, _h = 0;
 		/// width
-		@property uinteger width(uinteger newWidth){
+		@property uint width(uint newWidth){
 			if (newWidth == 0)
 				return _w = 0;
 			if (minWidth > 0 && newWidth < minWidth){
@@ -54,7 +54,7 @@ struct Size{
 			return _w = newWidth;
 		}
 		/// height
-		@property uinteger height(uinteger newHeight){
+		@property uint height(uint newHeight){
 			if (newHeight == 0)
 				return _h = 0;
 			if (minHeight > 0 && newHeight < minHeight){
@@ -66,18 +66,18 @@ struct Size{
 		}
 	}
 	/// width
-	@property uinteger width(){
+	@property uint width(){
 		return _w;
 	}
 	/// height
-	@property uinteger height(){
+	@property uint height(){
 		return _h;
 	}
 	
 	/// minimun width & height. These are "applied" automatically when setting value using `width` or `height`
-	uinteger minWidth = 0, minHeight = 0;
+	uint minWidth = 0, minHeight = 0;
 	/// maximum width & height. These are "applied" automatically when setting value using `width` or `height`
-	uinteger maxWidth = 0, maxHeight = 0;
+	uint maxWidth = 0, maxHeight = 0;
 	/// Returns: a string representation of KeyPress, in JSON
 	string tostring(){
 		return "{width:"~to!string(_w)~",height:"~to!string(_h)~
@@ -95,7 +95,7 @@ alias ResizeEventFunction = bool delegate(QWidget);
 /// activateEvent function. Return true if the event should be dropped
 alias ActivateEventFunction = bool delegate(QWidget, bool);
 /// TimerEvent function. Return true if the event should be dropped
-alias TimerEventFunction = bool delegate(QWidget, uinteger);
+alias TimerEventFunction = bool delegate(QWidget, uint);
 /// Init function. Return true if the event should be dropped
 alias InitFunction = bool delegate(QWidget);
 
@@ -116,7 +116,7 @@ private:
 	/// the parent widget
 	QWidget _parent = null;
 	/// the index it is stored at in _parent. -1 if no parent asigned yet
-	integer _indexInParent = -1;
+	int _indexInParent = -1;
 	/// the key used for cycling active widget, defaults to tab
 	dchar _activeWidgetCycleKey = '\t';
 	/// called by owner for initialize event
@@ -148,12 +148,12 @@ private:
 			this.activateEvent(isActive);
 	}
 	/// called by owner for mouseEvent
-	void timerEventCall(uinteger msecs){
+	void timerEventCall(uint msecs){
 		if (!_customTimerEvent || !_customTimerEvent(this, msecs))
 			this.timerEvent(msecs);
 	}
 	/// Called by children of this widget to request updates
-	void requestUpdate(uinteger index){
+	void requestUpdate(uint index){
 		if (index < _requestingUpdate.length){
 			_requestingUpdate[index] = true;
 			requestUpdate();
@@ -174,7 +174,7 @@ protected:
 	bool _show = true;
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this
-	uinteger _sizeRatio = 1;
+	uint _sizeRatio = 1;
 	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true
 	/// if only required, for example, in text editors
 	bool _wantsTab = false;
@@ -228,7 +228,7 @@ protected:
 	/// called right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
 	void activateEvent(bool isActive){}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
-	void timerEvent(uinteger msecs){}
+	void timerEvent(uint msecs){}
 public:
 	/// Called by itself when it needs to request an update
 	void requestUpdate(){
@@ -294,11 +294,11 @@ public:
 		return Position(-1,-1);
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
-	@property uinteger sizeRatio(){
+	@property uint sizeRatio(){
 		return _sizeRatio;
 	}
 	/// ditto
-	@property uinteger sizeRatio(uinteger newRatio){
+	@property uint sizeRatio(uint newRatio){
 		requestResize;
 		return _sizeRatio = newRatio;
 	}
@@ -331,15 +331,15 @@ private:
 	/// stores the layout type, horizontal or vertical
 	QLayout.Type _type;
 	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
-	integer _activeWidgetIndex = -1;
+	int _activeWidgetIndex = -1;
 	/// Color to fill with in unoccupied space
 	Color _fillColor;
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
-	static uinteger calculateWidgetSize(QLayout.Type type)(QWidget widget, uinteger ratioTotal, uinteger totalSpace,
+	static uint calculateWidgetSize(QLayout.Type type)(QWidget widget, uint ratioTotal, uint totalSpace,
 	ref bool free){
 		Size wSize = widget.size;
-		immutable calculatedSize = cast(uinteger)((widget.sizeRatio*totalSpace)/ratioTotal);
+		immutable calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
 		static if (type == QLayout.Type.Horizontal){
 			wSize.width = calculatedSize;
 			free = wSize.minWidth == 0 && wSize.maxWidth == 0;
@@ -356,8 +356,8 @@ private:
 		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
 		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
-		uinteger totalRatio = 0;
-		uinteger totalSpace = T == QLayout.Type.Horizontal ? _size.width : _size.height;
+		uint totalRatio = 0;
+		uint totalSpace = T == QLayout.Type.Horizontal ? _size.width : _size.height;
 		foreach (widget; _widgets){
 			if (!widget.show)
 				continue;
@@ -367,11 +367,11 @@ private:
 			widgetStack.push(widget);
 		}
 		// do widgets with size limits
-		uinteger limitWRatio, limitWSize; /// totalRatio, and space used of widgets with limits
-		for (integer i = 0; i < widgetStack.count; i ++){
+		uint limitWRatio, limitWSize; /// totalRatio, and space used of widgets with limits
+		for (int i = 0; i < widgetStack.count; i ++){
 			QWidget widget = widgetStack.pop;
 			bool free;
-			immutable uinteger space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
+			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
 			if (free){
 				widgetStack.push(widget);
 				continue;
@@ -388,7 +388,7 @@ private:
 		while (widgetStack.count){
 			QWidget widget = widgetStack.pop;
 			bool free;
-			immutable uinteger space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
+			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
 			static if (T == QLayout.Type.Horizontal)
 				widget._size.width = space;
 			else
@@ -402,7 +402,7 @@ private:
 	void recalculateWidgetsPosition(QLayout.Type T)(){
 		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
-		uinteger previousSpace = 0;
+		uint previousSpace = 0;
 		foreach(widget; _widgets){
 			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
@@ -421,7 +421,7 @@ protected:
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
 	override void resizeEvent(){
-		uinteger ratioTotal;
+		uint ratioTotal;
 		foreach(w; _widgets){
 			if (w.show){
 				ratioTotal += w._sizeRatio;
@@ -459,7 +459,7 @@ protected:
 						if (activeWidget)
 							activeWidget.activateEventCall(false);
 						widget.activateEventCall(true);
-						_activeWidgetIndex = i;
+						_activeWidgetIndex = cast(uint)i;
 					}
 					widget.mouseEventCall(mouse);
 					break;
@@ -499,7 +499,7 @@ protected:
 	}
 
 	/// override timer event to call child widgets' timers
-	override void timerEvent(uinteger msecs){
+	override void timerEvent(uint msecs){
 		foreach (widget; _widgets)
 			widget.timerEventCall(msecs);
 	}
@@ -516,7 +516,7 @@ protected:
 	
 	/// called by owner widget to update
 	override void update(){
-		uinteger space = 0;
+		uint space = 0;
 		foreach(i, widget; _widgets){
 			if (widget.show){
 				if (_requestingUpdate[i]){
@@ -545,7 +545,7 @@ protected:
 			}
 		}
 		if (_type == Type.Horizontal && space < this._size.width){
-			immutable uinteger lineWidth = this._size.width - space;
+			immutable uint lineWidth = this._size.width - space;
 			foreach (y; 0 .. this._size.height){
 				_display.cursor = Position(space, y);
 				_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
@@ -563,7 +563,7 @@ protected:
 	override bool cycleActiveWidget(){
 		// check if need to cycle within current active widget
 		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
-			integer lastActiveWidgetIndex = _activeWidgetIndex;
+			int lastActiveWidgetIndex = _activeWidgetIndex;
 			for (_activeWidgetIndex ++; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
 				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
 					break;
@@ -583,13 +583,13 @@ protected:
 
 	/// activate the passed widget if it's in the current layout, return if it was activated or not
 	override bool searchAndActivateWidget(QWidget target){
-		integer lastActiveWidgetIndex = _activeWidgetIndex;
+		int lastActiveWidgetIndex = _activeWidgetIndex;
 
 		// search and activate recursively
 		_activeWidgetIndex = -1;
-		foreach (integer index, widget; _widgets) {
+		foreach (index, widget; _widgets) {
 			if (widget.wantsInput && widget.show && widget.searchAndActivateWidget(target)) {
-				_activeWidgetIndex = index;
+				_activeWidgetIndex = cast(int)index;
 				break;
 			}
 		}
@@ -659,7 +659,7 @@ public:
 	/// If there a widget is too large, it's marked as not visible
 	void addWidget(QWidget widget){
 		widget._parent = this;
-		widget._indexInParent = _widgets.length;
+		widget._indexInParent = cast(int)_widgets.length;
 		widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		//add it to array
 		_widgets ~= widget;
@@ -672,7 +672,7 @@ public:
 	void addWidget(QWidget[] widgets){
 		foreach (i, widget; widgets){
 			widget._parent = this;
-			widget._indexInParent = _widgets.length+i;
+			widget._indexInParent = cast(int)(_widgets.length+i);
 			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
 		// add to array
@@ -687,15 +687,15 @@ public:
 class Display{
 private:
 	/// width & height
-	uinteger _width, _height;
+	uint _width, _height;
 	/// x and y offsets
-	uinteger _xOff, _yOff;
+	uint _xOff, _yOff;
 	/// cursor position, relative to _xOff and _yOff
 	Position _cursor;
 	/// the terminal
 	TermWrapper _term;
 	/// constructor for when this buffer is just a slice of the actual buffer
-	this(uinteger w, uinteger h, uinteger xOff, uinteger yOff, TermWrapper terminal){
+	this(uint w, uint h, uint xOff, uint yOff, TermWrapper terminal){
 		_xOff = xOff;
 		_yOff = yOff;
 		_width = w;
@@ -705,13 +705,13 @@ private:
 	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
 	/// 
 	/// no bound checking is done
-	Display getSlice(uinteger w, uinteger h, uinteger x, uinteger y){
+	Display getSlice(uint w, uint h, uint x, uint y){
 		return new Display(w, h, _xOff + x, _yOff + y, _term);
 	}
 	/// modifies an existing Display to act as a "slice"
 	/// 
 	/// no bound checking is done
-	void getSlice(Display sliced, uinteger w, uinteger h, uinteger x, uinteger y){
+	void getSlice(Display sliced, uint w, uint h, uint x, uint y){
 		sliced._width = w;
 		sliced._height = h;
 		sliced._xOff = _xOff + x;
@@ -719,7 +719,7 @@ private:
 	}
 public:
 	/// constructor
-	this(uinteger w, uinteger h, TermWrapper terminal){
+	this(uint w, uint h, TermWrapper terminal){
 		_width = w;
 		_height = h;
 		_term = terminal;
@@ -780,7 +780,7 @@ public:
 		}
 	}
 	/// fills rest of current line with a character
-	void fillLine(dchar c, Color fg, Color bg, uinteger max = 0){
+	void fillLine(dchar c, Color fg, Color bg, uint max = 0){
 		dchar[] line;
 		line.length =  max < _width - _cursor.x && max > 0 ? max : _width - _cursor.x;
 		line[] = c;
@@ -898,7 +898,7 @@ public:
 				update();
 			}
 			if (sw.peek.total!"msecs" >= timerMsecs){
-				this.timerEventCall(sw.peek.total!"msecs");
+				this.timerEventCall(cast(uint)sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
 				update();
