@@ -21,31 +21,12 @@ import std.conv : to;
 /// * `width` is the number of characters that are to be displayed
 /// 
 /// Returns: the text that should be displayed
-dstring scrollHorizontal(dstring line, integer xOffset, uinteger width){
+dstring scrollHorizontal(dstring line, integer xOffset, uinteger width, dchar spaceChar = ' '){
 	dchar[] r;
-	if (xOffset == 0){
-		// in case it has to do nothing, 
-		r = cast(dchar[])line[0 .. width > line.length ? line.length : width].dup;
-	}else if (xOffset > 0){
-		// only do something if it's not scrolled too far for the line to be even displayed
-		if (xOffset < line.length){
-			r = cast(dchar[])line[xOffset .. line.length].dup;
-		}
-	}else if (xOffset < 0){
-		// only do something if it's not scrolled too far for the line to be even displayed
-		if (cast(integer)(line.length) + xOffset > 0){
-			r.length = xOffset * -1;
-			r[] = ' ';
-			r = r ~ cast(dchar[])line.dup;
-		}
-	}
-	if (r.length < width){
-		uinteger filledLength = r.length;
-		r.length = width;
-		r[filledLength .. r.length] = ' ';
-	}else if (r.length > width){
-		r.length = width;
-	}
+	r.length = width;
+	r[] = spaceChar;
+	for (uinteger i = xOffset < 0 ? -xOffset : 0; i + xOffset < line.length && i < width; i ++)
+		r[i] = line[i + xOffset];
 	return cast(dstring)r;
 }
 /// 
