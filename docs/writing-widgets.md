@@ -5,39 +5,35 @@ This guide will help you understand how to write QUI widgets.
 # QWidget properties
 
 ## `public QWidget parent` _(read only)_;
-This stores the parent widget. This property is only valid after `initialize()` has been called.
+This returns the parent widget. This property is only valid after `initialize()` has been called.
 
 ## `public bool isActive` _(read only)_;
 Returns whether this widget is active or not. Read only.
 
-## `protected bool _wantsTab`;
-This should be set to true if the widget wants to receive tab character as input.  
-the `QWidget.wantsTab` property function is not used by qui.
+## `public bool wantsTab`;
+This should return true if the widget wants to receive tab character as input.
 
-## `protected bool _wantsInput`;
-should be true if a widget needs keyboard and mouse input. If this is false, those events will not be called and this widget cannot become active.  
-the `QWidget.wantsInput` property function is not used by qui.
+## `public bool wantsInput`;
+should return true if a widget needs keyboard and mouse input. If this is false, those events will not be called and this widget cannot become active.
 
-## `protected Position _cursorPosition`;
-The position of cursor to be displayed on terminal. This is only considered if this widget is active.  
+## `public Position cursorPosition`;
+Return the position of cursor to be displayed on terminal. This is only considered if this widget is active.  
 In case the cursor should not be displayed, this should return `Position(-1, -1)`;  
-the `QWidget.cursorPosition` property function is not used by qui.
 
-## `protected uint _sizeRatio`;
+Rather than overriding this to return desired cursor position, you could store the desired value in `protected _cursorPosition`.
+
+## `public uint sizeRatio`;
 QUI sizes widget using a "ratio" system. For example, in a Horizontal layout, if two widget have _sizeRatio's 
 of `1`, they will each occupy 50% of the horizonal space.  
 
-Modify this through the public property function `QWidget.sizeRatio = x;`, so that `QWidget.requestResize()` is called.
+## `public bool show`;
+Whether this widget is displayed or not.  
 
-## `protected bool _show`;
-This can be safely changed to false if the widget has to be hidden. 
-But be aware that a widget with `_show=false` can not become an activeWidget and cannot receive input.  
-
-Modify this through the public property function `QWidget.show = x;` so that `QWidget.requestResize()` is called.  
+But be aware that a widget with `show=false` can not become an activeWidget and cannot receive input.  
   
 A parent widget may also set this to false in case there is not enough space to draw this widget.
 
-## `protected Size _size`;
+## `protected Size _size`; // TODO fix this
 This stores the `width` and `height` along with `minWidth`, `minHeight`, `maxWidth`, & `maxHeight`.  
 
 Modify this through the public property function `QWidget.size = x;` so that `QWidget.requestResize()` is called.
