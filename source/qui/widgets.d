@@ -335,9 +335,9 @@ protected:
 		_display.fill(' ', textColor, backgroundColor);
 		// cursor position, in case this is active
 		if (editable)
-			_cursorPosition = Position(-1,-1);
-		else
 			_cursorPosition = Position(_cursorX - _scrollX, _cursorY - _scrollY);
+		else
+			_cursorPosition = Position(-1,-1);
 	}
 
 	override void resizeEvent(){
