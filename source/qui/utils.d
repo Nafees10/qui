@@ -96,3 +96,14 @@ unittest{
 	assert("qwerty".centerAlignText(6) == "qwerty");
 	assert("qwerty".centerAlignText(5) == "qwert");
 }
+
+/// Returns: size after considering minimum and maximum allowed
+/// 
+/// if `min==0`, it is ignored. if `max==0`, it is ignored
+uint getLimitedSize(uint calculated, uint min, uint max){
+	if (min && calculated < min)
+		return min;
+	if (max && calculated > max)
+		return max;
+	return calculated;
+}
