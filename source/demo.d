@@ -55,7 +55,7 @@ version(demo){
 			// set some properties
 			label.caption = "this is a label widget. To show single line text. Below is a progress bar:";
 			progressBar.caption = "this is the progress bar";
-			progressBar.size.maxHeight = 1;
+			progressBar.maxHeight = 1;
 			progressBar.max = 10;
 			progressBar.progress = 0;
 
@@ -70,9 +70,9 @@ version(demo){
 						else
 							log.add("progressbar hidden");
 					}else if (key.key == KeyboardEvent.CtrlKeys.CtrlP){
-						progressBar.size.maxHeight = (progressBar.size.maxHeight % 3) + 1;
+						progressBar.maxHeight = (progressBar.maxHeight % 3) + 1;
 						progressBar.requestResize();
-						log.add("progressbar resized: "~progressBar.size.maxHeight.to!dstring);
+						log.add("progressbar resized: "~progressBar.maxHeight.to!dstring);
 					}else if (key.key == KeyboardEvent.CtrlKeys.CtrlL){
 						log.show = !log.show;
 						log.add("log "~to!dstring(log.show ? "shown" : "hidden"));

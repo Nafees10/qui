@@ -26,11 +26,11 @@ private:
 
 	/// calculates the maxXOffset, and changes xOffset if it's above it
 	void calculateMaxXOffset(){
-		if (_caption.length <= size.width){
+		if (_caption.length <= this.width){
 			maxXOffset = 0;
 			xOffset = 0;
 		}else{
-			maxXOffset = cast(uint)_caption.length - _size.width;
+			maxXOffset = cast(uint)_caption.length - this.width;
 			if (xOffset > maxXOffset)
 				xOffset = maxXOffset;
 		}
@@ -63,7 +63,7 @@ protected:
 	}
 	
 	override void update(){
-		_display.write(_caption.scrollHorizontal(xOffset, _size.width), textColor, backgroundColor);
+		_display.write(_caption.scrollHorizontal(xOffset, this.width), textColor, backgroundColor);
 	}
 
 public:
@@ -76,7 +76,7 @@ public:
 		this.caption = newCaption;
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
-		this._size.maxHeight = 1;
+		this.maxHeight = 1;
 		scrollTimer = 500;
 	}
 
@@ -104,15 +104,15 @@ protected:
 	override void update(){
 		// if caption fits in width, center align it
 		dstring text;
-		if (_caption.length < _size.width)
-			text = centerAlignText(_caption, _size.width);
+		if (_caption.length < this.width)
+			text = centerAlignText(_caption, this.width);
 		else
-			text = _caption.scrollHorizontal(xOffset, _size.width);
+			text = _caption.scrollHorizontal(xOffset, this.width);
 		// number of chars to be colored in barColor
-		uint fillCharCount = (_progress * _size.width) / _max;
+		uint fillCharCount = (_progress * this.width) / _max;
 		// line number on which the caption will be written
-		immutable uint captionLineNumber = this._size.height / 2;
-		for (uint i = 0; i < this._size.height; i ++){
+		immutable uint captionLineNumber = this.height / 2;
+		for (uint i = 0; i < this.height; i ++){
 			_display.cursor = Position(0, i);
 			if (i == captionLineNumber){
 				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
@@ -120,7 +120,7 @@ protected:
 			}else{
 				if (fillCharCount)
 					_display.fillLine(' ', backgroundColor, barColor, fillCharCount);
-				if (fillCharCount < this._size.width)
+				if (fillCharCount < this.width)
 					_display.fillLine(' ', barColor, backgroundColor);
 			}
 		}
@@ -138,7 +138,7 @@ public:
 		this.max = max;
 		this.progress = progress;
 		// no max height limit on this one
-		this._size.maxHeight = 0;
+		this.maxHeight = 0;
 
 		barColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -177,7 +177,7 @@ private:
 
 	/// called to fix _scrollX and _x when input is changed or _x is changed
 	void reScroll(){
-		adjustScrollingOffset(_x, _size.width, cast(uint)_text.length, _scrollX);
+		adjustScrollingOffset(_x, this.width, cast(uint)_text.length, _scrollX);
 	}
 protected:
 	/// override resize to re-scroll
@@ -227,7 +227,7 @@ protected:
 		reScroll;
 	}
 	override void update(){
-		_display.write(cast(dstring)this._text.scrollHorizontal(cast(int)_scrollX, _size.width),textColor,backgroundColor);
+		_display.write(cast(dstring)this._text.scrollHorizontal(cast(int)_scrollX, this.width),textColor,backgroundColor);
 		_cursorPosition = Position(_x - _scrollX, 0);
 	}
 public:
@@ -237,8 +237,8 @@ public:
 	this(dstring text = ""){
 		this._text = cast(dchar[])text.dup;
 		//specify min/max
-		_size.minHeight = 1;
-		_size.maxHeight = 1;
+		this.minHeight = 1;
+		this.maxHeight = 1;
 		// don't want tab key by default
 		_wantsTab = false;
 		// and input too, obvious
@@ -274,9 +274,9 @@ private:
 	/// used by widget itself to recalculate scrolling
 	void reScroll(){
 		// _scrollY
-		adjustScrollingOffset(_cursorY, this._size.height, lineCount, _scrollY);
+		adjustScrollingOffset(_cursorY, this.height, lineCount, _scrollY);
 		// _scrollX
-		adjustScrollingOffset(_cursorX, this._size.width, cast(uint)readLine(_cursorY).length, _scrollX);
+		adjustScrollingOffset(_cursorX, this.width, cast(uint)readLine(_cursorY).length, _scrollX);
 	}
 	/// used by widget itself to move cursor
 	void moveCursor(uint x, uint y){
@@ -327,8 +327,8 @@ protected:
 		const uint count = lineCount;
 		if (count > 0){
 			//write lines to memo
-			for (uint i = _scrollY; i < count && _display.cursor.y < _size.height; i++){
-				_display.write(readLine(i).scrollHorizontal(_scrollX, this._size.width), 
+			for (uint i = _scrollY; i < count && _display.cursor.y < this.height; i++){
+				_display.write(readLine(i).scrollHorizontal(_scrollX, this.width), 
 					textColor, backgroundColor);
 			}
 		}
@@ -545,15 +545,15 @@ private:
 		dstring[] r;
 		str = str;
 		while (str.length > 0){
-			r ~= _size.width > str.length ? str : str[0 .. _size.width];
-			str = _size.width < str.length ? str[_size.width .. $] : [];
+			r ~= this.width > str.length ? str : str[0 .. this.width];
+			str = this.width < str.length ? str[this.width .. $] : [];
 		}
 		return r;
 	}
 protected:
 	override void update(){
 		_display.colors(textColor, backgroundColor);
-		int lastY = _size.height;
+		int lastY = this.height;
 		for (int i = cast(uint)_logs.length-1; i >= 0; i --){
 			dstring line = getLine(i);
 			dstring[] wrappedLine = wrapLine(line);
@@ -565,7 +565,7 @@ protected:
 			foreach (lineno, currentLine; wrappedLine){
 				_display.cursor = Position(0, cast(uint)lineno + startY);
 				_display.write(currentLine);
-				if (currentLine.length < _size.width)
+				if (currentLine.length < this.width)
 					_display.fillLine(' ', textColor, backgroundColor);
 			}
 			lastY = startY;
