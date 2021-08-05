@@ -37,48 +37,17 @@ struct Position{
 }
 
 /// To store size for widgets
-struct Size{
-	private{
-		uint _w = 0, _h = 0;
-		/// width
-		@property uint width(uint newWidth){
-			if (newWidth == 0)
-				return _w = 0;
-			if (minWidth > 0 && newWidth < minWidth){
-				return _w = minWidth;
-			}else if (maxWidth > 0 && newWidth > maxWidth){
-				return _w = maxWidth;
-			}
-			return _w = newWidth;
-		}
-		/// height
-		@property uint height(uint newHeight){
-			if (newHeight == 0)
-				return _h = 0;
-			if (minHeight > 0 && newHeight < minHeight){
-				return _h = minHeight;
-			}else if (maxHeight > 0 && newHeight > maxHeight){
-				return _h = maxHeight;
-			}
-			return _h = newHeight;
-		}
-	}
-	/// width
-	@property uint width(){
-		return _w;
-	}
-	/// height
-	@property uint height(){
-		return _h;
-	}
+private struct Size{
+	/// width and height
+	uint width = 0, height = 0;
 	
-	/// minimun width & height. These are "applied" automatically when setting value using `width` or `height`
+	/// minimun width & height.
 	uint minWidth = 0, minHeight = 0;
-	/// maximum width & height. These are "applied" automatically when setting value using `width` or `height`
+	/// maximum width & height.
 	uint maxWidth = 0, maxHeight = 0;
 	/// Returns: a string representation of KeyPress, in JSON
 	string tostring(){
-		return "{width:"~to!string(_w)~",height:"~to!string(_h)~
+		return "{width:"~to!string(width)~",height:"~to!string(height)~
 			",minWidth:"~to!string(minWidth)~",maxWidth:"~to!string(maxWidth)~
 				",minHeight:"~to!string(minHeight)~",maxHeight:"~to!string(maxHeight)~"}";
 	}
@@ -105,6 +74,8 @@ abstract class QWidget{
 private:
 	/// stores the position of this widget, relative to it's parent widget's position
 	Position _position;
+	/// size of this widget.
+	Size _size;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// stores what child widgets want updates
@@ -166,21 +137,17 @@ private:
 		return true;
 	}
 protected:
-	/// size of this widget. **qui will read this, not the public property**
-	Size _size;
 	/// whether this widget should be drawn or not.
 	bool _show = true;
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.  
-	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.  
-	/// **qui will read this, not the public property**
+	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.
 	uint _sizeRatio = 1;
 	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true  
-	/// if only required, for example, in text editors.  
-	/// **qui will read this, not the public property**
+	/// if only required, for example, in text editors.
 	bool _wantsTab = false;
-	/// whether the widget wants input. **qui will read this, not the public property**
+	/// whether the widget wants input.
 	bool _wantsInput = false;
-	/// where to draw cursor if this is active widget. **qui will read this, not the public property**
+	/// where to draw cursor if this is active widget.
 	Position _cursorPosition = Position(-1,-1);
 	/// used to write to terminal
 	Display _display = null;
@@ -313,15 +280,63 @@ public:
 		requestResize;
 		return _show = visibility;
 	}
-	/// size of the widget. getter
-	/// **NOTE: call this.requestResize() if you change the size!**
-	@property ref Size size(){
-		return _size;
+	/// width
+	@property uint width(){
+		return _size.width;
 	}
-	/// size of the widget. setter
-	@property ref Size size(Size newSize){
-		requestResize;
-		return _size = newSize;
+	/// width setter. This will actually do `minWidth=maxWidth=value` and call requestResize
+	@property uint width(uint value){
+		_size.minWidth = value;
+		_size.maxWidth = value;
+		requestResize();
+		return value;
+	}
+	/// height
+	@property uint height(){
+		return _size.height;
+	}
+	/// height setter. This will actually do `minHeight=maxHeight=value` (which will then call `requestResize`)
+	@property uint height(uint value){
+		_size.minHeight = value;
+		_size.maxHeight = value;
+		requestResize();
+		return value;
+	}
+	/// minimum width
+	@property uint minWidth(){
+		return _size.minWidth;
+	}
+	/// ditto
+	@property uint minWidth(uint value){
+		requestResize();
+		return _size.minWidth = value;
+	}
+	/// minimum height
+	@property uint minHeight(){
+		return _size.minHeight;
+	}
+	/// ditto
+	@property uint minHeight(uint value){
+		requestResize();
+		return _size.minHeight = value;
+	}
+	/// maximum width
+	@property uint maxWidth(){
+		return _size.maxWidth;
+	}
+	/// ditto
+	@property uint maxWidth(uint value){
+		requestResize();
+		return _size.maxWidth = value;
+	}
+	/// maximum height
+	@property uint maxHeight(){
+		return _size.maxHeight;
+	}
+	/// ditto
+	@property uint maxHeight(uint value){
+		requestResize();
+		return _size.maxHeight = value;
 	}
 }
 
@@ -340,16 +355,13 @@ private:
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
 	static uint calculateWidgetSize(QLayout.Type type)(QWidget widget, uint ratioTotal, uint totalSpace,
 	ref bool free){
-		Size wSize = widget._size;
-		immutable calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
+		immutable uint calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
 		static if (type == QLayout.Type.Horizontal){
-			wSize.width = calculatedSize;
-			free = wSize.minWidth == 0 && wSize.maxWidth == 0;
-			return wSize.width;
+			free = widget._size.minWidth == 0 && widget._size.maxWidth == 0;
+			return getLimitedSize(calculatedSize, widget._size.minWidth, widget._size.maxWidth);
 		}else{ // this else just exists to shut up compiler about "statement not reachable"
-			wSize.height = calculatedSize;
-			free = wSize.minHeight == 0 && wSize.maxHeight == 0;
-			return wSize.height;
+			free = widget._size.minHeight == 0 && widget._size.maxHeight == 0;
+			return getLimitedSize(calculatedSize, widget._size.minHeight, widget._size.maxHeight);
 		}
 	}
 	/// ditto
@@ -369,8 +381,8 @@ private:
 			if (!widget.show)
 				continue;
 			totalRatio += widget.sizeRatio;
-			widget._size.height = _size.height;
-			widget._size.width = _size.width;
+			widget._size.height = getLimitedSize(_size.height, widget._size.minHeight, widget._size.maxHeight);
+			widget._size.width = getLimitedSize(_size.width, widget._size.minWidth, widget._size.maxWidth);
 			widgetStack.push(widget);
 		}
 		// do widgets with size limits
@@ -384,9 +396,9 @@ private:
 				continue;
 			}
 			static if (T == QLayout.Type.Horizontal)
-				widget._size.width = space;
+				widget._size.width = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
 			else
-				widget._size.height = space;
+				widget._size.height = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
 			limitWRatio += widget.sizeRatio;
 			limitWSize += space;
 		}
