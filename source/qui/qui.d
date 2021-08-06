@@ -48,7 +48,26 @@ alias ActivateEventFunction = bool delegate(QWidget, bool);
 alias TimerEventFunction = bool delegate(QWidget, uint);
 /// Init function. Return true if the event should be dropped
 alias InitFunction = bool delegate(QWidget);
+/// UpdateEvent function. Return true if the event should be dropped
+alias UpdateEventFunction = bool delegate(QWidget);
 
+/// mask of events subscribed
+enum EventMask : ushort{
+	MousePress = 1, /// mouse clicks/presses
+	MouseRelease = 1 << 1, /// mouse releases
+	MouseHover = 1 << 2, /// mouse move/hover
+	KeyboardPress = 1 << 3, /// key presses
+	KeyboardRelease = 1 << 4, /// key releases
+	Resize = 1 << 5, /// widget resize
+	Activate = 1 << 6, /// widget activated/deactivated (selected/unselected)
+	Timer = 1 << 7, /// timer 
+	Initialize = 1 << 8, /// initialize
+	Update = 1 << 9, /// update/draw itself
+	MouseAll = MousePress | MouseRelease | MouseHover, /// all mouse events
+	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events
+	InputAll = MouseAll | KeyboardAll, /// all mouse and keyboard
+	All = ushort.max, /// all events (all bits=1)
+}
 
 /// Base class for all widgets, including layouts and QTerminal
 ///
@@ -61,14 +80,6 @@ private:
 	uint _width;
 	/// height
 	uint _height;
-	/// minimum width
-	uint _minWidth;
-	/// maximum width
-	uint _maxWidth;
-	/// minimum height
-	uint _minHeight;
-	/// maximum height
-	uint _maxHeight;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// stores what child widgets want updates
@@ -81,39 +92,60 @@ private:
 	int _indexInParent = -1;
 	/// the key used for cycling active widget, defaults to tab
 	dchar _activeWidgetCycleKey = '\t';
-	/// called by owner for initialize event
+
+	/// custom onInit event, if not null, it should be called before doing anything else in init();
+	InitFunction _customInitEvent;
+	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
+	MouseEventFuction _customMouseEvent;
+	/// custom keyboard event, if not null, it should be called before doing anything else in keyboardEvent.
+	KeyboardEventFunction _customKeyboardEvent;
+	/// custom resize event, if not null, it should be called before doing anything else in the resizeEvent
+	ResizeEventFunction _customResizeEvent;
+	/// custom onActivate event, if not null, it should be called before doing anything else in activateEvent
+	ActivateEventFunction _customActivateEvent;
+	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
+	TimerEventFunction _customTimerEvent;
+	/// custom upedateEvent, if not null, it should be called before doing anything else in updateEvent
+	UpdateEventFunction _customUpdateEvent;
+
+	/// called by parent for initialize event
 	void initializeCall(){
 		if (!_customInitEvent || !_customInitEvent(this))
 			this.initialize();
 	}
-	/// called by owner for mouseEvent
+	/// called by parent for mouseEvent
 	void mouseEventCall(MouseEvent mouse){
 		mouse.x = mouse.x - cast(int)this._position.x;
 		mouse.y = mouse.y - cast(int)this._position.y;
 		if (!_customMouseEvent || !_customMouseEvent(this, mouse))
 			this.mouseEvent(mouse);
 	}
-	/// called by owner for keyboardEvent
+	/// called by parent for keyboardEvent
 	void keyboardEventCall(KeyboardEvent key){
 		if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
 			this.keyboardEvent(key);
 	}
-	/// called by owner for resizeEvent
+	/// called by parent for resizeEvent
 	void resizeEventCall(){
 		if (!_customResizeEvent || !_customResizeEvent(this))
 			this.resizeEvent();
 	}
-	/// called by owner for activateEvent
+	/// called by parent for activateEvent
 	void activateEventCall(bool isActive){
 		_isActive = isActive;
 		if (!_customActivateEvent || !_customActivateEvent(this, isActive))
 			this.activateEvent(isActive);
 	}
-	/// called by owner for mouseEvent
+	/// called by parent for mouseEvent
 	void timerEventCall(uint msecs){
 		if (!_customTimerEvent || !_customTimerEvent(this, msecs))
 			this.timerEvent(msecs);
 	}
+	/// called by parent for updateEvent
+	void updateEventCall(){
+
+	}
+
 	/// Called by children of this widget to request updates
 	void requestUpdate(uint index){
 		if (index < _requestingUpdate.length){
@@ -130,6 +162,14 @@ private:
 		return true;
 	}
 protected:
+	/// minimum width
+	uint _minWidth;
+	/// maximum width
+	uint _maxWidth;
+	/// minimum height
+	uint _minHeight;
+	/// maximum height
+	uint _maxHeight;
 	/// whether this widget should be drawn or not.
 	bool _show = true;
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.  
@@ -145,11 +185,15 @@ protected:
 	/// used to write to terminal
 	Display _display = null;
 
-	/// For cycling between widgets. Returns false, always.
+	/// For cycling between widgets.
+	/// 
+	/// Returns: whether any cycling happened (so false always)
 	bool cycleActiveWidget(){
 		return false;
 	}
-	/// activate the passed widget if this is actually the correct widget, return if it was activated or not
+	/// activate the passed widget if this is actually the correct widget
+	/// 
+	/// Returns: if it was activated or not
 	bool searchAndActivateWidget(QWidget target) {
 		if (this == target) {
 			this.activateEventCall(true);
@@ -162,19 +206,6 @@ protected:
 	void setActiveWidgetCycleKey(dchar newKey){
 		this._activeWidgetCycleKey = newKey;
 	}
-
-	/// custom onInit event, if not null, it should be called before doing anything else in init();
-	InitFunction _customInitEvent;
-	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
-	MouseEventFuction _customMouseEvent;
-	/// custom keyboard event, if not null, it should be called before doing anything else in keyboardEvent.
-	KeyboardEventFunction _customKeyboardEvent;
-	/// custom resize event, if not null, it should be called before doing anything else in the resizeEvent
-	ResizeEventFunction _customResizeEvent;
-	/// custom onActivate event, if not null, it should be called before doing anything else in activateEvent
-	ActivateEventFunction _customActivateEvent;
-	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
-	TimerEventFunction _customTimerEvent;
 
 	/// Called to update this widget
 	void update(){}
@@ -193,46 +224,46 @@ protected:
 	void timerEvent(uint msecs){}
 public:
 	/// Called by itself when it needs to request an update
-	void requestUpdate(){
+	final void requestUpdate(){
 		if (_parent && _indexInParent > -1 && _indexInParent < _parent._requestingUpdate.length && 
 		_parent._requestingUpdate[_indexInParent] == false)
 			_parent.requestUpdate(_indexInParent);
 	}
-	/// Called to request this widget to resize at next update
+	/// Called to request this widget to resize at next update // TODO make this final
 	void requestResize(){
 		if (_parent)
 			_parent.requestResize();
 	}
 	/// Called by itself (not necessarily) to register itself as a key handler
-	bool registerKeyHandler(dchar key){
+	final bool registerKeyHandler(dchar key){
 		return _parent && _indexInParent > -1 && _parent.registerKeyHandler(this, key);
 	}
 	/// use to change the custom initialize event
-	@property InitFunction onInitEvent(InitFunction func){
+	final @property InitFunction onInitEvent(InitFunction func){
 		return _customInitEvent = func;
 	}
 	/// use to change the custom mouse event
-	@property MouseEventFuction onMouseEvent(MouseEventFuction func){
+	final @property MouseEventFuction onMouseEvent(MouseEventFuction func){
 		return _customMouseEvent = func;
 	}
 	/// use to change the custom keyboard event
-	@property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
+	final @property KeyboardEventFunction onKeyboardEvent(KeyboardEventFunction func){
 		return _customKeyboardEvent = func;
 	}
 	/// use to change the custom resize event
-	@property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
+	final @property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
 		return _customResizeEvent = func;
 	}
 	/// use to change the custom activate event
-	@property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
+	final @property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
 		return _customActivateEvent = func;
 	}
 	/// use to change the custom timer event
-	@property TimerEventFunction onTimerEvent(TimerEventFunction func){
+	final @property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
 	}
 	/// Returns: this widget's parent
-	@property QWidget parent(){
+	final @property QWidget parent(){
 		return _parent;
 	}
 	/// Returns: true if this widget is the current active widget
@@ -274,7 +305,7 @@ public:
 		return _show = visibility;
 	}
 	/// width
-	@property uint width(){
+	final @property uint width(){
 		return _width;
 	}
 	/// width setter. This will actually do `minWidth=maxWidth=value` and call requestResize
@@ -285,7 +316,7 @@ public:
 		return value;
 	}
 	/// height
-	@property uint height(){
+	final @property uint height(){
 		return _height;
 	}
 	/// height setter. This will actually do `minHeight=maxHeight=value` (which will then call `requestResize`)
@@ -350,11 +381,11 @@ private:
 	ref bool free){
 		immutable uint calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
 		static if (type == QLayout.Type.Horizontal){
-			free = widget._minWidth == 0 && widget._maxWidth == 0;
-			return getLimitedSize(calculatedSize, widget._minWidth, widget._maxWidth);
+			free = widget.minWidth == 0 && widget.maxWidth == 0;
+			return getLimitedSize(calculatedSize, widget.minWidth, widget.maxWidth);
 		}else{ // this else just exists to shut up compiler about "statement not reachable"
-			free = widget._minHeight == 0 && widget._maxHeight == 0;
-			return getLimitedSize(calculatedSize, widget._minHeight, widget._maxHeight);
+			free = widget.minHeight == 0 && widget.maxHeight == 0;
+			return getLimitedSize(calculatedSize, widget.minHeight, widget.maxHeight);
 		}
 	}
 	/// ditto
@@ -374,8 +405,8 @@ private:
 			if (!widget.show)
 				continue;
 			totalRatio += widget.sizeRatio;
-			widget._height = getLimitedSize(_height, widget._minHeight, widget._maxHeight);
-			widget._width = getLimitedSize(_width, widget._minWidth, widget._maxWidth);
+			widget._height = getLimitedSize(_height, widget.minHeight, widget.maxHeight);
+			widget._width = getLimitedSize(_width, widget.minWidth, widget.maxWidth);
 			widgetStack.push(widget);
 		}
 		// do widgets with size limits
@@ -525,7 +556,7 @@ protected:
 		}
 	}
 	
-	/// called by owner widget to update
+	/// called by parent widget to update
 	override void update(){
 		uint space = 0;
 		foreach(i, widget; _widgets){
@@ -568,7 +599,7 @@ protected:
 			}
 		}
 	}
-	/// called to cycle between actveWidgets. This is called by owner widget
+	/// called to cycle between actveWidgets. This is called by parent widget
 	/// 
 	/// Returns: true if cycled to another widget, false if _activeWidgetIndex set to -1
 	override bool cycleActiveWidget(){
