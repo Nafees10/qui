@@ -36,23 +36,6 @@ struct Position{
 	}
 }
 
-/// To store size for widgets
-private struct Size{
-	/// width and height
-	uint width = 0, height = 0;
-	
-	/// minimun width & height.
-	uint minWidth = 0, minHeight = 0;
-	/// maximum width & height.
-	uint maxWidth = 0, maxHeight = 0;
-	/// Returns: a string representation of KeyPress, in JSON
-	string tostring(){
-		return "{width:"~to!string(width)~",height:"~to!string(height)~
-			",minWidth:"~to!string(minWidth)~",maxWidth:"~to!string(maxWidth)~
-				",minHeight:"~to!string(minHeight)~",maxHeight:"~to!string(maxHeight)~"}";
-	}
-}
-
 /// mouseEvent function. Return true if the event should be dropped
 alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
 ///keyboardEvent function. Return true if the event should be dropped
@@ -74,8 +57,18 @@ abstract class QWidget{
 private:
 	/// stores the position of this widget, relative to it's parent widget's position
 	Position _position;
-	/// size of this widget.
-	Size _size;
+	/// width
+	uint _width;
+	/// height
+	uint _height;
+	/// minimum width
+	uint _minWidth;
+	/// maximum width
+	uint _maxWidth;
+	/// minimum height
+	uint _minHeight;
+	/// maximum height
+	uint _maxHeight;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// stores what child widgets want updates
@@ -282,61 +275,61 @@ public:
 	}
 	/// width
 	@property uint width(){
-		return _size.width;
+		return _width;
 	}
 	/// width setter. This will actually do `minWidth=maxWidth=value` and call requestResize
 	@property uint width(uint value){
-		_size.minWidth = value;
-		_size.maxWidth = value;
+		_minWidth = value;
+		_maxWidth = value;
 		requestResize();
 		return value;
 	}
 	/// height
 	@property uint height(){
-		return _size.height;
+		return _height;
 	}
 	/// height setter. This will actually do `minHeight=maxHeight=value` (which will then call `requestResize`)
 	@property uint height(uint value){
-		_size.minHeight = value;
-		_size.maxHeight = value;
+		_minHeight = value;
+		_maxHeight = value;
 		requestResize();
 		return value;
 	}
 	/// minimum width
 	@property uint minWidth(){
-		return _size.minWidth;
+		return _minWidth;
 	}
 	/// ditto
 	@property uint minWidth(uint value){
 		requestResize();
-		return _size.minWidth = value;
+		return _minWidth = value;
 	}
 	/// minimum height
 	@property uint minHeight(){
-		return _size.minHeight;
+		return _minHeight;
 	}
 	/// ditto
 	@property uint minHeight(uint value){
 		requestResize();
-		return _size.minHeight = value;
+		return _minHeight = value;
 	}
 	/// maximum width
 	@property uint maxWidth(){
-		return _size.maxWidth;
+		return _maxWidth;
 	}
 	/// ditto
 	@property uint maxWidth(uint value){
 		requestResize();
-		return _size.maxWidth = value;
+		return _maxWidth = value;
 	}
 	/// maximum height
 	@property uint maxHeight(){
-		return _size.maxHeight;
+		return _maxHeight;
 	}
 	/// ditto
 	@property uint maxHeight(uint value){
 		requestResize();
-		return _size.maxHeight = value;
+		return _maxHeight = value;
 	}
 }
 
@@ -357,11 +350,11 @@ private:
 	ref bool free){
 		immutable uint calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
 		static if (type == QLayout.Type.Horizontal){
-			free = widget._size.minWidth == 0 && widget._size.maxWidth == 0;
-			return getLimitedSize(calculatedSize, widget._size.minWidth, widget._size.maxWidth);
+			free = widget._minWidth == 0 && widget._maxWidth == 0;
+			return getLimitedSize(calculatedSize, widget._minWidth, widget._maxWidth);
 		}else{ // this else just exists to shut up compiler about "statement not reachable"
-			free = widget._size.minHeight == 0 && widget._size.maxHeight == 0;
-			return getLimitedSize(calculatedSize, widget._size.minHeight, widget._size.maxHeight);
+			free = widget._minHeight == 0 && widget._maxHeight == 0;
+			return getLimitedSize(calculatedSize, widget._minHeight, widget._maxHeight);
 		}
 	}
 	/// ditto
@@ -376,13 +369,13 @@ private:
 			assert(false);
 		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
 		uint totalRatio = 0;
-		uint totalSpace = T == QLayout.Type.Horizontal ? _size.width : _size.height;
+		uint totalSpace = T == QLayout.Type.Horizontal ? _width : _height;
 		foreach (widget; _widgets){
 			if (!widget.show)
 				continue;
 			totalRatio += widget.sizeRatio;
-			widget._size.height = getLimitedSize(_size.height, widget._size.minHeight, widget._size.maxHeight);
-			widget._size.width = getLimitedSize(_size.width, widget._size.minWidth, widget._size.maxWidth);
+			widget._height = getLimitedSize(_height, widget._minHeight, widget._maxHeight);
+			widget._width = getLimitedSize(_width, widget._minWidth, widget._maxWidth);
 			widgetStack.push(widget);
 		}
 		// do widgets with size limits
@@ -396,9 +389,9 @@ private:
 				continue;
 			}
 			static if (T == QLayout.Type.Horizontal)
-				widget._size.width = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
+				widget._width = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
 			else
-				widget._size.height = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
+				widget._height = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
 			limitWRatio += widget.sizeRatio;
 			limitWSize += space;
 		}
@@ -408,9 +401,9 @@ private:
 			QWidget widget = widgetStack.pop;
 			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace);
 			static if (T == QLayout.Type.Horizontal)
-				widget._size.width = space;
+				widget._width = space;
 			else
-				widget._size.height = space;
+				widget._height = space;
 			totalRatio -= widget.sizeRatio;
 			totalSpace -= space;
 		}
@@ -426,11 +419,11 @@ private:
 				static if (T == QLayout.Type.Horizontal){
 					widget._position.y = 0;
 					widget._position.x = previousSpace;
-					previousSpace += widget._size.width;
+					previousSpace += widget._width;
 				}else{
 					widget._position.x = 0;
 					widget._position.y = previousSpace;
-					previousSpace += widget._size.height;
+					previousSpace += widget._height;
 				}
 			}
 		}
@@ -453,7 +446,7 @@ protected:
 			recalculateWidgetsPosition!(QLayout.Type.Vertical);
 		}
 		foreach (i, widget; _widgets){
-			this._display.getSlice(widget._display,widget._size.width,widget._size.height,widget._position.x,widget._position.y);
+			this._display.getSlice(widget._display, widget._width, widget._height, widget._position.x, widget._position.y);
 			widget.resizeEventCall();
 		}
 	}
@@ -464,14 +457,14 @@ protected:
 		QWidget activeWidget = null;
 		if (_activeWidgetIndex > -1)
 			activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x+activeWidget._size.width
-		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._size.height){
+		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x+activeWidget._width
+		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._height){
 			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
 				if (widget.show && widget.wantsInput &&
-					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._size.width &&
-					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._size.height){
+					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._width &&
+					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._height){
 					// make it active only if this layout is itself active
 					if (this._isActive){
 						if (activeWidget)
@@ -543,35 +536,35 @@ protected:
 					_requestingUpdate[i] = false;
 				}
 				if (_type == Type.Horizontal){
-					space += widget._size.width;
-					if (widget._size.height < this._size.height){
-						foreach (y; widget._size.height ..  this._size.height){
+					space += widget._width;
+					if (widget._height < this._height){
+						foreach (y; widget._height ..  this._height){
 							_display.cursor = Position(widget._position.x, y);
-							_display.fillLine(' ', _fillColor, _fillColor, widget._size.width);
+							_display.fillLine(' ', _fillColor, _fillColor, widget._width);
 						}
 					}
 				}else{
-					space += widget._size.height;
-					if (widget._size.width < this._size.width){
-						immutable lineWidth = _size.width - widget._size.width;
-						foreach (y; 0 .. widget._size.height){
-							_display.cursor = Position(widget._size.width, widget._position.y + y);
+					space += widget._height;
+					if (widget._width < this._width){
+						immutable lineWidth = _width - widget._width;
+						foreach (y; 0 .. widget._height){
+							_display.cursor = Position(widget._width, widget._position.y + y);
 							_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
 						}
 					}
 				}
 			}
 		}
-		if (_type == Type.Horizontal && space < this._size.width){
-			immutable uint lineWidth = this._size.width - space;
-			foreach (y; 0 .. this._size.height){
+		if (_type == Type.Horizontal && space < this._width){
+			immutable uint lineWidth = this._width - space;
+			foreach (y; 0 .. this._height){
 				_display.cursor = Position(space, y);
 				_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
 			}
-		}else if (_type == Type.Vertical && space < this._size.height){
-			foreach (y; space .. this._size.height){
+		}else if (_type == Type.Vertical && space < this._height){
+			foreach (y; space .. this._height){
 				_display.cursor = Position(0, y);
-				_display.fillLine(' ', _fillColor, _fillColor, this._size.width);
+				_display.fillLine(' ', _fillColor, _fillColor, this._width);
 			}
 		}
 	}
@@ -828,10 +821,10 @@ private:
 			this.mouseEventCall(event.mouse);
 		}else if (event.type == Event.Type.Resize){
 			//update self size
-			_size.height = event.resize.height;
-			_size.width = event.resize.width;
-			_display._height = _size.height;
-			_display._width = _size.width;
+			_height = event.resize.height;
+			_width = event.resize.width;
+			_display._height = _height;
+			_display._width = _width;
 			//call size change on all widgets
 			resizeEventCall();
 		}
@@ -890,10 +883,10 @@ public:
 	/// starts the UI loop
 	void run(){
 		// set size
-		_size.width = _termWrap.width();
-		_size.height = _termWrap.height();
-		_display._width = _size.width;
-		_display._height = _size.height;
+		_width = _termWrap.width();
+		_height = _termWrap.height();
+		_display._width = _width;
+		_display._height = _height;
 		//ready
 		initializeCall();
 		resizeEventCall();
