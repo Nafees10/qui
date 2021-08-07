@@ -143,7 +143,8 @@ private:
 	}
 	/// called by parent for updateEvent
 	void updateEventCall(){
-
+		if (!_customUpdateEvent || !_customUpdateEvent(this))
+			this.updateEvent();
 	}
 
 	/// Called by children of this widget to request updates
@@ -208,7 +209,8 @@ protected:
 	}
 
 	/// Called to update this widget
-	void update(){}
+	void updateEvent(){}
+
 
 	/// Called after `_display` has been set and this widget is ready to be used
 	void initialize(){}
@@ -557,13 +559,13 @@ protected:
 	}
 	
 	/// called by parent widget to update
-	override void update(){
+	override void updateEvent(){
 		uint space = 0;
 		foreach(i, widget; _widgets){
 			if (widget.show){
 				if (_requestingUpdate[i]){
 					widget._display.cursor = Position(0,0);
-					widget.update();
+					widget.updateEventCall();
 					_requestingUpdate[i] = false;
 				}
 				if (_type == Type.Horizontal){
@@ -684,7 +686,7 @@ public:
 		}
 		return false;
 	}
-	/// Returns: true if the cursor should be visible if this widget is active
+	/// Returns: position of cursor, (-1,-1) if should be hidden
 	override @property Position cursorPosition(){
 		// just do a hack, and check only for active widget
 		if (_activeWidgetIndex == -1)
@@ -868,11 +870,11 @@ protected:
 		super.resizeEvent();
 	}
 	
-	override void update(){
+	override void updateEvent(){
 		// resize if needed
 		if (_requestingResize)
 			this.resizeEventCall();
-		super.update();
+		super.updateEvent();
 		// check if need to show/hide cursor
 		Position cursorPos = this.cursorPosition;
 		if (cursorPos == Position(-1, -1)){
@@ -922,7 +924,7 @@ public:
 		initializeCall();
 		resizeEventCall();
 		//draw the whole thing
-		update();
+		updateEventCall();
 		_isRunning = true;
 		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.yes);
@@ -932,13 +934,13 @@ public:
 			while (_termWrap.getEvent(timeout, event) > 0){
 				readEvent(event);
 				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
-				update();
+				updateEventCall();
 			}
 			if (sw.peek.total!"msecs" >= timerMsecs){
 				this.timerEventCall(cast(uint)sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
-				update();
+				updateEventCall();
 			}
 		}
 	}

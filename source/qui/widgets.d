@@ -62,7 +62,7 @@ protected:
 		requestUpdate();
 	}
 	
-	override void update(){
+	override void updateEvent(){
 		_display.write(_caption.scrollHorizontal(xOffset, this.width), textColor, backgroundColor);
 	}
 
@@ -101,7 +101,7 @@ class ProgressbarWidget : TextLabelWidget{
 private:
 	uint _max, _progress;
 protected:
-	override void update(){
+	override void updateEvent(){
 		// if caption fits in width, center align it
 		dstring text;
 		if (_caption.length < this.width)
@@ -226,7 +226,7 @@ protected:
 		requestUpdate();
 		reScroll;
 	}
-	override void update(){
+	override void updateEvent(){
 		_display.write(cast(dstring)this._text.scrollHorizontal(cast(int)_scrollX, this.width),textColor,backgroundColor);
 		_cursorPosition = Position(_x - _scrollX, 0);
 	}
@@ -323,7 +323,7 @@ private:
 		return cast(uint)_lines.length+1;
 	}
 protected:
-	override void update(){
+	override void updateEvent(){
 		const uint count = lineCount;
 		if (count > 0){
 			//write lines to memo
@@ -551,7 +551,7 @@ private:
 		return r;
 	}
 protected:
-	override void update(){
+	override void updateEvent(){
 		_display.colors(textColor, backgroundColor);
 		int lastY = this.height;
 		for (int i = cast(uint)_logs.length-1; i >= 0; i --){
@@ -621,7 +621,7 @@ protected:
 		requestUpdate();
 	}
 	
-	override void update(){
+	override void updateEvent(){
 		_display.fill(' ',DEFAULT_FG, color);
 	}
 public:
