@@ -84,6 +84,8 @@ private:
 	bool _isActive = false;
 	/// stores what child widgets want updates
 	bool[] _requestingUpdate;
+	/// Whether to call resize before next update
+	bool _requestingResize;
 	/// what key handlers are registered for what keys (key/index)
 	QWidget[dchar]  _keyHandlers;
 	/// the parent widget
@@ -227,16 +229,16 @@ protected:
 public:
 	/// Called by itself when it needs to request an update
 	final void requestUpdate(){
-		if (_parent && _indexInParent > -1 && _indexInParent < _parent._requestingUpdate.length && 
-		_parent._requestingUpdate[_indexInParent] == false)
+		if (_parent && _indexInParent > -1)
 			_parent.requestUpdate(_indexInParent);
 	}
-	/// Called to request this widget to resize at next update // TODO make this final
-	void requestResize(){
+	/// Called to request this widget to resize at next update
+	final void requestResize(){
+		_requestingResize = true;
 		if (_parent)
 			_parent.requestResize();
 	}
-	/// Called by itself (not necessarily) to register itself as a key handler
+	/// to register itself as a key handler
 	final bool registerKeyHandler(dchar key){
 		return _parent && _indexInParent > -1 && _parent.registerKeyHandler(this, key);
 	}
@@ -838,8 +840,6 @@ class QTerminal : QLayout{
 private:
 	/// To actually access the terminal
 	TermWrapper _termWrap;
-	/// Whether to call resize before next update
-	bool _requestingResize;
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
 
@@ -901,11 +901,6 @@ public:
 	~this(){
 		.destroy(_termWrap);
 		.destroy(_display);
-	}
-
-	/// Called to make container widgets (QLayouts) recalcualte widgets' sizes before update;
-	override void requestResize(){
-		_requestingResize = true;
 	}
 
 	/// stops UI loop. **not instant**, if it is in-between updates, event functions, or timers, it will complete those first
