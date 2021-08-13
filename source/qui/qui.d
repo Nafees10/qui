@@ -82,8 +82,8 @@ private:
 	uint _height;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
-	/// stores what child widgets want updates
-	bool[] _requestingUpdate;
+	/// whether this widget is requesting update
+	bool _requestingUpdate;
 	/// Whether to call resize before next update
 	bool _requestingResize;
 	/// what key handlers are registered for what keys (key/index)
@@ -149,13 +149,6 @@ private:
 			this.updateEvent();
 	}
 
-	/// Called by children of this widget to request updates
-	void requestUpdate(uint index){
-		if (index < _requestingUpdate.length){
-			_requestingUpdate[index] = true;
-			requestUpdate();
-		}
-	}
 	/// Called by children of this widget to register key handlers
 	bool registerKeyHandler(QWidget widget, dchar key){
 		if (key in _keyHandlers || _parent is null)
@@ -213,7 +206,6 @@ protected:
 	/// Called to update this widget
 	void updateEvent(){}
 
-
 	/// Called after `_display` has been set and this widget is ready to be used
 	void initialize(){}
 	/// Called when mouse is clicked with cursor on this widget.
@@ -229,8 +221,9 @@ protected:
 public:
 	/// Called by itself when it needs to request an update
 	final void requestUpdate(){
-		if (_parent && _indexInParent > -1)
-			_parent.requestUpdate(_indexInParent);
+		_requestingUpdate = true;
+		if (_parent)
+			_parent.requestUpdate();
 	}
 	/// Called to request this widget to resize at next update
 	final void requestResize(){
@@ -240,7 +233,7 @@ public:
 	}
 	/// to register itself as a key handler
 	final bool registerKeyHandler(dchar key){
-		return _parent && _indexInParent > -1 && _parent.registerKeyHandler(this, key);
+		return _parent && _parent.registerKeyHandler(this, key);
 	}
 	/// use to change the custom initialize event
 	final @property InitFunction onInitEvent(InitFunction func){
@@ -565,10 +558,10 @@ protected:
 		uint space = 0;
 		foreach(i, widget; _widgets){
 			if (widget.show){
-				if (_requestingUpdate[i]){
+				if (widget._requestingUpdate){
 					widget._display.cursor = Position(0,0);
 					widget.updateEventCall();
-					_requestingUpdate[i] = false;
+					widget._requestingUpdate = false;
 				}
 				if (_type == Type.Horizontal){
 					space += widget._width;
@@ -703,24 +696,21 @@ public:
 	void addWidget(QWidget widget){
 		widget._parent = this;
 		widget._indexInParent = cast(int)_widgets.length;
+		widget._requestingUpdate = true;
 		widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		//add it to array
 		_widgets ~= widget;
-		// make space in _requestingUpdate
-		_requestingUpdate ~= true;
 	}
 	/// ditto
 	void addWidget(QWidget[] widgets){
 		foreach (i, widget; widgets){
 			widget._parent = this;
 			widget._indexInParent = cast(int)(_widgets.length+i);
+			widget._requestingUpdate = true;
 			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
 		// add to array
 		_widgets ~= widgets;
-		// make space in _requestingUpdate
-		_requestingUpdate.length += widgets.length;
-		_requestingUpdate[$ - widgets.length .. $] = true;
 	}
 }
 
