@@ -222,8 +222,6 @@ public struct Event{
 	}
 }
 
-
-
 /// Wrapper to arsd.terminal to make it bit easier to manage
 public class TermWrapper{
 private:
@@ -247,28 +245,6 @@ public:
 	@property int height(){
 		return _term.height;
 	}
-	/// fills all cells with a character
-	void fill(dchar ch){
-		const int _w = width, _h = height;
-		dchar[] line;
-		line.length = _w;
-		line[] = ch;
-		// write line _h times
-		for (uint i = 0; i < _h; i ++){
-			_term.moveTo(0,i);
-			_term.write(line);
-		}
-	}
-	/// fills a rectangle with a character
-	void fill(dchar ch, int x1, int x2, int y1, int y2){
-		dchar[] line;
-		line.length = (x2 - x1) + 1;
-		line[] = ch;
-		foreach(i; y1 .. y2 +1){
-			_term.moveTo(x1, i);
-			_term.write(line);
-		}
-	}
 	/// flush to terminal
 	void flush(){
 		_term.flush();
@@ -278,24 +254,12 @@ public:
 		_term.moveTo(x, y);
 		_term.write(ch);
 	}
-	/// writes a character `ch` at a position `(x, y)` with `fg` as foreground and `bg` as background color
-	void put(int x, int y, dchar ch, Color fg, Color bg){
-		_term.color(fg, bg);
-		_term.moveTo(x, y);
-		_term.write(ch);
-	}
 	/// sets colors
 	void color(Color fg, Color bg){
 		_term.color(fg, bg);
 	}
 	/// writes a string at position `(x, y)`
 	void write(int x, int y, dstring str){
-		_term.moveTo(x, y);
-		_term.write(str);
-	}
-	/// writes a string at position `(x, y)` with `fg` as foreground and `bg` as background color
-	void write(int x, int y, dstring str, Color fg, Color bg){
-		_term.color(fg, bg);
 		_term.moveTo(x, y);
 		_term.write(str);
 	}
@@ -324,8 +288,7 @@ public:
 					event = Event(Event.Type.HangupInterrupt);
 					return true;
 				}
-				if (e.type == InputEvent.Type.KeyboardEvent && 
-				e.get!(InputEvent.Type.KeyboardEvent).pressed){
+				if (e.type == InputEvent.Type.KeyboardEvent && e.get!(InputEvent.Type.KeyboardEvent).pressed){
 					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent)));
 					// fix for issue #16 ("Escape key registered as a character event as well")
 					if (event._key.key == 27)
