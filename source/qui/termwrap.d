@@ -15,9 +15,12 @@ public struct Event{
 	struct Keyboard{
 		private this(KeyboardEvent event){
 			key = event.which;
+			pressed = event.pressed;
 		}
 		//// what key was pressed
 		dchar key;
+		/// true if it was pressed, false if released
+		bool pressed;
 		/// Non character keys (can match against `this.key`)
 		/// 
 		/// copied from arsd.terminal
@@ -85,10 +88,10 @@ public struct Event{
 		/// Returns: a string representation of the key pressed
 		@property string tostring(){
 			if (isChar())
-				return "{key:\'"~to!string(key)~"\'}";
+				return "{key:\'"~to!string(key)~"\', pressed:"~pressed.to!string~"}";
 			if (isCtrlKey())
-				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\'}";
-			return "{key:\'"~to!string(cast(Key)key)~"\'}";
+				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\', pressed:"~pressed.to!string~"}";
+			return "{key:\'"~to!string(cast(Key)key)~"\', pressed:"~pressed.to!string~"}";
 		}
 	}
 	/// Mouse Event
@@ -288,7 +291,7 @@ public:
 					event = Event(Event.Type.HangupInterrupt);
 					return true;
 				}
-				if (e.type == InputEvent.Type.KeyboardEvent && e.get!(InputEvent.Type.KeyboardEvent).pressed){
+				if (e.type == InputEvent.Type.KeyboardEvent /*&& e.get!(InputEvent.Type.KeyboardEvent).pressed*/){
 					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent)));
 					// fix for issue #16 ("Escape key registered as a character event as well")
 					if (event._key.key == 27)

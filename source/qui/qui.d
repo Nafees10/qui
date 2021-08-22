@@ -16,6 +16,8 @@ import qui.utils;
 const Color DEFAULT_FG = Color.white;
 /// the default background color
 const Color DEFAULT_BG = Color.black;
+/// default active widget cycling key (tab)
+const dchar WIDGET_CYCLE_KEY = '\t';
 
 /// Available colors are in this enum
 public alias Color = qui.termwrap.Color;
@@ -52,20 +54,21 @@ alias InitFunction = bool delegate(QWidget);
 alias UpdateEventFunction = bool delegate(QWidget);
 
 /// mask of events subscribed
-enum EventMask : ushort{
+enum EventMask : uint{
 	MousePress = 1, /// mouse clicks/presses
 	MouseRelease = 1 << 1, /// mouse releases
 	MouseHover = 1 << 2, /// mouse move/hover
 	KeyboardPress = 1 << 3, /// key presses
 	KeyboardRelease = 1 << 4, /// key releases
-	Resize = 1 << 5, /// widget resize
-	Activate = 1 << 6, /// widget activated/deactivated (selected/unselected)
-	Timer = 1 << 7, /// timer 
-	Initialize = 1 << 8, /// initialize
-	Update = 1 << 9, /// update/draw itself
+	KeyboardWidgetCycleKey = 1 << 5, /// keyboard events concerning active widget cycling key. Use this in combination with KeyboardPress or KeyboardRelease
+	Resize = 1 << 6, /// widget resize
+	Activate = 1 << 7, /// widget activated/deactivated (selected/unselected)
+	Timer = 1 << 8, /// timer 
+	Initialize = 1 << 9, /// initialize
+	Update = 1 << 10, /// update/draw itself
 	MouseAll = MousePress | MouseRelease | MouseHover, /// all mouse events
-	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events
-	InputAll = MouseAll | KeyboardAll, /// all mouse and keyboard
+	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events, this does **NOT** include KeyboardWidgetCycleKey 
+	InputAll = MouseAll | KeyboardAll, /// MouseAll and KeyboardAll
 	All = ushort.max, /// all events (all bits=1)
 }
 
@@ -86,14 +89,14 @@ private:
 	bool _requestingUpdate;
 	/// Whether to call resize before next update
 	bool _requestingResize;
-	/// what key handlers are registered for what keys (key/index)
-	QWidget[dchar]  _keyHandlers;
 	/// the parent widget
 	QWidget _parent = null;
 	/// the index it is stored at in _parent. -1 if no parent asigned yet
 	int _indexInParent = -1;
-	/// the key used for cycling active widget, defaults to tab
-	dchar _activeWidgetCycleKey = '\t';
+	/// the key used for cycling active widget
+	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
+	/// Events this widget is subscribed to
+	uint _eventSub = 0;
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
 	InitFunction _customInitEvent;
@@ -129,6 +132,7 @@ private:
 	}
 	/// called by parent for resizeEvent
 	void resizeEventCall(){
+		_requestingResize = false;
 		if (!_customResizeEvent || !_customResizeEvent(this))
 			this.resizeEvent();
 	}
@@ -145,17 +149,9 @@ private:
 	}
 	/// called by parent for updateEvent
 	void updateEventCall(){
+		_requestingUpdate = false;
 		if (!_customUpdateEvent || !_customUpdateEvent(this))
 			this.updateEvent();
-	}
-
-	/// Called by children of this widget to register key handlers
-	bool registerKeyHandler(QWidget widget, dchar key){
-		if (key in _keyHandlers || _parent is null)
-			return false;
-		_keyHandlers[key] = widget;
-		this.registerKeyHandler(key);
-		return true;
 	}
 protected:
 	/// minimum width
@@ -171,11 +167,6 @@ protected:
 	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.  
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.
 	uint _sizeRatio = 1;
-	/// specifies whether this widget should receive the Tab key press, default is false, and should only be changed to true  
-	/// if only required, for example, in text editors.
-	bool _wantsTab = false;
-	/// whether the widget wants input.
-	bool _wantsInput = false;
 	/// where to draw cursor if this is active widget.
 	Position _cursorPosition = Position(-1,-1);
 	/// used to write to terminal
@@ -183,7 +174,7 @@ protected:
 
 	/// For cycling between widgets.
 	/// 
-	/// Returns: whether any cycling happened (so false always)
+	/// Returns: whether any cycling happened
 	bool cycleActiveWidget(){
 		return false;
 	}
@@ -192,7 +183,8 @@ protected:
 	/// Returns: if it was activated or not
 	bool searchAndActivateWidget(QWidget target) {
 		if (this == target) {
-			this.activateEventCall(true);
+			if (this._eventSub & EventMask.Activate)
+				this.activateEventCall(true);
 			return true;
 		}
 		return false;
@@ -202,6 +194,15 @@ protected:
 	void setActiveWidgetCycleKey(dchar newKey){
 		this._activeWidgetCycleKey = newKey;
 	}
+
+	/// called by itself, to update events subscribed to
+	final void eventSubscribe(uint newSub){
+		_eventSub = newSub;
+		if (_parent)
+			_parent.eventSubscribe();
+	}
+	/// called by children to update events subscribed
+	void eventSubscribe(){}
 
 	/// Called to update this widget
 	void updateEvent(){}
@@ -219,21 +220,23 @@ protected:
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
 	void timerEvent(uint msecs){}
 public:
-	/// Called by itself when it needs to request an update
+	/// Called by itself when it needs to request an update.  
+	/// Will not do anything if not subscribed to update events
 	final void requestUpdate(){
+		if ((_eventSub & EventMask.Update) == 0)
+			return;
 		_requestingUpdate = true;
 		if (_parent)
 			_parent.requestUpdate();
 	}
 	/// Called to request this widget to resize at next update
+	/// Will not do anything if not subscribed to resize events
 	final void requestResize(){
+		if ((_eventSub & EventMask.Resize) == 0)
+			return;
 		_requestingResize = true;
 		if (_parent)
 			_parent.requestResize();
-	}
-	/// to register itself as a key handler
-	final bool registerKeyHandler(dchar key){
-		return _parent && _parent.registerKeyHandler(this, key);
 	}
 	/// use to change the custom initialize event
 	final @property InitFunction onInitEvent(InitFunction func){
@@ -264,20 +267,12 @@ public:
 		return _parent;
 	}
 	/// Returns: true if this widget is the current active widget
-	@property bool isActive(){
+	final @property bool isActive(){
 		return _isActive;
 	}
-	/// Returns: whether the widget is receiving the Tab key press or not
-	@property bool wantsTab(){
-		return _wantsTab;
-	}
-	/// ditto
-	@property bool wantsTab(bool newStatus){
-		return _wantsTab = newStatus;
-	}
-	/// Returns: true if the widget wants input
-	@property bool wantsInput(){
-		return _wantsInput;
+	/// Returns: EventMask of subscribed events
+	final @property uint eventSub(){
+		return _eventSub;
 	}
 	/// Returns: position of cursor to be shown on terminal. (-1,-1) if dont show
 	@property Position cursorPosition(){
@@ -457,6 +452,14 @@ private:
 		}
 	}
 protected:
+	override void eventSubscribe(){
+		_eventSub = 0;
+		foreach (widget; _widgets)
+			_eventSub |= widget._eventSub;
+		if (_parent)
+			_parent.eventSubscribe();
+	}
+
 	/// Recalculates size and position for all visible widgets
 	/// If a widget is too large to fit in, it's visibility is marked false
 	override void resizeEvent(){
@@ -475,7 +478,8 @@ protected:
 		}
 		foreach (i, widget; _widgets){
 			this._display.getSlice(widget._display, widget._width, widget._height, widget._position.x, widget._position.y);
-			widget.resizeEventCall();
+			if (widget._eventSub & EventMask.Resize)
+				widget.resizeEventCall();
 		}
 	}
 	
@@ -486,18 +490,22 @@ protected:
 		if (_activeWidgetIndex > -1)
 			activeWidget = _widgets[_activeWidgetIndex];
 		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x+activeWidget._width
-		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._height){
+		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._height
+		&& activeWidget._eventSub & EventMask.MouseAll){
 			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
-				if (widget.show && widget.wantsInput &&
+				if (widget.show &&
 					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._width &&
 					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._height){
-					// make it active only if this layout is itself active
-					if (this._isActive){
-						if (activeWidget)
+					if ((widget._eventSub & EventMask.MouseAll) == 0)
+						break;
+					// make it active only if this layout is itself active, and widget wants keyboard input
+					if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
+						if (activeWidget && activeWidget._eventSub & EventMask.Activate)
 							activeWidget.activateEventCall(false);
-						widget.activateEventCall(true);
+						if (widget._eventSub & EventMask.Activate)
+							widget.activateEventCall(true);
 						_activeWidgetIndex = cast(uint)i;
 					}
 					widget.mouseEventCall(mouse);
@@ -509,38 +517,39 @@ protected:
 
 	/// Redirects the keyboardEvent to appropriate widget
 	override public void keyboardEvent(KeyboardEvent key){
-		// check if key handler registered
-		if (key.key in _keyHandlers)
-			_keyHandlers[key.key].keyboardEventCall(key);
-		// check if need to cycle
-		if (key.key == _activeWidgetCycleKey || key.key == KeyboardEvent.Key.Escape){
-			if (key.key == '\t'){ // now need to make sure active widget doesnt want to catch tab
-				if (_activeWidgetIndex == -1)
-					this.cycleActiveWidget();
-				else{
-					if (_widgets[_activeWidgetIndex].wantsTab)
-						_widgets[_activeWidgetIndex].keyboardEventCall(key);
-					else
-						this.cycleActiveWidget();
-				}
-			}else
-				this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1 && (key.key != '\t' || _widgets[_activeWidgetIndex].wantsTab))
-			_widgets[_activeWidgetIndex].keyboardEventCall(key);
+		QWidget activeWidget = null;
+		uint eSub = 0;
+		if (_activeWidgetIndex > -1){
+			activeWidget = _widgets[_activeWidgetIndex];
+			eSub = activeWidget._eventSub;
+		}
+		if (key.key == _activeWidgetCycleKey && key.pressed &&
+		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey))){
+			this.cycleActiveWidget();
+			return;
+		}
+		if (!activeWidget)
+			return;
+		if (key.pressed && (eSub & EventMask.KeyboardPress))
+			activeWidget.keyboardEventCall(key);
+		else if (!key.pressed && (eSub & EventMask.KeyboardRelease))
+			activeWidget.keyboardEventCall(key);
 	}
 
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
 			widget._display = _display.getSlice(1,1, _position.x, _position.y); // just throw in dummy size/position, resize event will fix that
-			widget.initializeCall();
+			if (widget._eventSub & EventMask.Initialize)
+				widget.initializeCall();
 		}
 	}
 
 	/// override timer event to call child widgets' timers
 	override void timerEvent(uint msecs){
 		foreach (widget; _widgets)
-			widget.timerEventCall(msecs);
+			if (widget._eventSub & EventMask.Timer)
+				widget.timerEventCall(msecs);
 	}
 
 	/// override activate event
@@ -548,7 +557,7 @@ protected:
 		if (isActive){
 			_activeWidgetIndex = -1;
 			this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1){
+		}else if (_activeWidgetIndex > -1 && _widgets[_activeWidgetIndex]._eventSub & EventMask.Activate){
 			_widgets[_activeWidgetIndex].activateEventCall(isActive);
 		}
 	}
@@ -558,7 +567,7 @@ protected:
 		uint space = 0;
 		foreach(i, widget; _widgets){
 			if (widget.show){
-				if (widget._requestingUpdate){
+				if (widget._requestingUpdate && widget._eventSub & EventMask.Update){
 					widget._display.cursor = Position(0,0);
 					widget.updateEventCall();
 					widget._requestingUpdate = false;
@@ -604,16 +613,16 @@ protected:
 		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
 			int lastActiveWidgetIndex = _activeWidgetIndex;
 			for (_activeWidgetIndex ++; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-				if (_widgets[_activeWidgetIndex].wantsInput && _widgets[_activeWidgetIndex].show)
+				if ((_widgets[_activeWidgetIndex]._eventSub & EventMask.KeyboardAll) && _widgets[_activeWidgetIndex].show)
 					break;
 			}
 			if (_activeWidgetIndex >= _widgets.length)
 				_activeWidgetIndex = -1;
 			
 			if (lastActiveWidgetIndex != _activeWidgetIndex){
-				if (lastActiveWidgetIndex > -1)
+				if (lastActiveWidgetIndex > -1 && _widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
 					_widgets[lastActiveWidgetIndex].activateEventCall(false);
-				if (_activeWidgetIndex > -1)
+				if (_activeWidgetIndex > -1 && _widgets[_activeWidgetIndex]._eventSub & EventMask.Activate)
 					_widgets[_activeWidgetIndex].activateEventCall(true);
 			}
 		}
@@ -627,14 +636,15 @@ protected:
 		// search and activate recursively
 		_activeWidgetIndex = -1;
 		foreach (index, widget; _widgets) {
-			if (widget.wantsInput && widget.show && widget.searchAndActivateWidget(target)) {
+			if ((widget._eventSub & EventMask.KeyboardAll) && widget.show && widget.searchAndActivateWidget(target)){
 				_activeWidgetIndex = cast(int)index;
 				break;
 			}
 		}
 
 		// and then manipulate the current layout
-		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1)
+		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1
+		&& _widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
 			_widgets[lastActiveWidgetIndex].activateEventCall(false);
 			// no need to call activateEvent on new activeWidget, doing `searchAndActivateWidget` in above loop should've done that
 		return _activeWidgetIndex != -1;
@@ -665,22 +675,6 @@ public:
 	@property Color fillColor(Color newColor){
 		return _fillColor = newColor;
 	}
-	/// Returns: whether the widget is receiving the Tab key press or not
-	override @property bool wantsTab(){
-		foreach (widget; _widgets){
-			if (widget.wantsTab)
-				return true;
-		}
-		return false;
-	}
-	/// Returns: true if the widget wants input
-	override @property bool wantsInput(){
-		foreach (widget; _widgets){
-			if (widget.wantsInput)
-				return true;
-		}
-		return false;
-	}
 	/// Returns: position of cursor, (-1,-1) if should be hidden
 	override @property Position cursorPosition(){
 		// just do a hack, and check only for active widget
@@ -698,8 +692,8 @@ public:
 		widget._indexInParent = cast(int)_widgets.length;
 		widget._requestingUpdate = true;
 		widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
-		//add it to array
 		_widgets ~= widget;
+		eventSubscribe;
 	}
 	/// ditto
 	void addWidget(QWidget[] widgets){
@@ -709,8 +703,8 @@ public:
 			widget._requestingUpdate = true;
 			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
-		// add to array
 		_widgets ~= widgets;
+		eventSubscribe;
 	}
 }
 
@@ -849,22 +843,17 @@ private:
 			_display._height = _height;
 			_display._width = _width;
 			//call size change on all widgets
-			resizeEventCall();
+			this.resizeEventCall();
 		}
 	}
 
 protected:
-
-	override void resizeEvent(){
-		_requestingResize = false;
-		super.resizeEvent();
-	}
 	
 	override void updateEvent(){
 		// resize if needed
 		if (_requestingResize)
 			this.resizeEventCall();
-		super.updateEvent();
+		super.updateEvent(); // no, this is not a mistake, dont change this to updateEventCall again!
 		// check if need to show/hide cursor
 		Position cursorPos = this.cursorPosition;
 		if (cursorPos == Position(-1, -1)){

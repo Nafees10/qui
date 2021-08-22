@@ -73,6 +73,7 @@ public:
 	uint scrollTimer;
 	/// constructor
 	this(dstring newCaption = ""){
+		eventSubscribe(EventMask.Timer | EventMask.Resize | EventMask.Update);
 		this.caption = newCaption;
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -91,77 +92,6 @@ public:
 		// request update
 		requestUpdate();
 		return _caption;
-	}
-}
-
-/// Displays a left-to-right progress bar.
-/// 
-/// Can also display text (just like TextLabelWidget)
-class ProgressbarWidget : TextLabelWidget{
-private:
-	uint _max, _progress;
-protected:
-	override void updateEvent(){
-		// if caption fits in width, center align it
-		dstring text;
-		if (_caption.length < this.width)
-			text = centerAlignText(_caption, this.width);
-		else
-			text = _caption.scrollHorizontal(xOffset, this.width);
-		// number of chars to be colored in barColor
-		uint fillCharCount = (_progress * this.width) / _max;
-		// line number on which the caption will be written
-		immutable uint captionLineNumber = this.height / 2;
-		for (uint i = 0; i < this.height; i ++){
-			_display.cursor = Position(0, i);
-			if (i == captionLineNumber){
-				_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-				_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
-			}else{
-				if (fillCharCount)
-					_display.fillLine(' ', backgroundColor, barColor, fillCharCount);
-				if (fillCharCount < this.width)
-					_display.fillLine(' ', barColor, backgroundColor);
-			}
-		}
-		// write till _progress
-		_display.write(cast(dchar[])text[0 .. fillCharCount], backgroundColor, barColor);
-		// write the empty bar
-		_display.write(cast(dchar[])text[fillCharCount .. text.length], barColor, backgroundColor);
-	}
-public:
-	/// background color, and bar's color
-	Color backgroundColor, barColor;
-	/// constructor
-	this(uint max = 100, uint progress = 0){
-		_caption = null;
-		this.max = max;
-		this.progress = progress;
-		// no max height limit on this one
-		this.maxHeight = 0;
-
-		barColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
-	}
-	/// The 'total', or the max-progress. getter
-	@property uint max(){
-		return _max;
-	}
-	/// The 'total' or the max-progress. setter
-	@property uint max(uint newMax){
-		_max = newMax;
-		requestUpdate();
-		return _max;
-	}
-	/// the amount of progress. getter
-	@property uint progress(){
-		return _progress;
-	}
-	/// the amount of progress. setter
-	@property uint progress(uint newProgress){
-		_progress = newProgress;
-		requestUpdate();
-		return _progress;
 	}
 }
 
@@ -235,14 +165,11 @@ public:
 	Color backgroundColor, textColor;
 	/// constructor
 	this(dstring text = ""){
+		eventSubscribe(EventMask.Resize | EventMask.MousePress | EventMask.KeyboardPress | EventMask.Update);
 		this._text = cast(dchar[])text.dup;
 		//specify min/max
 		this.minHeight = 1;
 		this.maxHeight = 1;
-		// don't want tab key by default
-		_wantsTab = false;
-		// and input too, obvious
-		_wantsInput = true;
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -334,10 +261,7 @@ protected:
 		}
 		_display.fill(' ', textColor, backgroundColor);
 		// cursor position, in case this is active
-		if (editable)
-			_cursorPosition = Position(_cursorX - _scrollX, _cursorY - _scrollY);
-		else
-			_cursorPosition = Position(-1,-1);
+		_cursorPosition = Position(_cursorX - _scrollX, _cursorY - _scrollY);
 	}
 
 	override void resizeEvent(){
@@ -493,7 +417,7 @@ public:
 		_scrollY = 0;
 		_cursorX = 0;
 		_cursorY = 0;
-		this.editable = allowEditing;
+		eventSubscribe(EventMask.Initialize|EventMask.MousePress|EventMask.KeyboardPress|EventMask.Resize|EventMask.Update);
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
@@ -509,16 +433,6 @@ public:
 	///class `List` is defined in `utils.lists.d`
 	@property List!dstring lines(){
 		return _lines;
-	}
-	///Returns true if memo's contents cannot be modified, by user
-	@property bool editable(){
-		return _enableEditing;
-	}
-	///sets whether to allow modifying of contents (false) or not (true)
-	@property bool editable(bool newPermission){
-		_wantsTab = newPermission;
-		_wantsInput = newPermission;
-		return _enableEditing = newPermission;
 	}
 }
 
@@ -586,7 +500,7 @@ public:
 		_maxLines = maxLen;
 		_logs = new List!dstring;
 		_startIndex = 0;
-
+		eventSubscribe(EventMask.Resize | EventMask.Update);
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
 	}
@@ -630,5 +544,6 @@ public:
 	/// constructor
 	this(){
 		this.color = DEFAULT_BG;
+		eventSubscribe(EventMask.Resize | EventMask.Update);
 	}
 }
