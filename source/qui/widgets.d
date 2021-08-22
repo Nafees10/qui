@@ -417,7 +417,8 @@ public:
 		_scrollY = 0;
 		_cursorX = 0;
 		_cursorY = 0;
-		eventSubscribe(EventMask.Initialize|EventMask.MousePress|EventMask.KeyboardPress|EventMask.Resize|EventMask.Update);
+		eventSubscribe(EventMask.Initialize | EventMask.MousePress | EventMask.KeyboardPress |
+		EventMask.Resize | EventMask.Update);
 
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;

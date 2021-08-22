@@ -62,7 +62,7 @@ enum EventMask : uint{
 	KeyboardRelease = 1 << 4, /// key releases
 	KeyboardWidgetCycleKey = 1 << 5, /// keyboard events concerning active widget cycling key. Use this in combination with KeyboardPress or KeyboardRelease
 	Resize = 1 << 6, /// widget resize
-	Activate = 1 << 7, /// widget activated/deactivated (selected/unselected)
+	Activate = 1 << 7, /// widget activated/deactivated.
 	Timer = 1 << 8, /// timer 
 	Initialize = 1 << 9, /// initialize
 	Update = 1 << 10, /// update/draw itself
@@ -138,7 +138,6 @@ private:
 	}
 	/// called by parent for activateEvent
 	void activateEventCall(bool isActive){
-		_isActive = isActive;
 		if (!_customActivateEvent || !_customActivateEvent(this, isActive))
 			this.activateEvent(isActive);
 	}
@@ -149,7 +148,6 @@ private:
 	}
 	/// called by parent for updateEvent
 	void updateEventCall(){
-		_requestingUpdate = false;
 		if (!_customUpdateEvent || !_customUpdateEvent(this))
 			this.updateEvent();
 	}
@@ -183,6 +181,7 @@ protected:
 	/// Returns: if it was activated or not
 	bool searchAndActivateWidget(QWidget target) {
 		if (this == target) {
+			this._isActive = true;
 			if (this._eventSub & EventMask.Activate)
 				this.activateEventCall(true);
 			return true;
@@ -456,6 +455,9 @@ protected:
 		_eventSub = 0;
 		foreach (widget; _widgets)
 			_eventSub |= widget._eventSub;
+		_eventSub |= EventMask.Activate; // always wants activate events
+		// and if child wants update, then I want resize too
+		_eventSub |= EventMask.Resize;
 		if (_parent)
 			_parent.eventSubscribe();
 	}
@@ -502,8 +504,12 @@ protected:
 						break;
 					// make it active only if this layout is itself active, and widget wants keyboard input
 					if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
-						if (activeWidget && activeWidget._eventSub & EventMask.Activate)
-							activeWidget.activateEventCall(false);
+						if (activeWidget){
+							activeWidget._isActive = false;
+							if (activeWidget._eventSub & EventMask.Activate)
+								activeWidget.activateEventCall(false);
+						}
+						widget._isActive = true;
 						if (widget._eventSub & EventMask.Activate)
 							widget.activateEventCall(true);
 						_activeWidgetIndex = cast(uint)i;
@@ -557,8 +563,10 @@ protected:
 		if (isActive){
 			_activeWidgetIndex = -1;
 			this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1 && _widgets[_activeWidgetIndex]._eventSub & EventMask.Activate){
-			_widgets[_activeWidgetIndex].activateEventCall(isActive);
+		}else if (_activeWidgetIndex > -1){
+			_widgets[_activeWidgetIndex]._isActive = false;
+			if (_widgets[_activeWidgetIndex]._eventSub & EventMask.Activate)
+				_widgets[_activeWidgetIndex].activateEventCall(isActive);
 		}
 	}
 	
@@ -620,10 +628,16 @@ protected:
 				_activeWidgetIndex = -1;
 			
 			if (lastActiveWidgetIndex != _activeWidgetIndex){
-				if (lastActiveWidgetIndex > -1 && _widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
-					_widgets[lastActiveWidgetIndex].activateEventCall(false);
-				if (_activeWidgetIndex > -1 && _widgets[_activeWidgetIndex]._eventSub & EventMask.Activate)
-					_widgets[_activeWidgetIndex].activateEventCall(true);
+				if (lastActiveWidgetIndex > -1){
+					_widgets[lastActiveWidgetIndex]._isActive = false;
+					if (_widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
+						_widgets[lastActiveWidgetIndex].activateEventCall(false);
+				}
+				if (_activeWidgetIndex > -1){
+					_widgets[_activeWidgetIndex]._isActive = true;
+					if (_widgets[_activeWidgetIndex]._eventSub & EventMask.Activate)
+						_widgets[_activeWidgetIndex].activateEventCall(true);
+				}
 			}
 		}
 		return _activeWidgetIndex != -1;
@@ -643,10 +657,11 @@ protected:
 		}
 
 		// and then manipulate the current layout
-		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1
-		&& _widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
-			_widgets[lastActiveWidgetIndex].activateEventCall(false);
-			// no need to call activateEvent on new activeWidget, doing `searchAndActivateWidget` in above loop should've done that
+		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1){
+			_widgets[lastActiveWidgetIndex]._isActive = false;
+			if (_widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
+				_widgets[lastActiveWidgetIndex].activateEventCall(false);
+		}
 		return _activeWidgetIndex != -1;
 	}
 
@@ -854,6 +869,7 @@ protected:
 		if (_requestingResize)
 			this.resizeEventCall();
 		super.updateEvent(); // no, this is not a mistake, dont change this to updateEventCall again!
+		_requestingUpdate = false;
 		// check if need to show/hide cursor
 		Position cursorPos = this.cursorPosition;
 		if (cursorPos == Position(-1, -1)){
