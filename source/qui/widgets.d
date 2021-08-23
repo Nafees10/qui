@@ -165,7 +165,7 @@ public:
 	Color backgroundColor, textColor;
 	/// constructor
 	this(dstring text = ""){
-		eventSubscribe(EventMask.Resize | EventMask.MousePress | EventMask.KeyboardPress | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.MouseAll | EventMask.KeyboardPress | EventMask.Update);
 		this._text = cast(dchar[])text.dup;
 		//specify min/max
 		this.minHeight = 1;
@@ -417,7 +417,7 @@ public:
 		_scrollY = 0;
 		_cursorX = 0;
 		_cursorY = 0;
-		eventSubscribe(EventMask.Initialize | EventMask.MousePress | EventMask.KeyboardPress |
+		eventSubscribe(EventMask.Initialize | EventMask.MouseAll | EventMask.KeyboardPress |
 		EventMask.Resize | EventMask.Update);
 
 		textColor = DEFAULT_FG;

@@ -69,7 +69,7 @@ enum EventMask : uint{
 	MouseAll = MousePress | MouseRelease | MouseHover, /// all mouse events
 	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events, this does **NOT** include KeyboardWidgetCycleKey 
 	InputAll = MouseAll | KeyboardAll, /// MouseAll and KeyboardAll
-	All = ushort.max, /// all events (all bits=1)
+	All = uint.max, /// all events (all bits=1)
 }
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -115,40 +115,53 @@ private:
 
 	/// called by parent for initialize event
 	void initializeCall(){
-		if (!_customInitEvent || !_customInitEvent(this))
+		if (_eventSub & EventMask.Initialize && (!_customInitEvent || !_customInitEvent(this)))
 			this.initialize();
 	}
 	/// called by parent for mouseEvent
 	void mouseEventCall(MouseEvent mouse){
-		mouse.x = mouse.x - cast(int)this._position.x;
-		mouse.y = mouse.y - cast(int)this._position.y;
-		if (!_customMouseEvent || !_customMouseEvent(this, mouse))
-			this.mouseEvent(mouse);
+		if ((_eventSub & EventMask.MouseHover && mouse.state == MouseEvent.State.Hover)
+		|| (_eventSub & EventMask.MousePress && mouse.state == MouseEvent.State.Click)
+		|| (_eventSub & EventMask.MouseRelease && mouse.state == MouseEvent.State.Release)){
+			mouse.x = mouse.x - cast(int)this._position.x;
+			mouse.y = mouse.y - cast(int)this._position.y;
+			if (!_customMouseEvent || !_customMouseEvent(this, mouse))
+				this.mouseEvent(mouse);
+		}
 	}
 	/// called by parent for keyboardEvent
 	void keyboardEventCall(KeyboardEvent key){
-		if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
-			this.keyboardEvent(key);
+		if (((_eventSub & EventMask.KeyboardPress && key.pressed)
+		|| (_eventSub & EventMask.KeyboardRelease && !key.pressed))
+		&& (_eventSub & EventMask.KeyboardWidgetCycleKey || key.key != _activeWidgetCycleKey)){
+			if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
+				this.keyboardEvent(key);
+		}
 	}
 	/// called by parent for resizeEvent
 	void resizeEventCall(){
 		_requestingResize = false;
-		if (!_customResizeEvent || !_customResizeEvent(this))
+		if (_eventSub & EventMask.Resize && (!_customResizeEvent || !_customResizeEvent(this)))
 			this.resizeEvent();
 	}
 	/// called by parent for activateEvent
 	void activateEventCall(bool isActive){
-		if (!_customActivateEvent || !_customActivateEvent(this, isActive))
+		// if _isActive == isActive, then nothing changed, forget about it
+		/*if (_isActive == isActive)
+			return;*/
+		_isActive = isActive;
+		if (_eventSub & EventMask.Activate && (!_customActivateEvent || !_customActivateEvent(this, isActive)))
 			this.activateEvent(isActive);
 	}
 	/// called by parent for mouseEvent
 	void timerEventCall(uint msecs){
-		if (!_customTimerEvent || !_customTimerEvent(this, msecs))
+		if (_eventSub && EventMask.Timer && (!_customTimerEvent || !_customTimerEvent(this, msecs)))
 			this.timerEvent(msecs);
 	}
 	/// called by parent for updateEvent
 	void updateEventCall(){
-		if (!_customUpdateEvent || !_customUpdateEvent(this))
+		_requestingUpdate = false;
+		if (_eventSub & EventMask.Update && (!_customUpdateEvent || !_customUpdateEvent(this)))
 			this.updateEvent();
 	}
 protected:
@@ -455,9 +468,10 @@ protected:
 		_eventSub = 0;
 		foreach (widget; _widgets)
 			_eventSub |= widget._eventSub;
-		_eventSub |= EventMask.Activate; // always wants activate events
-		// and if child wants update, then I want resize too
-		_eventSub |= EventMask.Resize;
+		if (_eventSub & EventMask.InputAll)
+			_eventSub |= EventMask.Activate; // if children want input, then need activate too
+		if (_eventSub & EventMask.Update)
+			_eventSub |= EventMask.Resize; // and if child wants update, then need resize too
 		if (_parent)
 			_parent.eventSubscribe();
 	}
@@ -480,8 +494,7 @@ protected:
 		}
 		foreach (i, widget; _widgets){
 			this._display.getSlice(widget._display, widget._width, widget._height, widget._position.x, widget._position.y);
-			if (widget._eventSub & EventMask.Resize)
-				widget.resizeEventCall();
+			widget.resizeEventCall();
 		}
 	}
 	
@@ -492,26 +505,18 @@ protected:
 		if (_activeWidgetIndex > -1)
 			activeWidget = _widgets[_activeWidgetIndex];
 		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x+activeWidget._width
-		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._height
-		&& activeWidget._eventSub & EventMask.MouseAll){
+		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._height){
 			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
 				if (widget.show &&
 					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._width &&
 					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._height){
-					if ((widget._eventSub & EventMask.MouseAll) == 0)
-						break;
 					// make it active only if this layout is itself active, and widget wants keyboard input
 					if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
-						if (activeWidget){
-							activeWidget._isActive = false;
-							if (activeWidget._eventSub & EventMask.Activate)
-								activeWidget.activateEventCall(false);
-						}
-						widget._isActive = true;
-						if (widget._eventSub & EventMask.Activate)
-							widget.activateEventCall(true);
+						if (activeWidget)
+							activeWidget.activateEventCall(false);
+						widget.activateEventCall(true);
 						_activeWidgetIndex = cast(uint)i;
 					}
 					widget.mouseEventCall(mouse);
@@ -536,26 +541,21 @@ protected:
 		}
 		if (!activeWidget)
 			return;
-		if (key.pressed && (eSub & EventMask.KeyboardPress))
-			activeWidget.keyboardEventCall(key);
-		else if (!key.pressed && (eSub & EventMask.KeyboardRelease))
-			activeWidget.keyboardEventCall(key);
+		activeWidget.keyboardEventCall(key);
 	}
 
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
 			widget._display = _display.getSlice(1,1, _position.x, _position.y); // just throw in dummy size/position, resize event will fix that
-			if (widget._eventSub & EventMask.Initialize)
-				widget.initializeCall();
+			widget.initializeCall();
 		}
 	}
 
 	/// override timer event to call child widgets' timers
 	override void timerEvent(uint msecs){
 		foreach (widget; _widgets)
-			if (widget._eventSub & EventMask.Timer)
-				widget.timerEventCall(msecs);
+			widget.timerEventCall(msecs);
 	}
 
 	/// override activate event
@@ -563,11 +563,8 @@ protected:
 		if (isActive){
 			_activeWidgetIndex = -1;
 			this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1){
-			_widgets[_activeWidgetIndex]._isActive = false;
-			if (_widgets[_activeWidgetIndex]._eventSub & EventMask.Activate)
-				_widgets[_activeWidgetIndex].activateEventCall(isActive);
-		}
+		}else if (_activeWidgetIndex > -1)
+			_widgets[_activeWidgetIndex].activateEventCall(isActive);
 	}
 	
 	/// called by parent widget to update
@@ -575,7 +572,7 @@ protected:
 		uint space = 0;
 		foreach(i, widget; _widgets){
 			if (widget.show){
-				if (widget._requestingUpdate && widget._eventSub & EventMask.Update){
+				if (widget._requestingUpdate){
 					widget._display.cursor = Position(0,0);
 					widget.updateEventCall();
 					widget._requestingUpdate = false;
@@ -628,16 +625,10 @@ protected:
 				_activeWidgetIndex = -1;
 			
 			if (lastActiveWidgetIndex != _activeWidgetIndex){
-				if (lastActiveWidgetIndex > -1){
-					_widgets[lastActiveWidgetIndex]._isActive = false;
-					if (_widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
-						_widgets[lastActiveWidgetIndex].activateEventCall(false);
-				}
-				if (_activeWidgetIndex > -1){
-					_widgets[_activeWidgetIndex]._isActive = true;
-					if (_widgets[_activeWidgetIndex]._eventSub & EventMask.Activate)
-						_widgets[_activeWidgetIndex].activateEventCall(true);
-				}
+				if (lastActiveWidgetIndex > -1)
+					_widgets[lastActiveWidgetIndex].activateEventCall(false);
+				if (_activeWidgetIndex > -1)
+					_widgets[_activeWidgetIndex].activateEventCall(true);
 			}
 		}
 		return _activeWidgetIndex != -1;
@@ -657,11 +648,8 @@ protected:
 		}
 
 		// and then manipulate the current layout
-		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1){
-			_widgets[lastActiveWidgetIndex]._isActive = false;
-			if (_widgets[lastActiveWidgetIndex]._eventSub & EventMask.Activate)
-				_widgets[lastActiveWidgetIndex].activateEventCall(false);
-		}
+		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1)
+			_widgets[lastActiveWidgetIndex].activateEventCall(false);
 		return _activeWidgetIndex != -1;
 	}
 
@@ -892,6 +880,7 @@ public:
 		_termWrap = new TermWrapper();
 		_display = new Display(1,1, _termWrap);
 		this._isActive = true; // so it can make other widgets active on mouse events
+		this._eventSub = EventMask.All;
 	}
 	~this(){
 		.destroy(_termWrap);
