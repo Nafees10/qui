@@ -42,8 +42,8 @@ version(demo){
 				}
 			}
 
-			// lets change active widget cycling key to something else too
-			term.setActiveWidgetCycleKey('`'); // this is that key that's usually right above tab, on left of `1`
+			term.setActiveWidgetCycleKey('`'); // '`' key will be used for moving between active widgets
+			term.terminateOnHangup = false; // do not close/terminate when Ctrl+C is pressed
 
 			// put all widgets in the order they are to appear in terminal
 			hLayout.addWidget([memo, log]);
@@ -51,6 +51,9 @@ version(demo){
 
 			term.onKeyboardEvent = delegate(QWidget caller, KeyboardEvent key){
 				log.add(to!dstring("Terminal Keyboard Event: "~key.tostring));
+				if (!key.pressed)
+					return false; // do nothing on key release
+				// Ctrl+L is for toggling log shown/hidden, Ctrl+E to make EditLine active widget
 				if (key.isCtrlKey){
 					if (key.key == KeyboardEvent.CtrlKeys.CtrlL){
 						log.show = !log.show;
@@ -60,9 +63,13 @@ version(demo){
 						term.activateWidget(edit);
 					}
 				}
+				// Escape to exit
+				if (key.key == Key.Escape)
+					term.terminate;
 				return false;
 			};
 
+			// just print these events to log
 			memo.onActivateEvent = delegate(QWidget, bool isActive){
 				log.add(to!dstring("Memo is now "~(isActive?"active":"inactive")));
 				return false;
