@@ -840,17 +840,23 @@ private:
 		}else if (event.type == Event.Type.Mouse){
 			this.mouseEventCall(event.mouse);
 		}else if (event.type == Event.Type.Resize){
-			//update self size
-			_height = event.resize.height;
-			_width = event.resize.width;
-			_display._height = _height;
-			_display._width = _width;
-			//call size change on all widgets
 			this.resizeEventCall();
 		}
 	}
 
 protected:
+
+	override void eventSubscribe(){
+		_eventSub = EventMask.All;
+	}
+
+	override void resizeEvent(){
+		_height = _termWrap.height;
+		_width = _termWrap.width;
+		_display._height = _height;
+		_display._width = _width;
+		super.resizeEvent();
+	}
 	
 	override void updateEvent(){
 		// resize if needed
@@ -880,7 +886,6 @@ public:
 		_termWrap = new TermWrapper();
 		_display = new Display(1,1, _termWrap);
 		this._isActive = true; // so it can make other widgets active on mouse events
-		this._eventSub = EventMask.All;
 	}
 	~this(){
 		.destroy(_termWrap);
@@ -894,11 +899,6 @@ public:
 	
 	/// starts the UI loop
 	void run(){
-		// set size
-		_width = _termWrap.width();
-		_height = _termWrap.height();
-		_display._width = _width;
-		_display._height = _height;
 		//ready
 		initializeCall();
 		resizeEventCall();
@@ -924,7 +924,9 @@ public:
 		}
 	}
 
-	/// search the passed widget recursively and activate it, returns if the activation was successful
+	/// search the passed widget recursively and activate it
+	/// 
+	/// Returns: true if the widget was made active, false if not found and not done
 	bool activateWidget(QWidget target) {
 		return this.searchAndActivateWidget(target);
 	}
