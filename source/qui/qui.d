@@ -829,11 +829,19 @@ private:
 	TermWrapper _termWrap;
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
+	/// whether to stop UI loop on Interrupt
+	bool _stopOnInterrupt;
 
 	/// Reads InputEvent and calls appropriate functions to address those events
 	void readEvent(Event event){
 		if (event.type == Event.Type.HangupInterrupt){
-			_isRunning = false;
+			if (_stopOnInterrupt)
+				_isRunning = false;
+			else{ // otherwise read it as a Ctrl+C
+				KeyboardEvent keyEvent;
+				keyEvent.key = KeyboardEvent.CtrlKeys.CtrlC;
+				this.keyboardEventCall(keyEvent);
+			}
 		}else if (event.type == Event.Type.Keyboard){
 			KeyboardEvent kPress = event.keyboard;
 			this.keyboardEventCall(kPress);
@@ -895,6 +903,15 @@ public:
 	/// stops UI loop. **not instant**, if it is in-between updates, event functions, or timers, it will complete those first
 	void terminate(){
 		_isRunning = false;
+	}
+
+	/// whether to stop UI loop on HangupInterrupt (Ctrl+C)
+	@property bool terminateOnHangup(){
+		return _stopOnInterrupt;
+	}
+	/// ditto
+	@property bool terminateOnHangup(bool newVal){
+		return _stopOnInterrupt = newVal;
 	}
 	
 	/// starts the UI loop
