@@ -28,16 +28,6 @@ public alias MouseEvent = Event.Mouse;
 /// Keyboard Event
 public alias KeyboardEvent = Event.Keyboard;
 
-/// Used to store position for widgets
-struct Position{
-	/// x and y position
-	int x = 0, y = 0;
-	/// Returns: a string representation of Position
-	string tostring(){
-		return "{x:"~to!string(x)~", y:"~to!string(y)~"}";
-	}
-}
-
 /// mouseEvent function. Return true if the event should be dropped
 alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
 ///keyboardEvent function. Return true if the event should be dropped
@@ -72,17 +62,37 @@ enum EventMask : uint{
 	All = uint.max, /// all events (all bits=1)
 }
 
+/// A cell on terminal
+struct Cell{
+	/// character
+	dchar c;
+	/// foreground and background colors
+	Color fg, bg;
+}
+
 /// Base class for all widgets, including layouts and QTerminal
 ///
 /// Use this as parent-class for new widgets
 abstract class QWidget{
 private:
 	/// stores the position of this widget, relative to it's parent widget's position
-	Position _position;
-	/// width
+	uint _posX, _posY;
+	/// width of widget
 	uint _width;
-	/// height
+	/// height of widget
 	uint _height;
+	/// Display buffer. Read as: `_dBuf[y][x]`
+	Cell[][] _dBuf;
+	/// next write position in `_dBuf`.
+	uint _dBufX, _dBufY;
+	/// horizontal scroll
+	int _scrollX;
+	/// vertical scroll
+	int _scrollY;
+	/// width of viewport
+	uint _viewWidth;
+	/// height of viewport
+	uint _viewHeight;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// whether this widget is requesting update
@@ -95,7 +105,7 @@ private:
 	int _indexInParent = -1;
 	/// the key used for cycling active widget
 	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
-	/// Events this widget is subscribed to
+	/// Events this widget is subscribed to, see `EventMask`
 	uint _eventSub = 0;
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
@@ -123,8 +133,8 @@ private:
 		if ((_eventSub & EventMask.MouseHover && mouse.state == MouseEvent.State.Hover)
 		|| (_eventSub & EventMask.MousePress && mouse.state == MouseEvent.State.Click)
 		|| (_eventSub & EventMask.MouseRelease && mouse.state == MouseEvent.State.Release)){
-			mouse.x = mouse.x - cast(int)this._position.x;
-			mouse.y = mouse.y - cast(int)this._position.y;
+			mouse.x = mouse.x - cast(int)this._posX + _scrollX;
+			mouse.y = mouse.y - cast(int)this._posY + _scrollY;
 			if (!_customMouseEvent || !_customMouseEvent(this, mouse))
 				this.mouseEvent(mouse);
 		}
@@ -146,7 +156,6 @@ private:
 	}
 	/// called by parent for activateEvent
 	void activateEventCall(bool isActive){
-		// if _isActive == isActive, then nothing changed, forget about it
 		/*if (_isActive == isActive)
 			return;*/
 		_isActive = isActive;
@@ -161,6 +170,8 @@ private:
 	/// called by parent for updateEvent
 	void updateEventCall(){
 		_requestingUpdate = false;
+		_dBufX = _scrollX;
+		_dBufY = _scrollY;
 		if (_eventSub & EventMask.Update && (!_customUpdateEvent || !_customUpdateEvent(this)))
 			this.updateEvent();
 	}
@@ -179,9 +190,48 @@ protected:
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.
 	uint _sizeRatio = 1;
 	/// where to draw cursor if this is active widget.
-	Position _cursorPosition = Position(-1,-1);
-	/// used to write to terminal
-	Display _display = null;
+	int _cursorX = -1, _cursorY = -1;
+
+	/// If a coordinate is within writing area, and writing area actually exists
+	bool isWritable(uint x, uint y){
+		return x >= _scrollX && x < _scrollX + _viewWidth && y >= _scrollY && y < _scrollY + _viewHeight;
+	}
+
+	/// move seek for next write to terminal.  
+	/// can only write in between `(_scrollX .. _scrollX + _viewWidth, _scrollY .. _scrollY + _viewHeight)`
+	/// 
+	/// Returns: false if writing to new coordinates not possible
+	bool moveTo(uint newX, uint newY){
+		if (!isWritable(newX, newY))
+			return false;
+		_dBufX = newX;
+		_dBufY = newY;
+		return true;
+	}
+	/// writes a character on terminal
+	/// 
+	/// Returns: true if done, false if outside writing area
+	bool write(dchar c, Color fg, Color bg){
+		if (!isWritable(_dBufX, _dBufY))
+			return false;
+		_dBuf[_dBufY - _scrollY][_dBufX - _scrollX] = Cell(c, fg, bg);
+		_dBufX ++;
+		if (_dBufX >= _scrollX + _viewWidth){
+			_dBufY ++;
+			_dBufX = _scrollX;
+		}
+		return true;
+	}
+	/// writes a (d)string to terminal. if it does not fit in one line, it is wrapped
+	/// 
+	/// Returns: true if done, false if not (not enough area for whole string?)
+	bool write(dstring s, Color fg, Color bg){
+		foreach (c; s){
+			if (!write(c, fg, bg))
+				return false;
+		}
+		return true;
+	}
 
 	/// For cycling between widgets.
 	/// 
@@ -286,9 +336,13 @@ public:
 	final @property uint eventSub(){
 		return _eventSub;
 	}
-	/// Returns: position of cursor to be shown on terminal. (-1,-1) if dont show
-	@property Position cursorPosition(){
-		return _cursorPosition;
+	/// Returns: x position of cursor to be displayed. if <0, cursor is hidden
+	@property uint cursorX(){
+		return _cursorX;
+	}
+	/// Returns: y position of cursor to be displayed. if <0, cursor is hidden
+	@property uint cursorY(){
+		return _cursorY;
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
 	@property uint sizeRatio(){
@@ -307,6 +361,14 @@ public:
 	@property bool show(bool visibility){
 		requestResize;
 		return _show = visibility;
+	}
+	/// horizontal scroll
+	@property int scrollX(){
+		return _scrollX;
+	}
+	/// vertical scroll
+	@property int scrollY(){
+		return _scrollY;
 	}
 	/// width
 	final @property uint width(){
@@ -399,6 +461,7 @@ private:
 	}
 	
 	/// recalculates the size of every widget inside layout
+	/// TODO: might want to rewrite this to be less ugly
 	void recalculateWidgetsSize(QLayout.Type T)(){
 		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
@@ -452,12 +515,12 @@ private:
 		foreach(widget; _widgets){
 			if (widget.show){
 				static if (T == QLayout.Type.Horizontal){
-					widget._position.y = 0;
-					widget._position.x = previousSpace;
+					widget._posY = 0;
+					widget._posX = previousSpace;
 					previousSpace += widget._width;
 				}else{
-					widget._position.x = 0;
-					widget._position.y = previousSpace;
+					widget._posX = 0;
+					widget._posY = previousSpace;
 					previousSpace += widget._height;
 				}
 			}
@@ -493,7 +556,8 @@ protected:
 			recalculateWidgetsPosition!(QLayout.Type.Vertical);
 		}
 		foreach (i, widget; _widgets){
-			this._display.getSlice(widget._display, widget._width, widget._height, widget._position.x, widget._position.y);
+			// this._display.getSlice(widget._display, widget._width, widget._height, widget._posX, widget._posY);
+			// TODO: adjust _dBuff slice
 			widget.resizeEventCall();
 		}
 	}
@@ -504,14 +568,14 @@ protected:
 		QWidget activeWidget = null;
 		if (_activeWidgetIndex > -1)
 			activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget && mouse.x >= activeWidget._position.x && mouse.x < activeWidget._position.x+activeWidget._width
-		&& mouse.y >= activeWidget._position.y && mouse.y < activeWidget._position.y + activeWidget._height){
+		if (activeWidget && mouse.x >= activeWidget._posX && mouse.x < activeWidget._posX+activeWidget._width
+		&& mouse.y >= activeWidget._posY && mouse.y < activeWidget._posY + activeWidget._height){
 			activeWidget.mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
 				if (widget.show &&
-					mouse.x >= widget._position.x && mouse.x < widget._position.x + widget._width &&
-					mouse.y >= widget._position.y && mouse.y < widget._position.y + widget._height){
+					mouse.x >= widget._posX && mouse.x < widget._posX + widget._width &&
+					mouse.y >= widget._posY && mouse.y < widget._posY + widget._height){
 					// make it active only if this layout is itself active, and widget wants keyboard input
 					if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
 						if (activeWidget)
@@ -547,7 +611,8 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			widget._display = _display.getSlice(1,1, _position.x, _position.y); // just throw in dummy size/position, resize event will fix that
+			// widget._display = _display.getSlice(1,1, _posX, _posY); // just throw in dummy size/position, resize event will fix that
+			// TODO: init _dBuff to null
 			widget.initializeCall();
 		}
 	}
@@ -569,45 +634,10 @@ protected:
 	
 	/// called by parent widget to update
 	override void updateEvent(){
-		uint space = 0;
+		// TODO: fill empty space with fill color
 		foreach(i, widget; _widgets){
-			if (widget.show){
-				if (widget._requestingUpdate){
-					widget._display.cursor = Position(0,0);
-					widget.updateEventCall();
-					widget._requestingUpdate = false;
-				}
-				if (_type == Type.Horizontal){
-					space += widget._width;
-					if (widget._height < this._height){
-						foreach (y; widget._height ..  this._height){
-							_display.cursor = Position(widget._position.x, y);
-							_display.fillLine(' ', _fillColor, _fillColor, widget._width);
-						}
-					}
-				}else{
-					space += widget._height;
-					if (widget._width < this._width){
-						immutable lineWidth = _width - widget._width;
-						foreach (y; 0 .. widget._height){
-							_display.cursor = Position(widget._width, widget._position.y + y);
-							_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
-						}
-					}
-				}
-			}
-		}
-		if (_type == Type.Horizontal && space < this._width){
-			immutable uint lineWidth = this._width - space;
-			foreach (y; 0 .. this._height){
-				_display.cursor = Position(space, y);
-				_display.fillLine(' ', _fillColor, _fillColor, lineWidth);
-			}
-		}else if (_type == Type.Vertical && space < this._height){
-			foreach (y; space .. this._height){
-				_display.cursor = Position(0, y);
-				_display.fillLine(' ', _fillColor, _fillColor, this._width);
-			}
+			if (widget.show && widget._requestingUpdate)
+				widget.updateEventCall();
 		}
 	}
 	/// called to cycle between actveWidgets. This is called by parent widget
@@ -678,17 +708,22 @@ public:
 	@property Color fillColor(Color newColor){
 		return _fillColor = newColor;
 	}
-	/// Returns: position of cursor, (-1,-1) if should be hidden
-	override @property Position cursorPosition(){
-		// just do a hack, and check only for active widget
+	/// Returns: x position of cursor, <0 if hidden
+	override @property uint cursorX(){
 		if (_activeWidgetIndex == -1)
-			return Position(-1, -1);
-		if (_widgets[_activeWidgetIndex].cursorPosition == Position(-1, -1))
-			return _widgets[_activeWidgetIndex].cursorPosition;
-		return Position(_widgets[_activeWidgetIndex]._position.x + _widgets[_activeWidgetIndex].cursorPosition.x,
-			_widgets[_activeWidgetIndex]._position.y + _widgets[_activeWidgetIndex].cursorPosition.y);
+			return -1;
+		if (_widgets[_activeWidgetIndex].cursorX < 0)
+			return -1;
+		return _widgets[_activeWidgetIndex]._posX + _widgets[_activeWidgetIndex].cursorX;
 	}
-	
+	/// Returns: y position of cursor, <0 if hidden
+	override @property uint cursorY(){
+		if (_activeWidgetIndex == -1)
+			return -1;
+		if (_widgets[_activeWidgetIndex].cursorY < 0)
+			return -1;
+		return _widgets[_activeWidgetIndex]._posY + _widgets[_activeWidgetIndex].cursorY;
+	}
 	/// adds a widget, and makes space for it
 	void addWidget(QWidget widget){
 		widget._parent = this;
@@ -708,117 +743,6 @@ public:
 		}
 		_widgets ~= widgets;
 		eventSubscribe;
-	}
-}
-
-/// Used to write to display by widgets
-class Display{
-private:
-	/// width & height
-	uint _width, _height;
-	/// x and y offsets
-	uint _xOff, _yOff;
-	/// cursor position, relative to _xOff and _yOff
-	Position _cursor;
-	/// the terminal
-	TermWrapper _term;
-	/// constructor for when this buffer is just a slice of the actual buffer
-	this(uint w, uint h, uint xOff, uint yOff, TermWrapper terminal){
-		_xOff = xOff;
-		_yOff = yOff;
-		_width = w;
-		_height = h;
-		_term = terminal;
-	}
-	/// Returns: a "slice" of this buffer, that is only limited to some rectangular area
-	/// 
-	/// no bound checking is done
-	Display getSlice(uint w, uint h, uint x, uint y){
-		return new Display(w, h, _xOff + x, _yOff + y, _term);
-	}
-	/// modifies an existing Display to act as a "slice"
-	/// 
-	/// no bound checking is done
-	void getSlice(Display sliced, uint w, uint h, uint x, uint y){
-		sliced._width = w;
-		sliced._height = h;
-		sliced._xOff = _xOff + x;
-		sliced._yOff = _yOff + y;
-	}
-public:
-	/// constructor
-	this(uint w, uint h, TermWrapper terminal){
-		_width = w;
-		_height = h;
-		_term = terminal;
-	}
-	~this(){
-
-	}
-	/// Returns: cursor  position
-	@property Position cursor(){
-		return _cursor;
-	}
-	/// ditto
-	@property Position cursor(Position newPos){
-		if (newPos.x >= _width)
-			newPos.x = _width-1;
-		if (newPos.y >= _height)
-			newPos.y = _height-1;
-		if (newPos.x < 0)
-			newPos.x = 0;
-		if (newPos.y < 0)
-			newPos.y = 0;
-		return _cursor = newPos;
-	}
-	/// sets background and foreground color
-	void colors(Color fg, Color bg){
-		_term.color(fg, bg);
-	}
-	/// Writes a line. if string has more characters than there is space for, extra characters will be ignored.
-	/// Each character is written in a 1 cell.
-	void write(dstring str, Color fg, Color bg){
-		_term.color(fg, bg);
-		this.write(str);
-	}
-	/// ditto
-	void write(dstring str){
-		foreach (c; str){
-			if (_cursor.x >= _width){
-				_cursor.x = 0;
-				_cursor.y ++;
-			}
-			if (_cursor.x < _width && _cursor.y < _height)
-				_term.put(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), c == '\t' || c == '\n' ? ' ' : c);
-			else
-				break;
-			_cursor.x ++;
-		}
-	}
-	/// fills all remaining cells with a character
-	void fill(dchar c, Color fg, Color bg){
-		dchar[] line;
-		line.length = _width;
-		line[] = c;
-		_term.color(fg, bg);
-		while (_cursor.y < _height){
-			_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line[0 .. _width - _cursor.x]);
-			_cursor.y ++;
-			_cursor.x = 0;
-		}
-	}
-	/// fills rest of current line with a character
-	void fillLine(dchar c, Color fg, Color bg, uint max = 0){
-		dchar[] line;
-		line.length =  max < _width - _cursor.x && max > 0 ? max : _width - _cursor.x;
-		line[] = c;
-		_term.color(fg, bg);
-		_term.write(cast(int)(_cursor.x + _xOff), cast(int)(_cursor.y + _yOff), cast(dstring)line);
-		_cursor.x += line.length;
-		if (_cursor.x >= _width -1){
-			_cursor.y ++;
-			_cursor.x = 0;
-		}
 	}
 }
 
@@ -861,8 +785,7 @@ protected:
 	override void resizeEvent(){
 		_height = _termWrap.height;
 		_width = _termWrap.width;
-		_display._height = _height;
-		_display._width = _width;
+		// TODO: adjust _dBuff size
 		super.resizeEvent();
 	}
 	
@@ -871,13 +794,12 @@ protected:
 		if (_requestingResize)
 			this.resizeEventCall();
 		super.updateEvent(); // no, this is not a mistake, dont change this to updateEventCall again!
-		_requestingUpdate = false;
 		// check if need to show/hide cursor
-		Position cursorPos = this.cursorPosition;
-		if (cursorPos == Position(-1, -1)){
+		uint x = cursorX, y = cursorY;
+		if (x < 0 || y < 0)
 			_termWrap.cursorVisible = false;
-		}else{
-			_termWrap.moveCursor(cast(int)cursorPos.x, cast(int)cursorPos.y);
+		else{
+			_termWrap.moveCursor(cast(int)x, cast(int)y);
 			_termWrap.cursorVisible = true;
 		}
 		_termWrap.flush;
@@ -892,12 +814,10 @@ public:
 		timerMsecs = timerDuration;
 
 		_termWrap = new TermWrapper();
-		_display = new Display(1,1, _termWrap);
 		this._isActive = true; // so it can make other widgets active on mouse events
 	}
 	~this(){
 		.destroy(_termWrap);
-		.destroy(_display);
 	}
 
 	/// stops UI loop. **not instant**, if it is in-between updates, event functions, or timers, it will complete those first
