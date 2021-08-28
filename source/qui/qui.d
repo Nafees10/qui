@@ -89,9 +89,13 @@ private:
 	int _scrollX;
 	/// vertical scroll
 	int _scrollY;
-	/// width of viewport
+	/// top left corner X coordinate of viewport. Used to limit writing to visible area
+	uint _viewX;
+	/// top left corner Y coordinate of viewport. Used to limit writing to visible area
+	uint _viewY;
+	/// width of viewport. Used to limit writing to visible area
 	uint _viewWidth;
-	/// height of viewport
+	/// height of viewport. Used to limit writing to visible area
 	uint _viewHeight;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
@@ -133,8 +137,8 @@ private:
 		if ((_eventSub & EventMask.MouseHover && mouse.state == MouseEvent.State.Hover)
 		|| (_eventSub & EventMask.MousePress && mouse.state == MouseEvent.State.Click)
 		|| (_eventSub & EventMask.MouseRelease && mouse.state == MouseEvent.State.Release)){
-			mouse.x = mouse.x - cast(int)this._posX + _scrollX;
-			mouse.y = mouse.y - cast(int)this._posY + _scrollY;
+			mouse.x = (mouse.x - cast(int)this._posX) + _viewX; // mouse input comes relative to visible area
+			mouse.y = (mouse.y - cast(int)this._posY) + _viewY;
 			if (!_customMouseEvent || !_customMouseEvent(this, mouse))
 				this.mouseEvent(mouse);
 		}
@@ -170,8 +174,8 @@ private:
 	/// called by parent for updateEvent
 	void updateEventCall(){
 		_requestingUpdate = false;
-		_dBufX = _scrollX;
-		_dBufY = _scrollY;
+		_dBufX = _viewX;
+		_dBufY = _viewY;
 		if (_eventSub & EventMask.Update && (!_customUpdateEvent || !_customUpdateEvent(this)))
 			this.updateEvent();
 	}
@@ -194,11 +198,11 @@ protected:
 
 	/// If a coordinate is within writing area, and writing area actually exists
 	bool isWritable(uint x, uint y){
-		return x >= _scrollX && x < _scrollX + _viewWidth && y >= _scrollY && y < _scrollY + _viewHeight;
+		return x >= _viewX && x < _viewX + _viewWidth && y >= _viewY && y < _viewY + _viewHeight;
 	}
 
 	/// move seek for next write to terminal.  
-	/// can only write in between `(_scrollX .. _scrollX + _viewWidth, _scrollY .. _scrollY + _viewHeight)`
+	/// can only write in between `(_viewX .. _viewX + _viewWidth, _viewY .. _viewX + _viewHeight)`
 	/// 
 	/// Returns: false if writing to new coordinates not possible
 	bool moveTo(uint newX, uint newY){
@@ -214,11 +218,11 @@ protected:
 	bool write(dchar c, Color fg, Color bg){
 		if (!isWritable(_dBufX, _dBufY))
 			return false;
-		_dBuf[_dBufY - _scrollY][_dBufX - _scrollX] = Cell(c, fg, bg);
+		_dBuf[_dBufY - _viewY][_dBufX - _viewX] = Cell(c, fg, bg);
 		_dBufX ++;
-		if (_dBufX >= _scrollX + _viewWidth){
+		if (_dBufX >= _viewX + _viewWidth){
 			_dBufY ++;
-			_dBufX = _scrollX;
+			_dBufX = _viewX;
 		}
 		return true;
 	}
@@ -231,6 +235,23 @@ protected:
 				return false;
 		}
 		return true;
+	}
+	/// fill current line with a character. `max` is ignored if `max==0`
+	/// 
+	/// Returns: number of cells written
+	uint fillLine(dchar c, Color fg, Color bg, uint max = 0){
+		if (!isWritable(_dBufX, _dBufY))
+			return 0;
+		uint r = _viewWidth + _viewX - _dBufX;
+		if (r > max)
+			r = max;
+		_dBuf[_dBufY - _viewY][_dBufX - _viewX .. _dBufX - _viewX + r] = Cell(c, fg, bg);
+		_dBufX += r;
+		if (_dBufX >= _viewX + _viewWidth){
+			_dBufY ++;
+			_dBufX = _viewX;
+		}
+		return r;
 	}
 
 	/// For cycling between widgets.
@@ -362,12 +383,12 @@ public:
 		requestResize;
 		return _show = visibility;
 	}
-	/// horizontal scroll
-	@property int scrollX(){
+	/// horizontal scroll. Use for drawing scrollbar
+	final @property int scrollX(){
 		return _scrollX;
 	}
-	/// vertical scroll
-	@property int scrollY(){
+	/// vertical scroll. Use for drawing scrollbar
+	final @property int scrollY(){
 		return _scrollY;
 	}
 	/// width
