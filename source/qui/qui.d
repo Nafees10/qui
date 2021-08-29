@@ -134,7 +134,7 @@ private:
 			return;
 		_requestingUpdate = true;
 		if (_parent)
-			_parent._requestUpdate();
+			_parent.requestUpdate();
 	}
 	/// Called to request this widget to resize at next update
 	/// Will not do anything if not subscribed to resize events
@@ -143,7 +143,7 @@ private:
 			return;
 		_requestingResize = true;
 		if (_parent)
-			_parent._requestResize();
+			_parent.requestResize();
 	}
 
 	/// called by parent for initialize event
