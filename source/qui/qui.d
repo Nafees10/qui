@@ -127,13 +127,32 @@ private:
 	/// custom upedateEvent, if not null, it should be called before doing anything else in updateEvent
 	UpdateEventFunction _customUpdateEvent;
 
+	/// Called when it needs to request an update.  
+	/// Will not do anything if not subscribed to update events
+	void _requestUpdate(){
+		if ((_eventSub & EventMask.Update) == 0)
+			return;
+		_requestingUpdate = true;
+		if (_parent)
+			_parent._requestUpdate();
+	}
+	/// Called to request this widget to resize at next update
+	/// Will not do anything if not subscribed to resize events
+	void _requestResize(){
+		if ((_eventSub & EventMask.Resize) == 0)
+			return;
+		_requestingResize = true;
+		if (_parent)
+			_parent._requestResize();
+	}
+
 	/// called by parent for initialize event
-	void initializeCall(){
+	void _initializeCall(){
 		if (_eventSub & EventMask.Initialize && (!_customInitEvent || !_customInitEvent(this)))
 			this.initialize();
 	}
 	/// called by parent for mouseEvent
-	void mouseEventCall(MouseEvent mouse){
+	void _mouseEventCall(MouseEvent mouse){
 		if ((_eventSub & EventMask.MouseHover && mouse.state == MouseEvent.State.Hover)
 		|| (_eventSub & EventMask.MousePress && mouse.state == MouseEvent.State.Click)
 		|| (_eventSub & EventMask.MouseRelease && mouse.state == MouseEvent.State.Release)){
@@ -144,7 +163,7 @@ private:
 		}
 	}
 	/// called by parent for keyboardEvent
-	void keyboardEventCall(KeyboardEvent key){
+	void _keyboardEventCall(KeyboardEvent key){
 		if (((_eventSub & EventMask.KeyboardPress && key.pressed)
 		|| (_eventSub & EventMask.KeyboardRelease && !key.pressed))
 		&& (_eventSub & EventMask.KeyboardWidgetCycleKey || key.key != _activeWidgetCycleKey)){
@@ -153,13 +172,13 @@ private:
 		}
 	}
 	/// called by parent for resizeEvent
-	void resizeEventCall(){
+	void _resizeEventCall(){
 		_requestingResize = false;
 		if (_eventSub & EventMask.Resize && (!_customResizeEvent || !_customResizeEvent(this)))
 			this.resizeEvent();
 	}
 	/// called by parent for activateEvent
-	void activateEventCall(bool isActive){
+	void _activateEventCall(bool isActive){
 		/*if (_isActive == isActive)
 			return;*/
 		_isActive = isActive;
@@ -167,12 +186,12 @@ private:
 			this.activateEvent(isActive);
 	}
 	/// called by parent for mouseEvent
-	void timerEventCall(uint msecs){
+	void _timerEventCall(uint msecs){
 		if (_eventSub && EventMask.Timer && (!_customTimerEvent || !_customTimerEvent(this, msecs)))
 			this.timerEvent(msecs);
 	}
 	/// called by parent for updateEvent
-	void updateEventCall(){
+	void _updateEventCall(){
 		_requestingUpdate = false;
 		_dBufX = _viewX;
 		_dBufY = _viewY;
@@ -267,7 +286,7 @@ protected:
 		if (this == target) {
 			this._isActive = true;
 			if (this._eventSub & EventMask.Activate)
-				this.activateEventCall(true);
+				this._activateEventCall(true);
 			return true;
 		}
 		return false;
@@ -303,23 +322,13 @@ protected:
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
 	void timerEvent(uint msecs){}
 public:
-	/// Called by itself when it needs to request an update.  
-	/// Will not do anything if not subscribed to update events
-	final void requestUpdate(){
-		if ((_eventSub & EventMask.Update) == 0)
-			return;
-		_requestingUpdate = true;
-		if (_parent)
-			_parent.requestUpdate();
+	/// To request parent to trigger an update event
+	void requestUpdate(){
+		_requestUpdate();
 	}
-	/// Called to request this widget to resize at next update
-	/// Will not do anything if not subscribed to resize events
-	final void requestResize(){
-		if ((_eventSub & EventMask.Resize) == 0)
-			return;
-		_requestingResize = true;
-		if (_parent)
-			_parent.requestResize();
+	/// To request parent to trigger a resize event
+	void requestResize(){
+		_requestResize();
 	}
 	/// use to change the custom initialize event
 	final @property InitFunction onInitEvent(InitFunction func){
@@ -371,8 +380,9 @@ public:
 	}
 	/// ditto
 	@property uint sizeRatio(uint newRatio){
-		requestResize;
-		return _sizeRatio = newRatio;
+		_sizeRatio = newRatio;
+		_requestResize();
+		return _sizeRatio;
 	}
 	/// visibility of the widget. getter
 	@property bool show(){
@@ -380,8 +390,9 @@ public:
 	}
 	/// visibility of the widget. setter
 	@property bool show(bool visibility){
-		requestResize;
-		return _show = visibility;
+		_show = visibility;
+		_requestResize();
+		return _show;
 	}
 	/// horizontal scroll. Use for drawing scrollbar
 	final @property int scrollX(){
@@ -391,7 +402,23 @@ public:
 	final @property int scrollY(){
 		return _scrollY;
 	}
-	/// width
+	/// viewport coordinates. (drawable area for widget)
+	final @property uint viewportX(){
+		return _viewX;
+	}
+	/// ditto
+	final @property uint viewportY(){
+		return _viewY;
+	}
+	/// viewport size. (drawable area for widget)
+	final @property uint viewportWidth(){
+		return _viewWidth;
+	}
+	/// ditto
+	final @property uint viewportHeight(){
+		return _viewHeight;
+	}
+	/// width of widget
 	final @property uint width(){
 		return _width;
 	}
@@ -399,10 +426,10 @@ public:
 	@property uint width(uint value){
 		_minWidth = value;
 		_maxWidth = value;
-		requestResize();
+		_requestResize();
 		return value;
 	}
-	/// height
+	/// height of widget
 	final @property uint height(){
 		return _height;
 	}
@@ -410,7 +437,7 @@ public:
 	@property uint height(uint value){
 		_minHeight = value;
 		_maxHeight = value;
-		requestResize();
+		_requestResize();
 		return value;
 	}
 	/// minimum width
@@ -419,7 +446,7 @@ public:
 	}
 	/// ditto
 	@property uint minWidth(uint value){
-		requestResize();
+		_requestResize();
 		return _minWidth = value;
 	}
 	/// minimum height
@@ -428,7 +455,7 @@ public:
 	}
 	/// ditto
 	@property uint minHeight(uint value){
-		requestResize();
+		_requestResize();
 		return _minHeight = value;
 	}
 	/// maximum width
@@ -437,7 +464,7 @@ public:
 	}
 	/// ditto
 	@property uint maxWidth(uint value){
-		requestResize();
+		_requestResize();
 		return _maxWidth = value;
 	}
 	/// maximum height
@@ -446,7 +473,7 @@ public:
 	}
 	/// ditto
 	@property uint maxHeight(uint value){
-		requestResize();
+		_requestResize();
 		return _maxHeight = value;
 	}
 }
@@ -482,7 +509,6 @@ private:
 	}
 	
 	/// recalculates the size of every widget inside layout
-	/// TODO: might want to rewrite this to be less ugly
 	void recalculateWidgetsSize(QLayout.Type T)(){
 		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
 			assert(false);
@@ -508,9 +534,9 @@ private:
 				continue;
 			}
 			static if (T == QLayout.Type.Horizontal)
-				widget._width = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
+				widget._width = space;
 			else
-				widget._height = space; // no need to do `getLimitedSize`, `calculatedWidgetSize` already did that
+				widget._height = space;
 			limitWRatio += widget.sizeRatio;
 			limitWSize += space;
 		}
@@ -554,21 +580,13 @@ protected:
 			_eventSub |= widget._eventSub;
 		if (_eventSub & EventMask.InputAll)
 			_eventSub |= EventMask.Activate; // if children want input, then need activate too
-		if (_eventSub & EventMask.Update)
-			_eventSub |= EventMask.Resize; // and if child wants update, then need resize too
+		_eventSub |= EventMask.Resize;
 		if (_parent)
 			_parent.eventSubscribe();
 	}
 
 	/// Recalculates size and position for all visible widgets
-	/// If a widget is too large to fit in, it's visibility is marked false
 	override void resizeEvent(){
-		uint ratioTotal;
-		foreach(w; _widgets){
-			if (w.show){
-				ratioTotal += w.sizeRatio;
-			}
-		}
 		if (_type == QLayout.Type.Horizontal){
 			recalculateWidgetsSize!(QLayout.Type.Horizontal);
 			recalculateWidgetsPosition!(QLayout.Type.Horizontal);
@@ -579,7 +597,7 @@ protected:
 		foreach (i, widget; _widgets){
 			// this._display.getSlice(widget._display, widget._width, widget._height, widget._posX, widget._posY);
 			// TODO: adjust _dBuff slice
-			widget.resizeEventCall();
+			widget._resizeEventCall();
 		}
 	}
 	
@@ -591,7 +609,7 @@ protected:
 			activeWidget = _widgets[_activeWidgetIndex];
 		if (activeWidget && mouse.x >= activeWidget._posX && mouse.x < activeWidget._posX+activeWidget._width
 		&& mouse.y >= activeWidget._posY && mouse.y < activeWidget._posY + activeWidget._height){
-			activeWidget.mouseEventCall(mouse);
+			activeWidget._mouseEventCall(mouse);
 		}else{
 			foreach (i, widget; _widgets){
 				if (widget.show &&
@@ -600,11 +618,11 @@ protected:
 					// make it active only if this layout is itself active, and widget wants keyboard input
 					if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
 						if (activeWidget)
-							activeWidget.activateEventCall(false);
-						widget.activateEventCall(true);
+							activeWidget._activateEventCall(false);
+						widget._activateEventCall(true);
 						_activeWidgetIndex = cast(uint)i;
 					}
-					widget.mouseEventCall(mouse);
+					widget._mouseEventCall(mouse);
 					break;
 				}
 			}
@@ -626,7 +644,7 @@ protected:
 		}
 		if (!activeWidget)
 			return;
-		activeWidget.keyboardEventCall(key);
+		activeWidget._keyboardEventCall(key);
 	}
 
 	/// override initialize to initliaze child widgets
@@ -634,14 +652,14 @@ protected:
 		foreach (widget; _widgets){
 			// widget._display = _display.getSlice(1,1, _posX, _posY); // just throw in dummy size/position, resize event will fix that
 			// TODO: init _dBuff to null
-			widget.initializeCall();
+			widget._initializeCall();
 		}
 	}
 
 	/// override timer event to call child widgets' timers
 	override void timerEvent(uint msecs){
 		foreach (widget; _widgets)
-			widget.timerEventCall(msecs);
+			widget._timerEventCall(msecs);
 	}
 
 	/// override activate event
@@ -650,7 +668,7 @@ protected:
 			_activeWidgetIndex = -1;
 			this.cycleActiveWidget();
 		}else if (_activeWidgetIndex > -1)
-			_widgets[_activeWidgetIndex].activateEventCall(isActive);
+			_widgets[_activeWidgetIndex]._activateEventCall(isActive);
 	}
 	
 	/// called by parent widget to update
@@ -658,7 +676,7 @@ protected:
 		// TODO: fill empty space with fill color
 		foreach(i, widget; _widgets){
 			if (widget.show && widget._requestingUpdate)
-				widget.updateEventCall();
+				widget._updateEventCall();
 		}
 	}
 	/// called to cycle between actveWidgets. This is called by parent widget
@@ -677,9 +695,9 @@ protected:
 			
 			if (lastActiveWidgetIndex != _activeWidgetIndex){
 				if (lastActiveWidgetIndex > -1)
-					_widgets[lastActiveWidgetIndex].activateEventCall(false);
+					_widgets[lastActiveWidgetIndex]._activateEventCall(false);
 				if (_activeWidgetIndex > -1)
-					_widgets[_activeWidgetIndex].activateEventCall(true);
+					_widgets[_activeWidgetIndex]._activateEventCall(true);
 			}
 		}
 		return _activeWidgetIndex != -1;
@@ -700,7 +718,7 @@ protected:
 
 		// and then manipulate the current layout
 		if (lastActiveWidgetIndex != _activeWidgetIndex && lastActiveWidgetIndex > -1)
-			_widgets[lastActiveWidgetIndex].activateEventCall(false);
+			_widgets[lastActiveWidgetIndex]._activateEventCall(false);
 		return _activeWidgetIndex != -1;
 	}
 
@@ -785,15 +803,15 @@ private:
 			else{ // otherwise read it as a Ctrl+C
 				KeyboardEvent keyEvent;
 				keyEvent.key = KeyboardEvent.CtrlKeys.CtrlC;
-				this.keyboardEventCall(keyEvent);
+				this._keyboardEventCall(keyEvent);
 			}
 		}else if (event.type == Event.Type.Keyboard){
 			KeyboardEvent kPress = event.keyboard;
-			this.keyboardEventCall(kPress);
+			this._keyboardEventCall(kPress);
 		}else if (event.type == Event.Type.Mouse){
-			this.mouseEventCall(event.mouse);
+			this._mouseEventCall(event.mouse);
 		}else if (event.type == Event.Type.Resize){
-			this.resizeEventCall();
+			this._resizeEventCall();
 		}
 	}
 
@@ -813,7 +831,7 @@ protected:
 	override void updateEvent(){
 		// resize if needed
 		if (_requestingResize)
-			this.resizeEventCall();
+			this._resizeEventCall();
 		super.updateEvent(); // no, this is not a mistake, dont change this to updateEventCall again!
 		// check if need to show/hide cursor
 		uint x = cursorX, y = cursorY;
@@ -857,13 +875,10 @@ public:
 	
 	/// starts the UI loop
 	void run(){
-		//ready
-		initializeCall();
-		resizeEventCall();
-		//draw the whole thing
-		updateEventCall();
+		_initializeCall();
+		_resizeEventCall();
+		_updateEventCall();
 		_isRunning = true;
-		// the stop watch, to count how much time has passed after each timerEvent
 		StopWatch sw = StopWatch(AutoStart.yes);
 		while (_isRunning){
 			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
@@ -871,13 +886,13 @@ public:
 			while (_termWrap.getEvent(timeout, event) > 0){
 				readEvent(event);
 				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
-				updateEventCall();
+				_updateEventCall();
 			}
 			if (sw.peek.total!"msecs" >= timerMsecs){
-				this.timerEventCall(cast(uint)sw.peek.total!"msecs");
+				_timerEventCall(cast(uint)sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
-				updateEventCall();
+				_updateEventCall();
 			}
 		}
 	}
