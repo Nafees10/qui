@@ -70,6 +70,99 @@ struct Cell{
 	Color fg, bg;
 }
 
+/// Display buffer
+struct Viewport{
+private:
+	Cell[] _buffer;
+	uint _seekX, _seekY;
+	uint _width, _height;
+	uint _actualWidth;
+	uint _offsetX, _offsetY; // these are subtracted, only when seek is set, not after
+
+	/// seek position in _buffer calculated from _seekX & _seekY
+	@property uint _seek(){
+		return _seekX + (_seekY*_actualWidth);
+	}
+	/// set another DisplayBuffer so that it is a rectangular slice from this
+	///
+	/// Returns: true if done, false if not
+	bool _getSlice(Viewport* sub, uint x, uint y, uint width, uint height){
+		if (x < _offsetX || y < _offsetY || width == 0 || height == 0)
+			return false;
+		x -= _offsetX;
+		y -= _offsetY;
+		sub._buffer = _buffer[x + (y * _actualWidth) .. x + (y * _actualWidth) + ((height - 1) * _actualWidth) + width];
+		sub._seekX = 0;
+		sub._seekY = 0;
+		sub._width = width;
+		sub._height = height;
+		sub._actualWidth = _actualWidth;
+		return true;
+	}
+public:
+	/// if x and y are at a position where writing can happen
+	bool isWritable(uint x, uint y){
+		return x >= _offsetX && y >= _offsetY && x < _width + _offsetX && y < _height + _offsetY;
+	}
+	/// move to a position, will move to 0,0 if coordinate outside bounds
+	/// 
+	/// Returns: true if done, false if outside bounds
+	bool moveTo(uint x, uint y){
+		if (!isWritable(x, y)){
+			_seekX = 0;
+			_seekY = 0;
+			return false;
+		}
+		_seekX = x - _offsetX;
+		_seekY = y - _offsetY;
+		return true;
+	}
+	/// Writes a character at current position and move ahead
+	/// 
+	/// Returns: false if outside writing area
+	bool write(dchar c, Color fg, Color bg){
+		if (_seekX >= _width || _seekY >= _height)
+			return false;
+		_buffer[_seek] = Cell(c, fg, bg);
+		_seekX ++;
+		if (_seekX >= _width){
+			_seekX = 0;
+			_seekY ++;
+		}
+		return true;
+	}
+	/// Writes a string.
+	/// 
+	/// Returns: number of characters written
+	uint write(dstring s, Color fg, Color bg){
+		uint r;
+		foreach (c; s){
+			if (write(c, fg, bg))
+				r ++;
+			else
+				return r;
+		}
+		return r;
+	}
+	/// Fills line, starting from current coordinates, with maximum `max` number of chars, if `max>0`
+	/// 
+	/// Returns: number of characters written
+	uint fillLine(dchar c, Color fg, Color bg, uint max=0){
+		if (_seekX >= _width || _seekY >= _height)
+			return 0;
+		uint r = _width - _seekX;
+		if (r > max)
+			r = max;
+		_buffer[_seek .. _seek + r][] = Cell(c, fg, bg);
+		_seekX += r;
+		if (_seekX >= _width){
+			_seekX = 0;
+			_seekY ++;
+		}
+		return r;
+	}
+}
+
 /// Base class for all widgets, including layouts and QTerminal
 ///
 /// Use this as parent-class for new widgets
@@ -81,22 +174,12 @@ private:
 	uint _width;
 	/// height of widget
 	uint _height;
-	/// Display buffer. Read as: `_dBuf[y][x]`
-	Cell[][] _dBuf;
-	/// next write position in `_dBuf`.
-	uint _dBufX, _dBufY;
 	/// horizontal scroll
 	int _scrollX;
 	/// vertical scroll
 	int _scrollY;
-	/// top left corner X coordinate of viewport. Used to limit writing to visible area
-	uint _viewX;
-	/// top left corner Y coordinate of viewport. Used to limit writing to visible area
-	uint _viewY;
-	/// width of viewport. Used to limit writing to visible area
-	uint _viewWidth;
-	/// height of viewport. Used to limit writing to visible area
-	uint _viewHeight;
+	/// viewport
+	Viewport _view;
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// whether this widget is requesting update
@@ -156,8 +239,8 @@ private:
 		if ((_eventSub & EventMask.MouseHover && mouse.state == MouseEvent.State.Hover)
 		|| (_eventSub & EventMask.MousePress && mouse.state == MouseEvent.State.Click)
 		|| (_eventSub & EventMask.MouseRelease && mouse.state == MouseEvent.State.Release)){
-			mouse.x = (mouse.x - cast(int)this._posX) + _viewX; // mouse input comes relative to visible area
-			mouse.y = (mouse.y - cast(int)this._posY) + _viewY;
+			mouse.x = (mouse.x - cast(int)this._posX) + _view._offsetX; // mouse input comes relative to visible area
+			mouse.y = (mouse.y - cast(int)this._posY) + _view._offsetY;
 			if (!_customMouseEvent || !_customMouseEvent(this, mouse))
 				this.mouseEvent(mouse);
 		}
@@ -193,8 +276,7 @@ private:
 	/// called by parent for updateEvent
 	void _updateEventCall(){
 		_requestingUpdate = false;
-		_dBufX = _viewX;
-		_dBufY = _viewY;
+		_view.moveTo(_view._offsetX,_view._offsetY);
 		if (_eventSub & EventMask.Update && (!_customUpdateEvent || !_customUpdateEvent(this)))
 			this.updateEvent();
 	}
@@ -215,62 +297,52 @@ protected:
 	/// where to draw cursor if this is active widget.
 	int _cursorX = -1, _cursorY = -1;
 
+	/// viewport coordinates. (drawable area for widget)
+	final @property uint viewportX(){
+		return _view._offsetX;
+	}
+	/// ditto
+	final @property uint viewportY(){
+		return _view._offsetY;
+	}
+	/// viewport size. (drawable area for widget)
+	final @property uint viewportWidth(){
+		return _view._width;
+	}
+	/// ditto
+	final @property uint viewportHeight(){
+		return _view._height;
+	}
+
 	/// If a coordinate is within writing area, and writing area actually exists
-	bool isWritable(uint x, uint y){
-		return x >= _viewX && x < _viewX + _viewWidth && y >= _viewY && y < _viewY + _viewHeight;
+	final bool isWritable(uint x, uint y){
+		return _view.isWritable(x,y);
 	}
 
 	/// move seek for next write to terminal.  
 	/// can only write in between `(_viewX .. _viewX + _viewWidth, _viewY .. _viewX + _viewHeight)`
 	/// 
 	/// Returns: false if writing to new coordinates not possible
-	bool moveTo(uint newX, uint newY){
-		if (!isWritable(newX, newY))
-			return false;
-		_dBufX = newX;
-		_dBufY = newY;
-		return true;
+	final bool moveTo(uint newX, uint newY){
+		return _view.moveTo(newX, newY);
 	}
 	/// writes a character on terminal
 	/// 
 	/// Returns: true if done, false if outside writing area
-	bool write(dchar c, Color fg, Color bg){
-		if (!isWritable(_dBufX, _dBufY))
-			return false;
-		_dBuf[_dBufY - _viewY][_dBufX - _viewX] = Cell(c, fg, bg);
-		_dBufX ++;
-		if (_dBufX >= _viewX + _viewWidth){
-			_dBufY ++;
-			_dBufX = _viewX;
-		}
-		return true;
+	final bool write(dchar c, Color fg, Color bg){
+		return _view.write(c, fg, bg);
 	}
 	/// writes a (d)string to terminal. if it does not fit in one line, it is wrapped
 	/// 
-	/// Returns: true if done, false if not (not enough area for whole string?)
-	bool write(dstring s, Color fg, Color bg){
-		foreach (c; s){
-			if (!write(c, fg, bg))
-				return false;
-		}
-		return true;
+	/// Returns: number of characters written
+	final uint write(dstring s, Color fg, Color bg){
+		return _view.write(s, fg, bg);
 	}
 	/// fill current line with a character. `max` is ignored if `max==0`
 	/// 
 	/// Returns: number of cells written
-	uint fillLine(dchar c, Color fg, Color bg, uint max = 0){
-		if (!isWritable(_dBufX, _dBufY))
-			return 0;
-		uint r = _viewWidth + _viewX - _dBufX;
-		if (r > max)
-			r = max;
-		_dBuf[_dBufY - _viewY][_dBufX - _viewX .. _dBufX - _viewX + r] = Cell(c, fg, bg);
-		_dBufX += r;
-		if (_dBufX >= _viewX + _viewWidth){
-			_dBufY ++;
-			_dBufX = _viewX;
-		}
-		return r;
+	final uint fillLine(dchar c, Color fg, Color bg, uint max = 0){
+		return _view.fillLine(c, fg, bg, max);
 	}
 
 	/// For cycling between widgets.
@@ -402,22 +474,6 @@ public:
 	final @property int scrollY(){
 		return _scrollY;
 	}
-	/// viewport coordinates. (drawable area for widget)
-	final @property uint viewportX(){
-		return _viewX;
-	}
-	/// ditto
-	final @property uint viewportY(){
-		return _viewY;
-	}
-	/// viewport size. (drawable area for widget)
-	final @property uint viewportWidth(){
-		return _viewWidth;
-	}
-	/// ditto
-	final @property uint viewportHeight(){
-		return _viewHeight;
-	}
 	/// width of widget
 	final @property uint width(){
 		return _width;
@@ -491,30 +547,22 @@ private:
 	Color _fillColor;
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
-	static uint calculateWidgetSize(QLayout.Type type)(QWidget widget, uint ratioTotal, uint totalSpace,
-	ref bool free){
+	uint calculateWidgetSize(QWidget widget, uint ratioTotal, uint totalSpace, ref bool free){
 		immutable uint calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
-		static if (type == QLayout.Type.Horizontal){
+		if (_type == QLayout.Type.Horizontal){
 			free = widget.minWidth == 0 && widget.maxWidth == 0;
 			return getLimitedSize(calculatedSize, widget.minWidth, widget.maxWidth);
-		}else{ // this else just exists to shut up compiler about "statement not reachable"
-			free = widget.minHeight == 0 && widget.maxHeight == 0;
-			return getLimitedSize(calculatedSize, widget.minHeight, widget.maxHeight);
 		}
-	}
-	/// ditto
-	static uint calculateWidgetSize(QLayout.Type type)(QWidget widget, uint ratioTotal, uint totalSpace){
-		bool free; // @suppress(dscanner.suspicious.unmodified) shut up vscode
-		return calculateWidgetSize!type(widget, ratioTotal, totalSpace, free);
+		free = widget.minHeight == 0 && widget.maxHeight == 0;
+		return getLimitedSize(calculatedSize, widget.minHeight, widget.maxHeight);
 	}
 	
 	/// recalculates the size of every widget inside layout
-	void recalculateWidgetsSize(QLayout.Type T)(){
-		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
-			assert(false);
+	void recalculateWidgetsSize(){
 		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
 		uint totalRatio = 0;
-		uint totalSpace = T == QLayout.Type.Horizontal ? _width : _height;
+		uint totalSpace = _type == QLayout.Type.Horizontal ? _width : _height;
+		bool free; // @suppress(dscanner.suspicious.unmodified) shut up vscode
 		foreach (widget; _widgets){
 			if (!widget.show)
 				continue;
@@ -527,13 +575,12 @@ private:
 		uint limitWRatio, limitWSize; /// totalRatio, and space used of widgets with limits
 		for (int i = 0; i < widgetStack.count; i ++){
 			QWidget widget = widgetStack.pop;
-			bool free; // @suppress(dscanner.suspicious.unmodified) shut up vscode
-			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace, free);
+			immutable uint space = calculateWidgetSize(widget, totalRatio, totalSpace, free);
 			if (free){
 				widgetStack.push(widget);
 				continue;
 			}
-			static if (T == QLayout.Type.Horizontal)
+			if (_type == QLayout.Type.Horizontal)
 				widget._width = space;
 			else
 				widget._height = space;
@@ -544,8 +591,8 @@ private:
 		totalRatio -= limitWRatio;
 		while (widgetStack.count){
 			QWidget widget = widgetStack.pop;
-			immutable uint space = calculateWidgetSize!(T)(widget, totalRatio, totalSpace);
-			static if (T == QLayout.Type.Horizontal)
+			immutable uint space = calculateWidgetSize(widget, totalRatio, totalSpace, free);
+			if (_type == QLayout.Type.Horizontal)
 				widget._width = space;
 			else
 				widget._height = space;
@@ -587,12 +634,21 @@ protected:
 
 	/// Recalculates size and position for all visible widgets
 	override void resizeEvent(){
-		if (_type == QLayout.Type.Horizontal){
-			recalculateWidgetsSize!(QLayout.Type.Horizontal);
-			recalculateWidgetsPosition!(QLayout.Type.Horizontal);
-		}else{
-			recalculateWidgetsSize!(QLayout.Type.Vertical);
-			recalculateWidgetsPosition!(QLayout.Type.Vertical);
+		recalculateWidgetsSize(); // resize everything
+		// now reposition everything, and while at it, also assign them correct _dBuff slices
+		uint previousSpace = 0; /// space taken by widgets before
+		foreach(widget; _widgets){
+			if (!widget.show)
+				continue;
+			if (_type == QLayout.Type.Horizontal){
+				widget._posY = 0;
+				widget._posX = previousSpace;
+				previousSpace += widget._width;
+			}else{
+				widget._posX = 0;
+				widget._posY = previousSpace;
+				previousSpace += widget._height;
+			}
 		}
 		foreach (i, widget; _widgets){
 			// this._display.getSlice(widget._display, widget._width, widget._height, widget._posX, widget._posY);
