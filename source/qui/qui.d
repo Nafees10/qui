@@ -545,9 +545,11 @@ private:
 	int _activeWidgetIndex = -1;
 	/// Color to fill with in unoccupied space
 	Color _fillColor;
+	/// if it has updated since last resizeEvent
+	bool _updatedAfterResize = true;
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
-	uint calculateWidgetSize(QWidget widget, uint ratioTotal, uint totalSpace, ref bool free){
+	uint _calculateWidgetSize(QWidget widget, uint ratioTotal, uint totalSpace, ref bool free){
 		immutable uint calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
 		if (_type == QLayout.Type.Horizontal){
 			free = widget.minWidth == 0 && widget.maxWidth == 0;
@@ -558,7 +560,7 @@ private:
 	}
 	
 	/// recalculates the size of every widget inside layout
-	void recalculateWidgetsSize(){
+	void _recalculateWidgetsSize(){
 		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
 		uint totalRatio = 0;
 		uint totalSpace = _type == QLayout.Type.Horizontal ? _width : _height;
@@ -575,7 +577,7 @@ private:
 		uint limitWRatio, limitWSize; /// totalRatio, and space used of widgets with limits
 		for (int i = 0; i < widgetStack.count; i ++){
 			QWidget widget = widgetStack.pop;
-			immutable uint space = calculateWidgetSize(widget, totalRatio, totalSpace, free);
+			immutable uint space = _calculateWidgetSize(widget, totalRatio, totalSpace, free);
 			if (free){
 				widgetStack.push(widget);
 				continue;
@@ -591,7 +593,7 @@ private:
 		totalRatio -= limitWRatio;
 		while (widgetStack.count){
 			QWidget widget = widgetStack.pop;
-			immutable uint space = calculateWidgetSize(widget, totalRatio, totalSpace, free);
+			immutable uint space = _calculateWidgetSize(widget, totalRatio, totalSpace, free);
 			if (_type == QLayout.Type.Horizontal)
 				widget._width = space;
 			else
@@ -600,25 +602,6 @@ private:
 			totalSpace -= space;
 		}
 		.destroy(widgetStack);
-	}
-	/// calculates and assigns widgets positions based on their sizes
-	void recalculateWidgetsPosition(QLayout.Type T)(){
-		static if (T != QLayout.Type.Horizontal && T != QLayout.Type.Vertical)
-			assert(false);
-		uint previousSpace = 0;
-		foreach(widget; _widgets){
-			if (widget.show){
-				static if (T == QLayout.Type.Horizontal){
-					widget._posY = 0;
-					widget._posX = previousSpace;
-					previousSpace += widget._width;
-				}else{
-					widget._posX = 0;
-					widget._posY = previousSpace;
-					previousSpace += widget._height;
-				}
-			}
-		}
 	}
 protected:
 	override void eventSubscribe(){
@@ -634,8 +617,9 @@ protected:
 
 	/// Recalculates size and position for all visible widgets
 	override void resizeEvent(){
-		recalculateWidgetsSize(); // resize everything
-		// now reposition everything, and while at it, also assign them correct _dBuff slices
+		_recalculateWidgetsSize(); // resize everything
+		_updatedAfterResize = false;
+		// now reposition everything, and while at it
 		uint previousSpace = 0; /// space taken by widgets before
 		foreach(widget; _widgets){
 			if (!widget.show)
@@ -651,8 +635,11 @@ protected:
 			}
 		}
 		foreach (i, widget; _widgets){
-			// this._display.getSlice(widget._display, widget._width, widget._height, widget._posX, widget._posY);
-			// TODO: adjust _dBuff slice
+			if (!_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height)){
+				widget._view._width = 0;
+				widget._view._height = 0;
+				widget._view._buffer = [];
+			}
 			widget._resizeEventCall();
 		}
 	}
@@ -706,8 +693,9 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			// widget._display = _display.getSlice(1,1, _posX, _posY); // just throw in dummy size/position, resize event will fix that
-			// TODO: init _dBuff to null
+			widget._view._width = 0;
+			widget._view._height = 0;
+			widget._view._buffer = [];
 			widget._initializeCall();
 		}
 	}
@@ -729,7 +717,13 @@ protected:
 	
 	/// called by parent widget to update
 	override void updateEvent(){
-		// TODO: fill empty space with fill color
+		if (!_updatedAfterResize){
+			_updatedAfterResize = true;
+			foreach (y; 0 .. _height){
+				moveTo(0, y);
+				fillLine(' ', _fillColor, _fillColor);
+			}
+		}
 		foreach(i, widget; _widgets){
 			if (widget.show && widget._requestingUpdate)
 				widget._updateEventCall();
@@ -852,7 +846,7 @@ private:
 	bool _stopOnInterrupt;
 
 	/// Reads InputEvent and calls appropriate functions to address those events
-	void readEvent(Event event){
+	void _readEvent(Event event){
 		if (event.type == Event.Type.HangupInterrupt){
 			if (_stopOnInterrupt)
 				_isRunning = false;
@@ -871,6 +865,28 @@ private:
 		}
 	}
 
+	/// writes _view to _termWrap
+	void _flushBuffer(){
+		if (_view._buffer.length == 0)
+			return;
+		Color prevfg = _view._buffer[0].fg, prevbg = _view._buffer[0].bg;
+		_termWrap.color(prevfg, prevbg);
+		uint x, y;
+		foreach (cell; _view._buffer){
+			if (cell.fg != prevfg || cell.bg != prevbg){
+				prevfg = cell.fg;
+				prevbg = cell.bg;
+				_termWrap.color(prevfg, prevbg);
+			}
+			_termWrap.put(x, y, cell.c);
+			x ++;
+			if (x == _width){
+				x = 0;
+				y ++;
+			}
+		}
+	}
+
 protected:
 
 	override void eventSubscribe(){
@@ -880,7 +896,10 @@ protected:
 	override void resizeEvent(){
 		_height = _termWrap.height;
 		_width = _termWrap.width;
-		// TODO: adjust _dBuff size
+		_view._buffer.length = _width * _height;
+		_view._width = _width;
+		_view._actualWidth = _width;
+		_view._height = _height;
 		super.resizeEvent();
 	}
 	
@@ -889,6 +908,8 @@ protected:
 		if (_requestingResize)
 			this._resizeEventCall();
 		super.updateEvent(); // no, this is not a mistake, dont change this to updateEventCall again!
+		// flush _view._buffer to _termWrap
+		_flushBuffer();
 		// check if need to show/hide cursor
 		uint x = cursorX, y = cursorY;
 		if (x < 0 || y < 0)
@@ -897,7 +918,7 @@ protected:
 			_termWrap.moveCursor(cast(int)x, cast(int)y);
 			_termWrap.cursorVisible = true;
 		}
-		_termWrap.flush;
+		_termWrap.flush();
 	}
 
 public:
@@ -940,7 +961,7 @@ public:
 			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			Event event;
 			while (_termWrap.getEvent(timeout, event) > 0){
-				readEvent(event);
+				_readEvent(event);
 				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 				_updateEventCall();
 			}

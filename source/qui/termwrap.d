@@ -261,11 +261,6 @@ public:
 	void color(Color fg, Color bg){
 		_term.color(fg, bg);
 	}
-	/// writes a string at position `(x, y)`
-	void write(int x, int y, dstring str){
-		_term.moveTo(x, y);
-		_term.write(str);
-	}
 	/// moves cursor to position
 	void moveCursor(int x, int y){
 		_term.moveTo(x, y);
