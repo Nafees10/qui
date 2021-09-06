@@ -911,6 +911,8 @@ protected:
 		// resize if needed
 		if (_requestingResize)
 			this._resizeEventCall();
+		_cursorX = -1;
+		_cursorY = -1;
 		super.updateEvent(); // no, this is not a mistake, dont change this to updateEventCall again!
 		// flush _view._buffer to _termWrap
 		_flushBuffer();
