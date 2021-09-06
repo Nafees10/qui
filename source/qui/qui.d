@@ -79,6 +79,18 @@ private:
 	uint _actualWidth;
 	uint _offsetX, _offsetY; // these are subtracted, only when seek is set, not after
 
+	/// reset
+	void reset(){
+		_buffer = [];
+		_seekX = 0;
+		_seekY = 0;
+		_width = 0;
+		_height = 0;
+		_actualWidth = 0;
+		_offsetX = 0;
+		_offsetY = 0;
+	}
+
 	/// seek position in _buffer calculated from _seekX & _seekY
 	@property uint _seek(){
 		return _seekX + (_seekY*_actualWidth);
@@ -86,17 +98,20 @@ private:
 	/// set another DisplayBuffer so that it is a rectangular slice from this
 	///
 	/// Returns: true if done, false if not
-	bool _getSlice(Viewport* sub, uint x, uint y, uint width, uint height){
-		if (x < _offsetX || y < _offsetY || width == 0 || height == 0)
+	bool _getSlice(Viewport* sub, int x1, int y1, int x2, int y2){
+		sub.reset();
+		if (x2 < x1 || y2 < y1 || x2 < _offsetX || y2 < _offsetY)
 			return false;
-		x -= _offsetX;
-		y -= _offsetY;
-		sub._buffer = _buffer[x + (y * _actualWidth) .. x + (y * _actualWidth) + ((height - 1) * _actualWidth) + width];
-		sub._seekX = 0;
-		sub._seekY = 0;
-		sub._width = width;
-		sub._height = height;
+		immutable int[2] topLeft = [x1 > _offsetX ? x1 - _offsetX : 0, y1 > _offsetY ? y1 - _offsetY : 0];
+		immutable int[2] bottomRight = [x2 > _offsetX ? x2 - _offsetX : 0, y2 > _offsetY ? y2 - _offsetY : 0];
+		if (_offsetX > x1)
+			sub._offsetX = _offsetX - x1;
+		if (_offsetY > y1)
+			sub._offsetY = _offsetY - y1;
+		sub._width = bottomRight[0] - topLeft[0];
+		sub._height = bottomRight[1] - topLeft[1];
 		sub._actualWidth = _actualWidth;
+		sub._buffer = _buffer[topLeft[0] + (topLeft[1]*_actualWidth) .. bottomRight[0] + ((bottomRight[1]-1)*_actualWidth)];
 		return true;
 	}
 public:
@@ -439,11 +454,11 @@ public:
 		return _eventSub;
 	}
 	/// Returns: x position of cursor to be displayed. if <0, cursor is hidden
-	@property uint cursorX(){
+	@property int cursorX(){
 		return _cursorX;
 	}
 	/// Returns: y position of cursor to be displayed. if <0, cursor is hidden
-	@property uint cursorY(){
+	@property int cursorY(){
 		return _cursorY;
 	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
@@ -635,7 +650,8 @@ protected:
 			}
 		}
 		foreach (i, widget; _widgets){
-			if (!_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height)){
+			if (!_view._getSlice(&(widget._view), widget._posX, widget._posY,
+			widget._posX+widget._width, widget._posY+widget._height)){
 				widget._view._width = 0;
 				widget._view._height = 0;
 				widget._view._buffer = [];
@@ -717,13 +733,13 @@ protected:
 	
 	/// called by parent widget to update
 	override void updateEvent(){
-		if (!_updatedAfterResize){
+		//if (!_updatedAfterResize){
 			_updatedAfterResize = true;
 			foreach (y; 0 .. _height){
 				moveTo(0, y);
 				fillLine(' ', _fillColor, _fillColor);
 			}
-		}
+		//}
 		foreach(i, widget; _widgets){
 			if (widget.show && widget._requestingUpdate)
 				widget._updateEventCall();
@@ -789,6 +805,11 @@ public:
 		_type = type;
 		this._fillColor = DEFAULT_BG;
 	}
+	/// destructor, kills children
+	~this(){
+		foreach (child; _widgets)
+			.destroy(child);
+	}
 	/// Color for unoccupied space
 	@property Color fillColor(){
 		return _fillColor;
@@ -798,20 +819,22 @@ public:
 		return _fillColor = newColor;
 	}
 	/// Returns: x position of cursor, <0 if hidden
-	override @property uint cursorX(){
+	override @property int cursorX(){
 		if (_activeWidgetIndex == -1)
 			return -1;
-		if (_widgets[_activeWidgetIndex].cursorX < 0)
+		QWidget activeWidget = _widgets[_activeWidgetIndex];
+		if (activeWidget.cursorX < 0)
 			return -1;
-		return _widgets[_activeWidgetIndex]._posX + _widgets[_activeWidgetIndex].cursorX;
+		return activeWidget._posX + activeWidget.cursorX - activeWidget.viewportX;
 	}
 	/// Returns: y position of cursor, <0 if hidden
-	override @property uint cursorY(){
+	override @property int cursorY(){
 		if (_activeWidgetIndex == -1)
 			return -1;
-		if (_widgets[_activeWidgetIndex].cursorY < 0)
+		QWidget activeWidget = _widgets[_activeWidgetIndex];
+		if (activeWidget.cursorY < 0)
 			return -1;
-		return _widgets[_activeWidgetIndex]._posY + _widgets[_activeWidgetIndex].cursorY;
+		return activeWidget._posY + activeWidget.cursorY - activeWidget.viewportY;
 	}
 	/// adds a widget, and makes space for it
 	void addWidget(QWidget widget){
@@ -843,7 +866,7 @@ private:
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
 	/// whether to stop UI loop on Interrupt
-	bool _stopOnInterrupt;
+	bool _stopOnInterrupt = true;
 
 	/// Reads InputEvent and calls appropriate functions to address those events
 	void _readEvent(Event event){
@@ -911,7 +934,7 @@ protected:
 		// flush _view._buffer to _termWrap
 		_flushBuffer();
 		// check if need to show/hide cursor
-		uint x = cursorX, y = cursorY;
+		int x = cursorX, y = cursorY;
 		if (x < 0 || y < 0)
 			_termWrap.cursorVisible = false;
 		else{
