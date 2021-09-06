@@ -563,7 +563,7 @@ private:
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
 	uint _calculateWidgetSize(QWidget widget, uint ratioTotal, uint totalSpace, ref bool free){
-		immutable uint calculatedSize = cast(uint)((widget.sizeRatio*totalSpace)/ratioTotal);
+		immutable uint calculatedSize = cast(uint)((widget._sizeRatio*totalSpace)/ratioTotal);
 		if (_type == QLayout.Type.Horizontal){
 			free = widget.minWidth == 0 && widget.maxWidth == 0;
 			return getLimitedSize(calculatedSize, widget.minWidth, widget.maxWidth);
@@ -579,9 +579,9 @@ private:
 		uint totalSpace = _type == QLayout.Type.Horizontal ? _width : _height;
 		bool free; // @suppress(dscanner.suspicious.unmodified) shut up vscode
 		foreach (widget; _widgets){
-			if (!widget.show)
+			if (!widget._show)
 				continue;
-			totalRatio += widget.sizeRatio;
+			totalRatio += widget._sizeRatio;
 			widget._height = getLimitedSize(_height, widget.minHeight, widget.maxHeight);
 			widget._width = getLimitedSize(_width, widget.minWidth, widget.maxWidth);
 			widgetStack.push(widget);
@@ -599,7 +599,7 @@ private:
 				widget._width = space;
 			else
 				widget._height = space;
-			limitWRatio += widget.sizeRatio;
+			limitWRatio += widget._sizeRatio;
 			limitWSize += space;
 		}
 		totalSpace -= limitWSize;
@@ -611,7 +611,7 @@ private:
 				widget._width = space;
 			else
 				widget._height = space;
-			totalRatio -= widget.sizeRatio;
+			totalRatio -= widget._sizeRatio;
 			totalSpace -= space;
 		}
 		.destroy(widgetStack);
@@ -634,7 +634,7 @@ protected:
 		// now reposition everything, and while at it
 		uint previousSpace = 0; /// space taken by widgets before
 		foreach(widget; _widgets){
-			if (!widget.show)
+			if (!widget._show)
 				continue;
 			if (_type == QLayout.Type.Horizontal){
 				widget._posY = 0;
@@ -655,29 +655,29 @@ protected:
 	}
 	
 	/// Redirects the mouseEvent to the appropriate widget
-	override public void mouseEvent(MouseEvent mouse) {
+	override public void mouseEvent(MouseEvent mouse){
+		immutable bool function(QWidget,int,int) rangeCheck = _type == Type.Horizontal ? 
+		function(QWidget widget, int x, int y){
+			return x >= widget._posX && x < widget._posX + widget._width;
+		} : function(QWidget widget, int x, int y){
+			return y >= widget._posY && y < widget._posY + widget._height;
+		};
 		/// first check if it's already inside active widget, might not have to search through each widget
-		QWidget activeWidget = null;
-		if (_activeWidgetIndex > -1)
-			activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget && mouse.x >= activeWidget._posX && mouse.x < activeWidget._posX+activeWidget._width
-		&& mouse.y >= activeWidget._posY && mouse.y < activeWidget._posY + activeWidget._height){
-			activeWidget._mouseEventCall(mouse);
-		}else{
-			foreach (i, widget; _widgets){
-				if (widget.show &&
-					mouse.x >= widget._posX && mouse.x < widget._posX + widget._width &&
-					mouse.y >= widget._posY && mouse.y < widget._posY + widget._height){
-					// make it active only if this layout is itself active, and widget wants keyboard input
-					if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
-						if (activeWidget)
-							activeWidget._activateEventCall(false);
-						widget._activateEventCall(true);
-						_activeWidgetIndex = cast(uint)i;
-					}
-					widget._mouseEventCall(mouse);
-					break;
+		if (_activeWidgetIndex > -1 && rangeCheck(_widgets[_activeWidgetIndex], mouse.x, mouse.y)){
+			_widgets[_activeWidgetIndex]._mouseEventCall(mouse);
+			return;
+		}
+		foreach (i, widget; _widgets){
+			if (widget._show && rangeCheck(widget, mouse.x, mouse.y)){
+				// make it active only if this layout is itself active, and widget wants keyboard input
+				if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
+					if (_activeWidgetIndex > -1)
+						_widgets[_activeWidgetIndex]._activateEventCall(false);
+					widget._activateEventCall(true);
+					_activeWidgetIndex = cast(int)i;
 				}
+				widget._mouseEventCall(mouse);
+				return;
 			}
 		}
 	}
@@ -733,7 +733,7 @@ protected:
 			}
 		}
 		foreach(i, widget; _widgets){
-			if (widget.show && widget._requestingUpdate)
+			if (widget._show && widget._requestingUpdate)
 				widget._updateEventCall();
 		}
 	}
@@ -745,7 +745,7 @@ protected:
 		if (_activeWidgetIndex == -1 || !(_widgets[_activeWidgetIndex].cycleActiveWidget())){
 			int lastActiveWidgetIndex = _activeWidgetIndex;
 			for (_activeWidgetIndex ++; _activeWidgetIndex < _widgets.length; _activeWidgetIndex ++){
-				if ((_widgets[_activeWidgetIndex]._eventSub & EventMask.KeyboardAll) && _widgets[_activeWidgetIndex].show)
+				if ((_widgets[_activeWidgetIndex]._eventSub & EventMask.KeyboardAll) && _widgets[_activeWidgetIndex]._show)
 					break;
 			}
 			if (_activeWidgetIndex >= _widgets.length)
@@ -768,7 +768,7 @@ protected:
 		// search and activate recursively
 		_activeWidgetIndex = -1;
 		foreach (index, widget; _widgets) {
-			if ((widget._eventSub & EventMask.KeyboardAll) && widget.show && widget.searchAndActivateWidget(target)){
+			if ((widget._eventSub & EventMask.KeyboardAll) && widget._show && widget.searchAndActivateWidget(target)){
 				_activeWidgetIndex = cast(int)index;
 				break;
 			}
