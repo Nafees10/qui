@@ -284,8 +284,8 @@ public:
 	bool getEvent(int msecTimeout, ref Event event){
 		StopWatch sw;
 		sw.start;
-		while (msecTimeout - sw.peek.total!"msecs" > 0){
-			if (_input.timedCheckForInput(cast(int)(msecTimeout - sw.peek.total!"msecs"))){
+		while (msecTimeout - cast(int)sw.peek.total!"msecs" > 0){
+			if (_input.timedCheckForInput(msecTimeout - cast(int)sw.peek.total!"msecs")){
 				InputEvent e = _input.nextEvent;
 				if (e.type == InputEvent.Type.HangupEvent || e.type == InputEvent.Type.UserInterruptionEvent){
 					event = Event(Event.Type.HangupInterrupt);
