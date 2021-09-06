@@ -8,6 +8,33 @@ import qui.utils;
 import utils.misc;
 import utils.lists;
 
+import std.conv : to;
+
+/// for testing only.
+class ScrollTestingWidget : QWidget{
+protected:
+	override void resizeEvent(){
+		requestUpdate();
+	}
+	override void updateEvent(){
+		foreach (y; viewportY .. viewportY + viewportHeight){
+			moveTo(viewportX, y);
+			foreach (x; viewportX .. viewportX + viewportWidth){
+				write(((x+y) % 10).to!dstring[0], textColor, backgroundColor);
+			}
+		}
+	}
+public:
+	/// text and background colors
+	Color textColor, backgroundColor;
+	/// constructor
+	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG){
+		eventSubscribe(EventMask.Resize | EventMask.Update);
+		this.textColor = textColor;
+		this.backgroundColor = backgroundColor;
+	}
+}
+
 /// Displays some text
 ///
 /// And it can't handle new-line characters
@@ -63,7 +90,7 @@ protected:
 	}
 	
 	override void updateEvent(){
-		_display.write(_caption.scrollHorizontal(xOffset, this.width), textColor, backgroundColor);
+		write(_caption.scrollHorizontal(xOffset, this.width), textColor, backgroundColor);
 	}
 
 public:
@@ -72,13 +99,13 @@ public:
 	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
 	uint scrollTimer;
 	/// constructor
-	this(dstring newCaption = ""){
+	this(dstring newCaption = "", uint scrollTimer = 500){
 		eventSubscribe(EventMask.Timer | EventMask.Resize | EventMask.Update);
 		this.caption = newCaption;
 		textColor = DEFAULT_FG;
 		backgroundColor = DEFAULT_BG;
 		this.maxHeight = 1;
-		scrollTimer = 500;
+		this.scrollTimer = scrollTimer;
 	}
 
 	/// the text to display
@@ -94,7 +121,7 @@ public:
 		return _caption;
 	}
 }
-
+/*
 /// To get single-line input from keyboard
 class EditLineWidget : QWidget{
 private:
@@ -547,4 +574,4 @@ public:
 		this.color = DEFAULT_BG;
 		eventSubscribe(EventMask.Resize | EventMask.Update);
 	}
-}
+}*/
