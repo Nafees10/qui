@@ -209,6 +209,11 @@ private:
 	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
 	/// Events this widget is subscribed to, see `EventMask`
 	uint _eventSub = 0;
+	/// whether this widget should be drawn or not.
+	bool _show = true;
+	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.  
+	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.
+	uint _sizeRatio = 1;
 
 	/// custom onInit event, if not null, it should be called before doing anything else in init();
 	InitFunction _customInitEvent;
@@ -238,6 +243,12 @@ private:
 		_requestingResize = true;
 		if (_parent)
 			_parent.requestResize();
+	}
+	/// Called to request cursor to be positioned at x,y
+	/// Will do nothing if not active widget
+	void _requestCursorPos(int x, int y){
+		if (_isActive && _parent)
+			_parent.requestCursorPos(_posX + x - _view._offsetX , _posY + y - _view._offsetY);
 	}
 
 	/// called by parent for initialize event
@@ -300,13 +311,6 @@ protected:
 	uint _minHeight;
 	/// maximum height
 	uint _maxHeight;
-	/// whether this widget should be drawn or not.
-	bool _show = true;
-	/// specifies that how much height (in horizontal layout) or width (in vertical) is given to this widget.  
-	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.
-	uint _sizeRatio = 1;
-	/// where to draw cursor if this is active widget.
-	int _cursorX = -1, _cursorY = -1;
 
 	/// viewport coordinates. (drawable area for widget)
 	final @property uint viewportX(){
@@ -386,8 +390,14 @@ protected:
 		if (_parent)
 			_parent.eventSubscribe();
 	}
-	/// called by children to update events subscribed
+	/// called by children when they want to re-subscribe to events
 	void eventSubscribe(){}
+
+	/// to set cursor position on terminal. will only work if this is active widget.  
+	/// set x or y or both to negative to hide cursor
+	void requestCursorPos(int x, int y){
+		_requestCursorPos(x, y);
+	}
 
 	/// Called to update this widget
 	void updateEvent(){}
@@ -449,30 +459,22 @@ public:
 	final @property uint eventSub(){
 		return _eventSub;
 	}
-	/// Returns: x position of cursor to be displayed. if <0, cursor is hidden
-	@property int cursorX(){
-		return _cursorX;
-	}
-	/// Returns: y position of cursor to be displayed. if <0, cursor is hidden
-	@property int cursorY(){
-		return _cursorY;
-	}
 	/// size of width (height/width, depending of Layout.Type it is in) of this widget, in ratio to other widgets in that layout
-	@property uint sizeRatio(){
+	final @property uint sizeRatio(){
 		return _sizeRatio;
 	}
 	/// ditto
-	@property uint sizeRatio(uint newRatio){
+	final @property uint sizeRatio(uint newRatio){
 		_sizeRatio = newRatio;
 		_requestResize();
 		return _sizeRatio;
 	}
 	/// visibility of the widget. getter
-	@property bool show(){
+	final @property bool show(){
 		return _show;
 	}
 	/// visibility of the widget. setter
-	@property bool show(bool visibility){
+	final @property bool show(bool visibility){
 		_show = visibility;
 		_requestResize();
 		return _show;
@@ -646,11 +648,8 @@ protected:
 		}
 		foreach (i, widget; _widgets){
 			if (!_view._getSlice(&(widget._view), widget._posX, widget._posY,
-			widget._posX+widget._width, widget._posY+widget._height)){
-				widget._view._width = 0;
-				widget._view._height = 0;
-				widget._view._buffer = [];
-			}
+			widget._posX+widget._width, widget._posY+widget._height))
+				widget._view.reset();
 			widget._resizeEventCall();
 		}
 	}
@@ -704,9 +703,7 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			widget._view._width = 0;
-			widget._view._height = 0;
-			widget._view._buffer = [];
+			widget._view.reset();
 			widget._initializeCall();
 		}
 	}
@@ -813,24 +810,6 @@ public:
 	@property Color fillColor(Color newColor){
 		return _fillColor = newColor;
 	}
-	/// Returns: x position of cursor, <0 if hidden
-	override @property int cursorX(){
-		if (_activeWidgetIndex == -1)
-			return -1;
-		QWidget activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget.cursorX < 0)
-			return -1;
-		return activeWidget._posX + activeWidget.cursorX - activeWidget.viewportX;
-	}
-	/// Returns: y position of cursor, <0 if hidden
-	override @property int cursorY(){
-		if (_activeWidgetIndex == -1)
-			return -1;
-		QWidget activeWidget = _widgets[_activeWidgetIndex];
-		if (activeWidget.cursorY < 0)
-			return -1;
-		return activeWidget._posY + activeWidget.cursorY - activeWidget.viewportY;
-	}
 	/// adds a widget, and makes space for it
 	void addWidget(QWidget widget){
 		widget._parent = this;
@@ -862,6 +841,8 @@ private:
 	bool _isRunning;
 	/// whether to stop UI loop on Interrupt
 	bool _stopOnInterrupt = true;
+	/// cursor position
+	int _cursorX, _cursorY;
 
 	/// Reads InputEvent and calls appropriate functions to address those events
 	void _readEvent(Event event){
@@ -911,6 +892,11 @@ protected:
 		_eventSub = EventMask.All;
 	}
 
+	override void requestCursorPos(int x, int y){
+		_cursorX = x;
+		_cursorY = y;
+	}
+
 	override void resizeEvent(){
 		_height = _termWrap.height;
 		_width = _termWrap.width;
@@ -929,11 +915,10 @@ protected:
 		// flush _view._buffer to _termWrap
 		_flushBuffer();
 		// check if need to show/hide cursor
-		int x = cursorX, y = cursorY;
-		if (x < 0 || y < 0)
+		if (_cursorX < 0 || _cursorY < 0)
 			_termWrap.cursorVisible = false;
 		else{
-			_termWrap.moveCursor(cast(int)x, cast(int)y);
+			_termWrap.moveCursor(_cursorX, _cursorY);
 			_termWrap.cursorVisible = true;
 		}
 		_termWrap.flush();
