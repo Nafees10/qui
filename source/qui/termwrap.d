@@ -15,12 +15,17 @@ public struct Event{
 	struct Keyboard{
 		private this(KeyboardEvent event){
 			key = event.which;
-			pressed = event.pressed;
+			state = event.pressed ? State.Pressed : State.Released;
 		}
 		//// what key was pressed
 		dchar key;
-		/// true if it was pressed, false if released
-		bool pressed;
+		/// possible states
+		enum State : ubyte{
+			Pressed = 1 << 3,  // key pressed
+			Released = 1 << 4 // key released
+		}
+		/// state
+		ubyte state;
 		/// Non character keys (can match against `this.key`)
 		/// 
 		/// copied from arsd.terminal
@@ -88,10 +93,10 @@ public struct Event{
 		/// Returns: a string representation of the key pressed
 		@property string tostring(){
 			if (isChar())
-				return "{key:\'"~to!string(key)~"\', pressed:"~pressed.to!string~"}";
+				return "{key:\'"~to!string(key)~"\', state:"~state.to!string~"}";
 			if (isCtrlKey())
-				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\', pressed:"~pressed.to!string~"}";
-			return "{key:\'"~to!string(cast(Key)key)~"\', pressed:"~pressed.to!string~"}";
+				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\', state:"~state.to!string~"}";
+			return "{key:\'"~to!string(cast(Key)key)~"\', state:"~state.to!string~"}";
 		}
 	}
 	/// Mouse Event
@@ -107,9 +112,9 @@ public struct Event{
 		}
 		/// State
 		enum State : ubyte{
-			Click	=	0x00, /// Clicked
-			Release	=	0x01, /// Released
-			Hover	=	0x02, /// Hovered
+			Click	=	1, /// Clicked
+			Release	=	1 << 1, /// Released
+			Hover	=	1 << 2, /// Hovered
 		}
 		/// x and y position of cursor
 		int x, y;

@@ -45,17 +45,17 @@ alias UpdateEventFunction = bool delegate(QWidget);
 
 /// mask of events subscribed
 enum EventMask : uint{
-	MousePress = 1, /// mouse clicks/presses
-	MouseRelease = 1 << 1, /// mouse releases
-	MouseHover = 1 << 2, /// mouse move/hover
-	KeyboardPress = 1 << 3, /// key presses
-	KeyboardRelease = 1 << 4, /// key releases
+	MousePress = 1, /// mouse clicks/presses. This value matches `MouseEvent.State.Click`
+	MouseRelease = 1 << 1, /// mouse releases. This value matches `MouseEvent.State.Release`
+	MouseHover = 1 << 2, /// mouse move/hover. This value matches `MouseEvent.State.Hover`
+	KeyboardPress = 1 << 3, /// key presses. This value matches `KeyboardEvent.State.Pressed`
+	KeyboardRelease = 1 << 4, /// key releases. This value matches `KeyboardEvent.State.Released`
 	KeyboardWidgetCycleKey = 1 << 5, /// keyboard events concerning active widget cycling key. Use this in combination with KeyboardPress or KeyboardRelease
-	Resize = 1 << 6, /// widget resize
+	Resize = 1 << 6, /// widget resize. _this is ignored, use `QWidget.requestResize();`_
 	Activate = 1 << 7, /// widget activated/deactivated.
 	Timer = 1 << 8, /// timer 
 	Initialize = 1 << 9, /// initialize
-	Update = 1 << 10, /// update/draw itself
+	Update = 1 << 10, /// draw itself. _this is ignored, use `QWidget.requestUpdate();`_
 	MouseAll = MousePress | MouseRelease | MouseHover, /// all mouse events
 	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events, this does **NOT** include KeyboardWidgetCycleKey 
 	InputAll = MouseAll | KeyboardAll, /// MouseAll and KeyboardAll
@@ -228,8 +228,6 @@ private:
 	/// Called when it needs to request an update.  
 	/// Will not do anything if not subscribed to update events
 	void _requestUpdate(){
-		if ((_eventSub & EventMask.Update) == 0)
-			return;
 		_requestingUpdate = true;
 		if (_parent)
 			_parent.requestUpdate();
@@ -237,8 +235,6 @@ private:
 	/// Called to request this widget to resize at next update
 	/// Will not do anything if not subscribed to resize events
 	void _requestResize(){
-		if ((_eventSub & EventMask.Resize) == 0)
-			return;
 		_requestingResize = true;
 		if (_parent)
 			_parent.requestResize();
@@ -246,33 +242,31 @@ private:
 
 	/// called by parent for initialize event
 	void _initializeCall(){
-		if (_eventSub & EventMask.Initialize && (!_customInitEvent || !_customInitEvent(this)))
+		if (!(_eventSub & EventMask.Initialize))
+			return;
+		if (!_customInitEvent || !_customInitEvent(this))
 			this.initialize();
 	}
 	/// called by parent for mouseEvent
 	void _mouseEventCall(MouseEvent mouse){
-		if ((_eventSub & EventMask.MouseHover && mouse.state == MouseEvent.State.Hover)
-		|| (_eventSub & EventMask.MousePress && mouse.state == MouseEvent.State.Click)
-		|| (_eventSub & EventMask.MouseRelease && mouse.state == MouseEvent.State.Release)){
-			mouse.x = (mouse.x - cast(int)this._posX) + _view._offsetX; // mouse input comes relative to visible area
-			mouse.y = (mouse.y - cast(int)this._posY) + _view._offsetY;
-			if (!_customMouseEvent || !_customMouseEvent(this, mouse))
-				this.mouseEvent(mouse);
-		}
+		if (!(_eventSub & mouse.state)) // this works coz `EventMask.Mouse*` in `_eventSub` matches `MouseEvent.State` values
+			return;
+		mouse.x = (mouse.x - cast(int)this._posX) + _view._offsetX; // mouse input comes relative to visible area
+		mouse.y = (mouse.y - cast(int)this._posY) + _view._offsetY;
+		if (!_customMouseEvent || !_customMouseEvent(this, mouse))
+			this.mouseEvent(mouse);
 	}
 	/// called by parent for keyboardEvent
 	void _keyboardEventCall(KeyboardEvent key){
-		if (((_eventSub & EventMask.KeyboardPress && key.pressed)
-		|| (_eventSub & EventMask.KeyboardRelease && !key.pressed))
-		&& (_eventSub & EventMask.KeyboardWidgetCycleKey || key.key != _activeWidgetCycleKey)){
-			if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
-				this.keyboardEvent(key);
-		}
+		if (!(_eventSub & key.state)) // this works coz `EventMask.Keyboard*` in `_eventSub` matches `KeyboardEvent.State` values
+			return;
+		if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
+			this.keyboardEvent(key);
 	}
 	/// called by parent for resizeEvent
 	void _resizeEventCall(){
 		_requestingResize = false;
-		if (_eventSub & EventMask.Resize && (!_customResizeEvent || !_customResizeEvent(this)))
+		if (!_customResizeEvent || !_customResizeEvent(this))
 			this.resizeEvent();
 	}
 	/// called by parent for activateEvent
@@ -292,7 +286,7 @@ private:
 	void _updateEventCall(){
 		_requestingUpdate = false;
 		_view.moveTo(_view._offsetX,_view._offsetY);
-		if (_eventSub & EventMask.Update && (!_customUpdateEvent || !_customUpdateEvent(this)))
+		if (!_customUpdateEvent || !_customUpdateEvent(this))
 			this.updateEvent();
 	}
 protected:
@@ -625,7 +619,6 @@ protected:
 			_eventSub |= widget._eventSub;
 		if (_eventSub & EventMask.InputAll)
 			_eventSub |= EventMask.Activate; // if children want input, then need activate too
-		_eventSub |= EventMask.Resize;
 		if (_parent)
 			_parent.eventSubscribe();
 	}
@@ -696,7 +689,7 @@ protected:
 			activeWidget = _widgets[_activeWidgetIndex];
 			eSub = activeWidget._eventSub;
 		}
-		if (key.key == _activeWidgetCycleKey && key.pressed &&
+		if (key.key == _activeWidgetCycleKey && key.state == KeyboardEvent.State.Pressed &&
 		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey))){
 			this.cycleActiveWidget();
 			return;
