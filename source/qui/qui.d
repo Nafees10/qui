@@ -248,7 +248,7 @@ private:
 	/// Will do nothing if not active widget
 	void _requestCursorPos(int x, int y){
 		if (_isActive && _parent)
-			_parent.requestCursorPos(_posX + x - _view._offsetX , _posY + y - _view._offsetY);
+			_parent.requestCursorPos(x < 0 ? x : _posX + x - _view._offsetX , y < 0 ? y : _posY + y - _view._offsetY);
 	}
 
 	/// called by parent for initialize event
@@ -842,7 +842,7 @@ private:
 	/// whether to stop UI loop on Interrupt
 	bool _stopOnInterrupt = true;
 	/// cursor position
-	int _cursorX, _cursorY;
+	int _cursorX = -1, _cursorY = -1;
 
 	/// Reads InputEvent and calls appropriate functions to address those events
 	void _readEvent(Event event){
