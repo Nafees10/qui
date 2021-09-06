@@ -166,7 +166,7 @@ public:
 		if (_seekX >= _width || _seekY >= _height)
 			return 0;
 		uint r = _width - _seekX;
-		if (r > max)
+		if (max && r > max)
 			r = max;
 		_buffer[_seek .. _seek + r][] = Cell(c, fg, bg);
 		_seekX += r;
@@ -621,8 +621,8 @@ protected:
 		_eventSub = 0;
 		foreach (widget; _widgets)
 			_eventSub |= widget._eventSub;
-		if (_eventSub & EventMask.InputAll)
-			_eventSub |= EventMask.Activate; // if children want input, then need activate too
+		if (_eventSub & EventMask.KeyboardAll)
+			_eventSub |= EventMask.Activate; // if children can become active, then need activate too
 		if (_parent)
 			_parent.eventSubscribe();
 	}
