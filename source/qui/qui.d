@@ -284,6 +284,8 @@ private:
 	}
 	/// called by parent for updateEvent
 	void _updateEventCall(){
+		if (!_requestingUpdate)
+			return;
 		_requestingUpdate = false;
 		_view.moveTo(_view._offsetX,_view._offsetY);
 		if (!_customUpdateEvent || !_customUpdateEvent(this))
@@ -726,13 +728,13 @@ protected:
 	
 	/// called by parent widget to update
 	override void updateEvent(){
-		//if (!_updatedAfterResize){
+		if (!_updatedAfterResize){
 			_updatedAfterResize = true;
-			foreach (y; 0 .. _height){
+			foreach (y; viewportY .. viewportY + viewportHeight){
 				moveTo(0, y);
-				fillLine(' ', _fillColor, _fillColor);
+				fillLine(' ', DEFAULT_FG, _fillColor);
 			}
-		//}
+		}
 		foreach(i, widget; _widgets){
 			if (widget.show && widget._requestingUpdate)
 				widget._updateEventCall();
