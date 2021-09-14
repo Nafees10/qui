@@ -98,21 +98,32 @@ private:
 	/// set another DisplayBuffer so that it is a rectangular slice from this
 	///
 	/// Returns: true if done, false if not
-	bool _getSlice(Viewport* sub, int x1, int y1, int x2, int y2){
+	void _getSlice(Viewport* sub, int x, int y, uint width, uint height){
 		sub.reset();
-		if (x2 < x1 || y2 < y1 || x2 < _offsetX || y2 < _offsetY)
-			return false;
-		immutable int[2] topLeft = [x1 > _offsetX ? x1 - _offsetX : 0, y1 > _offsetY ? y1 - _offsetY : 0];
-		immutable int[2] bottomRight = [x2 > _offsetX ? x2 - _offsetX : 0, y2 > _offsetY ? y2 - _offsetY : 0];
-		if (_offsetX > x1)
-			sub._offsetX = _offsetX - x1;
-		if (_offsetY > y1)
-			sub._offsetY = _offsetY - y1;
-		sub._width = bottomRight[0] - topLeft[0];
-		sub._height = bottomRight[1] - topLeft[1];
 		sub._actualWidth = _actualWidth;
-		sub._buffer = _buffer[topLeft[0] + (topLeft[1]*_actualWidth) .. bottomRight[0] + ((bottomRight[1]-1)*_actualWidth)];
-		return true;
+		x -= _offsetX;
+		y -= _offsetY;
+		if (x > _width || y > _height || width == 0 || height == 0)
+			return;
+		if (x < 0){
+			sub._offsetX = -x;
+			x = 0;
+		}
+		if (y < 0){
+			sub._offsetY = -y;
+			y = 0;
+		}
+		if (width + x > _width)
+			width = _width - x;
+		if (height + y > _height)
+			height = _height - y;
+		immutable uint buffStart  = x + (y*_actualWidth), buffEnd = buffStart + ((height-1)*_actualWidth) + width;
+		// this if shouldnt be necessary, but idk what im doing rn, and dont want segfault:
+		if (_buffer.length < buffEnd)
+			return;
+		sub._width = width;
+		sub._height = height;
+		sub._buffer = _buffer[buffStart .. buffEnd];
 	}
 public:
 	/// if x and y are at a position where writing can happen
@@ -189,10 +200,8 @@ private:
 	uint _width;
 	/// height of widget
 	uint _height;
-	/// horizontal scroll
-	int _scrollX;
-	/// vertical scroll
-	int _scrollY;
+	/// scroll
+	uint _scrollX, _scrollY;
 	/// viewport
 	Viewport _view;
 	/// stores if this widget is the active widget
@@ -203,8 +212,10 @@ private:
 	bool _requestingResize;
 	/// the parent widget
 	QWidget _parent = null;
-	/// the index it is stored at in _parent. -1 if no parent asigned yet
-	int _indexInParent = -1;
+	/// if it can make parent change scrolling
+	bool _canReqScroll = false;
+	/// if the widget is inside a container that allows scrolling
+	bool _parentScrollable = false;
 	/// the key used for cycling active widget
 	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
 	/// Events this widget is subscribed to, see `EventMask`
@@ -249,6 +260,11 @@ private:
 	void _requestCursorPos(int x, int y){
 		if (_isActive && _parent)
 			_parent.requestCursorPos(x < 0 ? x : _posX + x - _view._offsetX , y < 0 ? y : _posY + y - _view._offsetY);
+	}
+	/// Called to request scrolling to be adjusted
+	void _requestScroll(uint x, uint y){
+		if (_isActive && _parent)
+			_parent.requestScroll(x + _posX, y + _posY);
 	}
 
 	/// called by parent for initialize event
@@ -399,6 +415,11 @@ protected:
 		_requestCursorPos(x, y);
 	}
 
+	/// called to request to scroll
+	void requestScroll(uint x, uint y){
+		_requestScroll(x, y);
+	}
+
 	/// Called to update this widget
 	void updateEvent(){}
 
@@ -479,12 +500,12 @@ public:
 		_requestResize();
 		return _show;
 	}
-	/// horizontal scroll. Use for drawing scrollbar
-	final @property int scrollX(){
+	/// horizontal scroll.
+	final @property uint scrollX(){
 		return _scrollX;
 	}
-	/// vertical scroll. Use for drawing scrollbar
-	final @property int scrollY(){
+	/// vertical scroll.
+	final @property uint scrollY(){
 		return _scrollY;
 	}
 	/// width of widget
@@ -647,9 +668,7 @@ protected:
 			}
 		}
 		foreach (i, widget; _widgets){
-			if (!_view._getSlice(&(widget._view), widget._posX, widget._posY,
-			widget._posX+widget._width, widget._posY+widget._height))
-				widget._view.reset();
+			_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height);
 			widget._resizeEventCall();
 		}
 	}
@@ -728,7 +747,7 @@ protected:
 		if (!_updatedAfterResize){
 			_updatedAfterResize = true;
 			foreach (y; viewportY .. viewportY + viewportHeight){
-				moveTo(0, y);
+				moveTo(viewportX, y);
 				fillLine(' ', DEFAULT_FG, _fillColor);
 			}
 		}
@@ -811,10 +830,10 @@ public:
 		return _fillColor = newColor;
 	}
 	/// adds a widget, and makes space for it
-	void addWidget(QWidget widget){
+	void addWidget(QWidget widget, bool allowScrollControl = false){
 		widget._parent = this;
-		widget._indexInParent = cast(int)_widgets.length;
 		widget._requestingUpdate = true;
+		widget._canReqScroll = allowScrollControl;
 		widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		_widgets ~= widget;
 		eventSubscribe;
@@ -823,12 +842,36 @@ public:
 	void addWidget(QWidget[] widgets){
 		foreach (i, widget; widgets){
 			widget._parent = this;
-			widget._indexInParent = cast(int)(_widgets.length+i);
 			widget._requestingUpdate = true;
 			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
 		_widgets ~= widgets;
 		eventSubscribe;
+	}
+}
+
+/// Container for widgets to make them scrollable, with optional scrollbars
+class ScrollContainer : QWidget{
+private:
+	QWidget _widget;
+protected:
+	bool _scrollbarV, _scrollbarH; /// if vertical and horizontal scrollbars are to be shown
+	// current scrolling
+	// re-assings display buffer based on _subScrollX/Y
+	final void rescroll(){
+		if (!_widget)
+			return;
+		_widget._view.reset();
+		_view._getSlice(&(_widget._view), 0, 0, _widget._width, _widget._height);
+		_widget._view._offsetX += _widget._scrollX;
+		_widget._view._offsetY += _widget._scrollY;
+	}
+	override void requestScroll(uint x, uint y){
+		if (!_widget)
+			return;
+		_widget._scrollX = x;
+		_widget._scrollY = y;
+		_widget._scrollX = _widget._scrollX;
 	}
 }
 

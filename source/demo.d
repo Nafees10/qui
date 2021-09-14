@@ -5,7 +5,7 @@ version(demo){
 	import std.conv : to;
 	import std.path;
 	import std.file : thisExePath;
-	import utils.misc :fileToArray;
+	import utils.misc : fileToArray;
 	
 	void main (){
 		QTerminal term = new QTerminal();
@@ -16,10 +16,6 @@ version(demo){
 		term.fillColor = Color.green;
 		label.height = 1;
 		term.addWidget([label, test]);
-		term.onTimerEvent = delegate(QWidget caller, uint time){
-			label.caption = (label.width.to!string ~ 'x' ~ label.height.to!string).to!dstring;
-			return false;
-		};
 		term.run();
 		.destroy(term); 
 	}
