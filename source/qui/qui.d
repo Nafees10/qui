@@ -214,8 +214,8 @@ private:
 	QWidget _parent = null;
 	/// if it can make parent change scrolling
 	bool _canReqScroll = false;
-	/// if the widget is inside a container that allows scrolling
-	bool _parentScrollable = false;
+	/// if this widget is itself a scrollable container
+	bool _isScrollableContainer;
 	/// the key used for cycling active widget
 	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
 	/// Events this widget is subscribed to, see `EventMask`
@@ -263,8 +263,9 @@ private:
 	}
 	/// Called to request scrolling to be adjusted
 	void _requestScroll(uint x, uint y){
-		if (_isActive && _parent)
-			_parent.requestScroll(x + _posX, y + _posY);
+		if (!_isActive || !_parent || x > _width || y > _height)
+			return;
+		_parent.requestScroll(x + _posX, y + _posY);
 	}
 
 	/// called by parent for initialize event
@@ -577,8 +578,12 @@ private:
 	QLayout.Type _type;
 	/// stores index of active widget. -1 if none. This is useful only for Layouts. For widgets, this stays 0
 	int _activeWidgetIndex = -1;
+	/// if it is overflowing
+	bool _isOverflowing = false;
 	/// Color to fill with in unoccupied space
 	Color _fillColor;
+	/// Color to fill with when overflowing
+	Color _overflowColor;
 	/// if it has updated since last resizeEvent
 	bool _updatedAfterResize = true;
 
@@ -651,12 +656,33 @@ protected:
 	/// Recalculates size and position for all visible widgets
 	override void resizeEvent(){
 		_recalculateWidgetsSize(); // resize everything
+		// if parent is scrollable container, and there are no size limits, then grow as needed
+		if (_minHeight == 0 && _maxHeight == 0 && _minWidth == 0 && _maxWidth == 0 && 
+		_parent && _parent._isScrollableContainer){
+			if (_type == Type.Horizontal){
+				foreach (widget; _widgets){
+					if (_height < widget._height)
+						_height = widget._height;
+					_width += widget._width;
+				}
+			}else{
+				foreach (widget; _widgets){
+					if (_width < widget._width)
+						_width = widget._width;
+					_height += widget._height;
+				}
+			}
+			_requestResize();
+		}
 		_updatedAfterResize = false;
 		// now reposition everything, and while at it
 		uint previousSpace = 0; /// space taken by widgets before
+		uint w, h;
 		foreach(widget; _widgets){
 			if (!widget._show)
 				continue;
+			w += widget._width;
+			h += widget._height;
 			if (_type == QLayout.Type.Horizontal){
 				widget._posY = 0;
 				widget._posX = previousSpace;
@@ -667,14 +693,22 @@ protected:
 				previousSpace += widget._height;
 			}
 		}
-		foreach (i, widget; _widgets){
-			_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height);
-			widget._resizeEventCall();
+		_isOverflowing = w > _width || h > _height;
+		if (_isOverflowing){
+			foreach (widget; _widgets)
+				_view.reset();
+		}else{
+			foreach (i, widget; _widgets){
+				_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height);
+				widget._resizeEventCall();
+			}
 		}
 	}
 	
 	/// Redirects the mouseEvent to the appropriate widget
 	override public void mouseEvent(MouseEvent mouse){
+		if (_isOverflowing)
+			return;
 		immutable bool function(QWidget,int,int) rangeCheck = _type == Type.Horizontal ? 
 		function(QWidget widget, int x, int y){
 			return x >= widget._posX && x < widget._posX + widget._width;
@@ -703,6 +737,8 @@ protected:
 
 	/// Redirects the keyboardEvent to appropriate widget
 	override public void keyboardEvent(KeyboardEvent key){
+		if (_isOverflowing)
+			return;
 		QWidget activeWidget = null;
 		uint eSub = 0;
 		if (_activeWidgetIndex > -1){
@@ -746,10 +782,13 @@ protected:
 	override void updateEvent(){
 		if (!_updatedAfterResize){
 			_updatedAfterResize = true;
+			Color fill = _isOverflowing ? _overflowColor : _fillColor;
 			foreach (y; viewportY .. viewportY + viewportHeight){
 				moveTo(viewportX, y);
-				fillLine(' ', DEFAULT_FG, _fillColor);
+				fillLine(' ', DEFAULT_FG, fill);
 			}
+			if (_isOverflowing)
+				return;
 		}
 		foreach(i, widget; _widgets){
 			if (widget._show && widget._requestingUpdate)
@@ -829,6 +868,14 @@ public:
 	@property Color fillColor(Color newColor){
 		return _fillColor = newColor;
 	}
+	/// Color to fill with when out of space
+	@property Color overflowColor(){
+		return _overflowColor;
+	}
+	/// ditto
+	@property Color overflowColor(Color newColor){
+		return _overflowColor = newColor;
+	}
 	/// adds a widget, and makes space for it
 	void addWidget(QWidget widget, bool allowScrollControl = false){
 		widget._parent = this;
@@ -852,9 +899,9 @@ public:
 
 /// Container for widgets to make them scrollable, with optional scrollbars
 class ScrollContainer : QWidget{
-private:
-	QWidget _widget;
 protected:
+	QWidget _widget; /// rthe widget to be scrolled
+
 	bool _scrollbarV, _scrollbarH; /// if vertical and horizontal scrollbars are to be shown
 	// current scrolling
 	// re-assings display buffer based on _subScrollX/Y
@@ -866,12 +913,23 @@ protected:
 		_widget._view._offsetX += _widget._scrollX;
 		_widget._view._offsetY += _widget._scrollY;
 	}
+
 	override void requestScroll(uint x, uint y){
 		if (!_widget)
 			return;
 		_widget._scrollX = x;
 		_widget._scrollY = y;
-		_widget._scrollX = _widget._scrollX;
+		rescroll();
+	}
+	
+	override void keyboardEvent(KeyboardEvent key){
+
+	}
+public:
+	/// constructor
+	this(){
+		this._isScrollableContainer = true;
+
 	}
 }
 
