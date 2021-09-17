@@ -216,8 +216,6 @@ private:
 	bool _canReqScroll = false;
 	/// if this widget is itself a scrollable container
 	bool _isScrollableContainer;
-	/// the key used for cycling active widget
-	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
 	/// Events this widget is subscribed to, see `EventMask`
 	uint _eventSub = 0;
 	/// whether this widget should be drawn or not.
@@ -394,11 +392,6 @@ protected:
 			return true;
 		}
 		return false;
-	}
-
-	/// changes the key used for cycling active widgets
-	void setActiveWidgetCycleKey(dchar newKey){
-		this._activeWidgetCycleKey = newKey;
 	}
 
 	/// called by itself, to update events subscribed to
@@ -672,7 +665,6 @@ protected:
 					_height += widget._height;
 				}
 			}
-			_requestResize();
 		}
 		_updatedAfterResize = false;
 		// now reposition everything, and while at it
@@ -709,29 +701,29 @@ protected:
 	override public void mouseEvent(MouseEvent mouse){
 		if (_isOverflowing)
 			return;
-		immutable bool function(QWidget,int,int) rangeCheck = _type == Type.Horizontal ? 
-		function(QWidget widget, int x, int y){
-			return x >= widget._posX && x < widget._posX + widget._width;
-		} : function(QWidget widget, int x, int y){
-			return y >= widget._posY && y < widget._posY + widget._height;
-		};
-		/// first check if it's already inside active widget, might not have to search through each widget
-		if (_activeWidgetIndex > -1 && rangeCheck(_widgets[_activeWidgetIndex], mouse.x, mouse.y)){
-			_widgets[_activeWidgetIndex]._mouseEventCall(mouse);
-			return;
-		}
-		foreach (i, widget; _widgets){
-			if (widget._show && rangeCheck(widget, mouse.x, mouse.y)){
-				// make it active only if this layout is itself active, and widget wants keyboard input
-				if (this._isActive && (widget._eventSub & EventMask.KeyboardAll)){
-					if (_activeWidgetIndex > -1)
-						_widgets[_activeWidgetIndex]._activateEventCall(false);
-					widget._activateEventCall(true);
-					_activeWidgetIndex = cast(int)i;
+		int index = _activeWidgetIndex;
+		if (_type == Type.Horizontal){
+			foreach (i, w; _widgets){
+				if (w._show && w._posX <= mouse.x && w._posX + w._width > mouse.x){
+					index = cast(int)i;
+					break;
 				}
-				widget._mouseEventCall(mouse);
-				return;
 			}
+		}else{
+			foreach (i, w; _widgets){
+				if (w._show && w._posY <= mouse.y && w._posY + w._height > mouse.y){
+					index = cast(int)i;
+					break;
+				}
+			}
+		}
+		if (index > -1){
+			if (index != _activeWidgetIndex && _widgets[index]._eventSub & EventMask.KeyboardAll){
+				if (_activeWidgetIndex > -1)
+					_widgets[_activeWidgetIndex]._activateEventCall(false);
+				_widgets[index]._activateEventCall(true);
+			}
+			_widgets[index]._mouseEventCall(mouse);
 		}
 	}
 
@@ -739,20 +731,8 @@ protected:
 	override public void keyboardEvent(KeyboardEvent key){
 		if (_isOverflowing)
 			return;
-		QWidget activeWidget = null;
-		uint eSub = 0;
-		if (_activeWidgetIndex > -1){
-			activeWidget = _widgets[_activeWidgetIndex];
-			eSub = activeWidget._eventSub;
-		}
-		if (key.key == _activeWidgetCycleKey && key.state == KeyboardEvent.State.Pressed &&
-		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey))){
-			this.cycleActiveWidget();
-			return;
-		}
-		if (!activeWidget)
-			return;
-		activeWidget._keyboardEventCall(key);
+		if (_activeWidgetIndex > -1)
+			_widgets[_activeWidgetIndex]._keyboardEventCall(key);
 	}
 
 	/// override initialize to initliaze child widgets
@@ -838,12 +818,6 @@ protected:
 		return _activeWidgetIndex != -1;
 	}
 
-	/// Change the key used for cycling active widgets, changes it for all added widgets as well
-	override void setActiveWidgetCycleKey(dchar newKey){
-		_activeWidgetCycleKey = newKey;
-		foreach (widget; _widgets)
-			widget.setActiveWidgetCycleKey(newKey);
-	}
 public:
 	/// Layout type
 	enum Type{
@@ -881,7 +855,6 @@ public:
 		widget._parent = this;
 		widget._requestingUpdate = true;
 		widget._canReqScroll = allowScrollControl;
-		widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		_widgets ~= widget;
 		eventSubscribe;
 	}
@@ -890,10 +863,9 @@ public:
 		foreach (i, widget; widgets){
 			widget._parent = this;
 			widget._requestingUpdate = true;
-			widget.setActiveWidgetCycleKey(this._activeWidgetCycleKey);
 		}
 		_widgets ~= widgets;
-		eventSubscribe;
+		eventSubscribe();
 	}
 }
 
@@ -940,6 +912,8 @@ private:
 	TermWrapper _termWrap;
 	/// set to false to stop UI loop in run()
 	bool _isRunning;
+	/// the key used for cycling active widget
+	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
 	/// whether to stop UI loop on Interrupt
 	bool _stopOnInterrupt = true;
 	/// cursor position
@@ -1006,6 +980,24 @@ protected:
 		_view._actualWidth = _width;
 		_view._height = _height;
 		super.resizeEvent();
+	}
+
+	override void keyboardEvent(KeyboardEvent key){
+		if (_isOverflowing)
+			return;
+		QWidget activeWidget = null;
+		uint eSub = 0;
+		if (_activeWidgetIndex > -1){
+			activeWidget = _widgets[_activeWidgetIndex];
+			eSub = activeWidget._eventSub;
+		}
+		if (key.key == _activeWidgetCycleKey && key.state == KeyboardEvent.State.Pressed &&
+		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey))){
+			this.cycleActiveWidget();
+			return;
+		}
+		if (activeWidget)
+			activeWidget._keyboardEventCall(key);
 	}
 	
 	override void updateEvent(){
@@ -1090,7 +1082,7 @@ public:
 	/// Changes the key used to cycle between active widgets.
 	/// 
 	/// for `key`, use either ASCII value of keyboard key, or use KeyboardEvent.Key or KeyboardEvent.CtrlKeys
-	override void setActiveWidgetCycleKey(dchar key){
-		super.setActiveWidgetCycleKey(key);
+	void setActiveWidgetCycleKey(dchar key){
+		_activeWidgetCycleKey = key;
 	}
 }
