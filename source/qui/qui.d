@@ -51,11 +51,11 @@ enum EventMask : uint{
 	KeyboardPress = 1 << 3, /// key presses. This value matches `KeyboardEvent.State.Pressed`
 	KeyboardRelease = 1 << 4, /// key releases. This value matches `KeyboardEvent.State.Released`
 	KeyboardWidgetCycleKey = 1 << 5, /// keyboard events concerning active widget cycling key. Use this in combination with KeyboardPress or KeyboardRelease
-	Resize = 1 << 6, /// widget resize. _this is ignored, use `QWidget.requestResize();`_
+	Resize = 1 << 6, /// widget resize. _this is ignored, use `QWidget.requestResize();`_, otherwise, resize will always be called
 	Activate = 1 << 7, /// widget activated/deactivated.
 	Timer = 1 << 8, /// timer 
 	Initialize = 1 << 9, /// initialize
-	Update = 1 << 10, /// draw itself. _this is ignored, use `QWidget.requestUpdate();`_
+	Update = 1 << 10, /// draw itself. _this is ignored, use `QWidget.requestUpdate();`_ if updateEvent is to be called
 	MouseAll = MousePress | MouseRelease | MouseHover, /// all mouse events
 	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events, this does **NOT** include KeyboardWidgetCycleKey 
 	InputAll = MouseAll | KeyboardAll, /// MouseAll and KeyboardAll
@@ -68,6 +68,10 @@ struct Cell{
 	dchar c;
 	/// foreground and background colors
 	Color fg, bg;
+	/// if properties of this are same as other
+	bool propSame(Cell B){
+		return this.fg == B.fg && this.bg == B.fg;
+	}
 }
 
 /// Display buffer
@@ -462,10 +466,6 @@ public:
 	final @property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
 	}
-	/// Returns: this widget's parent
-	final @property QWidget parent(){
-		return _parent;
-	}
 	/// Returns: true if this widget is the current active widget
 	final @property bool isActive(){
 		return _isActive;
@@ -673,16 +673,20 @@ protected:
 		foreach(widget; _widgets){
 			if (!widget._show)
 				continue;
-			w += widget._width;
-			h += widget._height;
 			if (_type == QLayout.Type.Horizontal){
 				widget._posY = 0;
 				widget._posX = previousSpace;
 				previousSpace += widget._width;
+				w += widget._width;
+				if (widget._height > h)
+					h = widget._height;
 			}else{
 				widget._posX = 0;
 				widget._posY = previousSpace;
 				previousSpace += widget._height;
+				h += widget._height;
+				if (widget._width > w)
+					w = widget._width;
 			}
 		}
 		_isOverflowing = w > _width || h > _height;
@@ -854,7 +858,7 @@ public:
 	void addWidget(QWidget widget, bool allowScrollControl = false){
 		widget._parent = this;
 		widget._requestingUpdate = true;
-		widget._canReqScroll = allowScrollControl;
+		widget._canReqScroll = allowScrollControl && _canReqScroll;
 		_widgets ~= widget;
 		eventSubscribe;
 	}
@@ -872,18 +876,29 @@ public:
 /// Container for widgets to make them scrollable, with optional scrollbars
 class ScrollContainer : QWidget{
 protected:
-	QWidget _widget; /// rthe widget to be scrolled
-
+	QWidget _widget; /// the widget to be scrolled
 	bool _scrollbarV, _scrollbarH; /// if vertical and horizontal scrollbars are to be shown
-	// current scrolling
-	// re-assings display buffer based on _subScrollX/Y
+
+	override void eventSubscribe(){
+		_eventSub = _widget._eventSub | EventMask.Resize;
+		if (_parent)
+			_parent.eventSubscribe();
+	}
+
+	// re-assings display buffer based on _subScrollX/Y, and calls resizeEvent on widget
 	final void rescroll(){
 		if (!_widget)
 			return;
 		_widget._view.reset();
-		_view._getSlice(&(_widget._view), 0, 0, _widget._width, _widget._height);
+		uint w = _width - (1*_scrollbarH), h = _height - (1*_scrollbarV);
+		if (w > _widget._width)
+			w = _widget._width;
+		if (h > _widget._height)
+			h = _widget._height;
+		_view._getSlice(&(_widget._view), 0, 0, w, h);
 		_widget._view._offsetX += _widget._scrollX;
 		_widget._view._offsetY += _widget._scrollY;
+		_widget._resizeEventCall();
 	}
 
 	override void requestScroll(uint x, uint y){
@@ -893,15 +908,71 @@ protected:
 		_widget._scrollY = y;
 		rescroll();
 	}
+
+	override void resizeEvent(){
+		if (!_widget)
+			return;
+		requestUpdate();
+		// try to size widget to fit
+		_widget._width = getLimitedSize(_width - (1*_scrollbarH), _widget._minWidth, _widget._maxWidth);
+		_widget._height = getLimitedSize(_height - (1*_scrollbarV), _widget._minHeight, _widget._maxHeight);
+		rescroll();
+	}
 	
 	override void keyboardEvent(KeyboardEvent key){
+		if (_widget)
+			_widget._keyboardEventCall(key);
+	}
 
+	override void mouseEvent(MouseEvent mouse){
+		if (_widget)
+			_widget._mouseEventCall(mouse);
+	}
+
+	override void updateEvent(){
+		if (_widget)
+			_widget._updateEventCall();
+		drawScrollbars();
+	}
+
+	/// draws scrollbars
+	void drawScrollbars(){
+		if (!_widget)
+			return;
+		const dchar verticalLine = 179, horizontalLine = 196;
+		const uint w = _width - (1*_scrollbarV), h = _height - (1*_scrollbarH);
+		if (_scrollbarH && _scrollbarV){
+			moveTo(_width - 1, _height - 1);
+			write(' ', DEFAULT_BG, DEFAULT_FG); // bottom right corner
+		}
+		if (_scrollbarH){
+			moveTo(0, _height - 1);
+			fillLine(horizontalLine, DEFAULT_FG, DEFAULT_BG, w);
+			moveTo(_widget._scrollX / _widget._width, _height - 1);
+			fillLine(' ', DEFAULT_BG, DEFAULT_FG, _width / _widget._width);
+		}
+		if (_scrollbarV){
+			foreach (y; 0 .. h){
+				moveTo(_width - 1, y);
+				write(verticalLine, DEFAULT_FG, DEFAULT_BG);
+			}
+			foreach (y; _widget._scrollY / _widget._width .. (_widget._scrollY / _widget._width) + (_width / _widget._width)){
+				moveTo(_width - 1, y);
+				write(' ', DEFAULT_BG, DEFAULT_FG);
+			}
+		}
 	}
 public:
 	/// constructor
-	this(){
+	this(QWidget child){
 		this._isScrollableContainer = true;
-
+		_widget = child;
+		_widget._parent = this;
+		_widget._requestingUpdate = true;
+		_widget._canReqScroll = true;
+	}
+	~this(){
+		.destroy(_widget); // kill the child!
 	}
 }
 
@@ -943,15 +1014,13 @@ private:
 	void _flushBuffer(){
 		if (_view._buffer.length == 0)
 			return;
-		Color prevfg = _view._buffer[0].fg, prevbg = _view._buffer[0].bg;
-		_termWrap.color(prevfg, prevbg);
+		Cell prev = _view._buffer[0];
+		_termWrap.color(prev.fg, prev.bg);
 		uint x, y;
 		foreach (cell; _view._buffer){
-			if (cell.fg != prevfg || cell.bg != prevbg){
-				prevfg = cell.fg;
-				prevbg = cell.bg;
-				_termWrap.color(prevfg, prevbg);
-			}
+			if (!prev.propSame(cell))
+				_termWrap.color(cell.fg, cell.bg);
+			prev = cell;
 			_termWrap.put(x, y, cell.c);
 			x ++;
 			if (x == _width){
@@ -964,7 +1033,7 @@ private:
 protected:
 
 	override void eventSubscribe(){
-		_eventSub = EventMask.All;
+		_eventSub = EventMask.All; // ignore what children want, this needs all events so custom event handlers can be set up 
 	}
 
 	override void requestCursorPos(int x, int y){
