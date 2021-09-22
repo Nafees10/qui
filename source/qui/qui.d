@@ -51,7 +51,7 @@ enum EventMask : uint{
 	KeyboardPress = 1 << 3, /// key presses. This value matches `KeyboardEvent.State.Pressed`
 	KeyboardRelease = 1 << 4, /// key releases. This value matches `KeyboardEvent.State.Released`
 	KeyboardWidgetCycleKey = 1 << 5, /// keyboard events concerning active widget cycling key. Use this in combination with KeyboardPress or KeyboardRelease
-	Resize = 1 << 6, /// widget resize. _this is ignored, use `QWidget.requestResize();`_, otherwise, resize will always be called
+	Resize = 1 << 6, /// widget resize. _this is ignored, use `QWidget.requestResize();`, otherwise, resize will always be called
 	Activate = 1 << 7, /// widget activated/deactivated.
 	Timer = 1 << 8, /// timer 
 	Initialize = 1 << 9, /// initialize
@@ -84,7 +84,7 @@ private:
 	uint _offsetX, _offsetY; // these are subtracted, only when seek is set, not after
 
 	/// reset
-	void reset(){
+	void _reset(){
 		_buffer = [];
 		_seekX = 0;
 		_seekY = 0;
@@ -96,14 +96,14 @@ private:
 	}
 
 	/// seek position in _buffer calculated from _seekX & _seekY
-	@property uint _seek(){
-		return _seekX + (_seekY*_actualWidth);
+	@property int _seek(){
+		return (_seekX - _offsetX) + ((_seekY - _offsetY)*_actualWidth);
 	}
 	/// set another DisplayBuffer so that it is a rectangular slice from this
 	///
 	/// Returns: true if done, false if not
 	void _getSlice(Viewport* sub, int x, int y, uint width, uint height){
-		sub.reset();
+		sub._reset();
 		sub._actualWidth = _actualWidth;
 		x -= _offsetX;
 		y -= _offsetY;
@@ -122,8 +122,7 @@ private:
 		if (height + y > _height)
 			height = _height - y;
 		immutable uint buffStart  = x + (y*_actualWidth), buffEnd = buffStart + ((height-1)*_actualWidth) + width;
-		// this if shouldnt be necessary, but idk what im doing rn, and dont want segfault:
-		if (_buffer.length < buffEnd)
+		if (buffEnd > _buffer.length || buffStart >= buffEnd)
 			return;
 		sub._width = width;
 		sub._height = height;
@@ -134,26 +133,32 @@ public:
 	bool isWritable(uint x, uint y){
 		return x >= _offsetX && y >= _offsetY && x < _width + _offsetX && y < _height + _offsetY;
 	}
-	/// move to a position, will move to 0,0 if coordinate outside bounds
-	/// 
-	/// Returns: true if done, false if outside bounds
+	/// move to a position. if x > width, moved to x=0 of next row
 	bool moveTo(uint x, uint y){
-		if (!isWritable(x, y)){
+		_seekX = x;
+		_seekY = y;
+		if (_seekY >= _width){
 			_seekX = 0;
-			_seekY = 0;
-			return false;
+			_seekY ++;
 		}
-		_seekX = x - _offsetX;
-		_seekY = y - _offsetY;
 		return true;
 	}
 	/// Writes a character at current position and move ahead
 	/// 
 	/// Returns: false if outside writing area
 	bool write(dchar c, Color fg, Color bg){
-		if (_seekX >= _width || _seekY >= _height)
+		if (_seekX < _offsetX || _seekY < _offsetY){
+			_seekX ++;
+			if (_seekY >= _width){
+				_seekX = 0;
+				_seekY ++;
+			}
 			return false;
-		_buffer[_seek] = Cell(c, fg, bg);
+		}
+		if (_seekX >= _width && _seekY >= _height)
+			return false;
+		if (_buffer.length > _seek)
+			_buffer[_seek] = Cell(c, fg, bg);
 		_seekX ++;
 		if (_seekX >= _width){
 			_seekX = 0;
@@ -176,18 +181,13 @@ public:
 	}
 	/// Fills line, starting from current coordinates, with maximum `max` number of chars, if `max>0`
 	/// 
-	/// Returns: number of characters written
+	/// Returns: number of columns (characters) written
 	uint fillLine(dchar c, Color fg, Color bg, uint max=0){
-		if (_seekX >= _width || _seekY >= _height)
-			return 0;
-		uint r = _width - _seekX;
-		if (max && r > max)
-			r = max;
-		_buffer[_seek .. _seek + r][] = Cell(c, fg, bg);
-		_seekX += r;
-		if (_seekX >= _width){
-			_seekX = 0;
-			_seekY ++;
+		uint r = 0;
+		const uint currentY = _seekY;
+		while (r < max && _seekY == currentY){
+			write(c, fg, bg);
+			r ++;
 		}
 		return r;
 	}
@@ -692,7 +692,7 @@ protected:
 		_isOverflowing = w > _width || h > _height;
 		if (_isOverflowing){
 			foreach (widget; _widgets)
-				_view.reset();
+				_view._reset();
 		}else{
 			foreach (i, widget; _widgets){
 				_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height);
@@ -742,7 +742,7 @@ protected:
 	/// override initialize to initliaze child widgets
 	override void initialize(){
 		foreach (widget; _widgets){
-			widget._view.reset();
+			widget._view._reset();
 			widget._initializeCall();
 		}
 	}
@@ -885,11 +885,13 @@ protected:
 			_parent.eventSubscribe();
 	}
 
-	// re-assings display buffer based on _subScrollX/Y, and calls resizeEvent on widget
+	// re-assings display buffer based on _subScrollX/Y
 	final void rescroll(){
 		if (!_widget)
 			return;
-		_widget._view.reset();
+		_widget._view._reset();
+		if (_width == 0 || _height == 0)
+			return;
 		uint w = _width - (1*_scrollbarH), h = _height - (1*_scrollbarV);
 		if (w > _widget._width)
 			w = _widget._width;
@@ -898,7 +900,6 @@ protected:
 		_view._getSlice(&(_widget._view), 0, 0, w, h);
 		_widget._view._offsetX += _widget._scrollX;
 		_widget._view._offsetY += _widget._scrollY;
-		_widget._resizeEventCall();
 	}
 
 	override void requestScroll(uint x, uint y){
@@ -907,6 +908,7 @@ protected:
 		_widget._scrollX = x;
 		_widget._scrollY = y;
 		rescroll();
+		_widget._resizeEventCall();
 	}
 
 	override void resizeEvent(){
@@ -914,9 +916,12 @@ protected:
 			return;
 		requestUpdate();
 		// try to size widget to fit
-		_widget._width = getLimitedSize(_width - (1*_scrollbarH), _widget._minWidth, _widget._maxWidth);
-		_widget._height = getLimitedSize(_height - (1*_scrollbarV), _widget._minHeight, _widget._maxHeight);
+		if (_height > 0 && _width > 0){
+			_widget._width = getLimitedSize(_width - (1*_scrollbarH), _widget._minWidth, _widget._maxWidth);
+			_widget._height = getLimitedSize(_height - (1*_scrollbarV), _widget._minHeight, _widget._maxHeight);
+		}
 		rescroll();
+		_widget._resizeEventCall();
 	}
 	
 	override void keyboardEvent(KeyboardEvent key){
@@ -930,34 +935,40 @@ protected:
 	}
 
 	override void updateEvent(){
-		if (_widget)
+		if (_widget && _widget.show)
 			_widget._updateEventCall();
 		drawScrollbars();
 	}
 
-	/// draws scrollbars
+	/// draws scrollbars, very basic stuff
 	void drawScrollbars(){
-		if (!_widget)
+		if (!_widget || _width == 0 || _height == 0)
 			return;
-		const dchar verticalLine = 179, horizontalLine = 196;
+		const dchar verticalLine = '│', horizontalLine = '─';
 		const uint w = _width - (1*_scrollbarV), h = _height - (1*_scrollbarH);
 		if (_scrollbarH && _scrollbarV){
 			moveTo(_width - 1, _height - 1);
 			write(' ', DEFAULT_BG, DEFAULT_FG); // bottom right corner
 		}
 		if (_scrollbarH){
-			moveTo(0, _height - 1);
+			moveTo(0, h);
 			fillLine(horizontalLine, DEFAULT_FG, DEFAULT_BG, w);
-			moveTo(_widget._scrollX / _widget._width, _height - 1);
-			fillLine(' ', DEFAULT_BG, DEFAULT_FG, _width / _widget._width);
+			const int maxScroll = _widget._width - w;
+			if (maxScroll > 0){
+				const uint barPos = (_widget._scrollX * w) / maxScroll;
+				moveTo(barPos, h);
+				write(' ', DEFAULT_BG, DEFAULT_FG);
+			}
 		}
 		if (_scrollbarV){
 			foreach (y; 0 .. h){
-				moveTo(_width - 1, y);
+				moveTo(w, y);
 				write(verticalLine, DEFAULT_FG, DEFAULT_BG);
 			}
-			foreach (y; _widget._scrollY / _widget._width .. (_widget._scrollY / _widget._width) + (_width / _widget._width)){
-				moveTo(_width - 1, y);
+			const int maxScroll = _widget._height - h;
+			if (maxScroll > 0){
+				const uint barPos = (_widget._height * h) / maxScroll;
+				moveTo(w, barPos);
 				write(' ', DEFAULT_BG, DEFAULT_FG);
 			}
 		}
@@ -966,6 +977,8 @@ public:
 	/// constructor
 	this(QWidget child){
 		this._isScrollableContainer = true;
+		this._scrollbarV = true;
+		this._scrollbarH = true;
 		_widget = child;
 		_widget._parent = this;
 		_widget._requestingUpdate = true;
@@ -973,6 +986,37 @@ public:
 	}
 	~this(){
 		.destroy(_widget); // kill the child!
+	}
+
+	/// Whether to show vertical scrollbar
+	@property bool scrollbarV(){
+		return _scrollbarV;
+	}
+	/// ditto
+	@property bool scrollbarV(bool newVal){
+		if (newVal != _scrollbarV){
+			_scrollbarV = newVal;
+			_resizeEventCall();
+		}
+		return _scrollbarV;
+	}
+	/// Whether to show horizontal scrollbar
+	@property bool scrollbarH(){
+		return _scrollbarH;
+	}
+	/// ditto
+	@property bool scrollbarH(bool newVal){
+		if (newVal != _scrollbarH){
+			_scrollbarH = newVal;
+			_resizeEventCall();
+		}
+		return _scrollbarH;
+	}
+
+	override void requestResize(){
+		// just do a the resize here
+		rescroll();
+		_resizeEventCall();
 	}
 }
 
