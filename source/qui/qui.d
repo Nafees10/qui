@@ -263,11 +263,15 @@ private:
 		if (_isActive && _parent)
 			_parent.requestCursorPos(x < 0 ? x : _posX + x - _view._offsetX , y < 0 ? y : _posY + y - _view._offsetY);
 	}
-	/// Called to request scrolling to be adjusted
-	void _requestScroll(uint x, uint y){
-		if (!_isActive || !_parent || x > _width || y > _height)
-			return;
-		_parent.requestScroll(x + _posX, y + _posY);
+	/// Called to request _scrollX to be adjusted
+	void _requestScrollX(uint x){
+		if (_canReqScroll && _parent && _view._width < _width && x < _width - _view._width)
+			_parent.requestScrollX(x + _posX);
+	}
+	/// Called to request _scrollY to be adjusted
+	void _requestScrollY(uint y){
+		if (_canReqScroll && _parent && _view._height < _height && y < _height - _view._height)
+			_parent.requestScrollY(y + _posY);
 	}
 
 	/// called by parent for initialize event
@@ -413,9 +417,13 @@ protected:
 		_requestCursorPos(x, y);
 	}
 
-	/// called to request to scroll
-	void requestScroll(uint x, uint y){
-		_requestScroll(x, y);
+	/// called to request to scrollX
+	void requestScrollX(uint x){
+		_requestScrollX(x);
+	}
+	/// called to request to scrollY
+	void requestScrollY(uint y){
+		_requestScrollY(y);
 	}
 
 	/// Called to update this widget
@@ -498,8 +506,18 @@ public:
 	final @property uint scrollX(){
 		return _scrollX;
 	}
+	/// ditto
+	final @property uint scrollX(uint newVal){
+		_requestScrollX(newVal);
+		return _scrollX;
+	}
 	/// vertical scroll.
 	final @property uint scrollY(){
+		return _scrollY;
+	}
+	/// ditto
+	final @property uint scrollY(uint newVal){
+		_requestScrollY(newVal);
 		return _scrollY;
 	}
 	/// width of widget
@@ -902,10 +920,16 @@ protected:
 		_widget._view._offsetY += _widget._scrollY;
 	}
 
-	override void requestScroll(uint x, uint y){
+	override void requestScrollX(uint x){
 		if (!_widget)
 			return;
 		_widget._scrollX = x;
+		rescroll();
+		_widget._resizeEventCall();
+	}
+	override void requestScrollY(uint y){
+		if (!_widget)
+			return;
 		_widget._scrollY = y;
 		rescroll();
 		_widget._resizeEventCall();
@@ -983,6 +1007,8 @@ public:
 		_widget._parent = this;
 		_widget._requestingUpdate = true;
 		_widget._canReqScroll = true;
+		_widget._posX = 0;
+		_widget._posY = 0;
 	}
 	~this(){
 		.destroy(_widget); // kill the child!
