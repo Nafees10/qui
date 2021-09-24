@@ -967,7 +967,7 @@ protected:
 			}
 			const int maxScroll = _widget._height - h;
 			if (maxScroll > 0){
-				const uint barPos = (_widget._height * h) / maxScroll;
+				const uint barPos = (_widget._scrollY * h) / maxScroll;
 				moveTo(w, barPos);
 				write(' ', DEFAULT_BG, DEFAULT_FG);
 			}
