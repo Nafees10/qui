@@ -1000,7 +1000,7 @@ protected:
 		const uint w = _width - (1*_scrollbarV), h = _height - (1*_scrollbarH);
 		if (_scrollbarH && _scrollbarV){
 			moveTo(_width - 1, _height - 1);
-			write(' ', DEFAULT_BG, DEFAULT_FG); // bottom right corner
+			write('┘', DEFAULT_FG, DEFAULT_BG); // bottom right corner
 		}
 		if (_scrollbarH){
 			moveTo(0, h);
@@ -1157,11 +1157,9 @@ protected:
 			eSub = activeWidget._eventSub;
 		}
 		if (key.key == _activeWidgetCycleKey && key.state == KeyboardEvent.State.Pressed &&
-		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey))){
+		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey)))
 			this.cycleActiveWidget();
-			return;
-		}
-		if (activeWidget)
+		else if (activeWidget)
 			activeWidget._keyboardEventCall(key);
 	}
 	
