@@ -51,15 +51,15 @@ enum EventMask : uint{
 	KeyboardPress = 1 << 3, /// key presses. This value matches `KeyboardEvent.State.Pressed`
 	KeyboardRelease = 1 << 4, /// key releases. This value matches `KeyboardEvent.State.Released`
 	KeyboardWidgetCycleKey = 1 << 5, /// keyboard events concerning active widget cycling key. Use this in combination with KeyboardPress or KeyboardRelease
-	Resize = 1 << 6, /// widget resize. _this is ignored, use `QWidget.requestResize();`, otherwise, resize will always be called
-	Activate = 1 << 7, /// widget activated/deactivated.
-	Timer = 1 << 8, /// timer 
-	Initialize = 1 << 9, /// initialize
-	Update = 1 << 10, /// draw itself. _this is ignored, use `QWidget.requestUpdate();`_ if updateEvent is to be called
+	Resize = 0, /// widget resize. _this is ignored, use `QWidget.requestResize();`, otherwise, resize will always be called
+	Activate = 1 << 6, /// widget activated/deactivated.
+	Timer = 1 << 7, /// timer 
+	Initialize = 1 << 8, /// initialize
+	Update = 0, /// draw itself. _this is ignored, use `QWidget.requestUpdate();`_ if updateEvent is to be called
 	MouseAll = MousePress | MouseRelease | MouseHover, /// all mouse events
 	KeyboardAll = KeyboardPress | KeyboardRelease, /// all keyboard events, this does **NOT** include KeyboardWidgetCycleKey 
 	InputAll = MouseAll | KeyboardAll, /// MouseAll and KeyboardAll
-	All = uint.max, /// all events (all bits=1)
+	All = uint.max, /// all events (all bits=1). ** DO NOT USE THIS **
 }
 
 /// A cell on terminal
@@ -211,7 +211,7 @@ private:
 	/// stores if this widget is the active widget
 	bool _isActive = false;
 	/// whether this widget is requesting update
-	bool _requestingUpdate;
+	bool _requestingUpdate = true;
 	/// Whether to call resize before next update
 	bool _requestingResize;
 	/// the parent widget
@@ -228,31 +228,33 @@ private:
 	/// The ratio of all widgets is added up and height/width for each widget is then calculated using this.
 	uint _sizeRatio = 1;
 
-	/// custom onInit event, if not null, it should be called before doing anything else in init();
+	/// custom onInit event
 	InitFunction _customInitEvent;
-	/// custom mouse event, if not null, it should be called before doing anything else in mouseEvent.
+	/// custom mouse event
 	MouseEventFuction _customMouseEvent;
-	/// custom keyboard event, if not null, it should be called before doing anything else in keyboardEvent.
+	/// custom keyboard event
 	KeyboardEventFunction _customKeyboardEvent;
-	/// custom resize event, if not null, it should be called before doing anything else in the resizeEvent
+	/// custom resize event
 	ResizeEventFunction _customResizeEvent;
-	/// custom onActivate event, if not null, it should be called before doing anything else in activateEvent
+	/// custom onActivate event,
 	ActivateEventFunction _customActivateEvent;
-	/// custom onTimer event, if not null, it should be called before doing anything else in timerEvent
+	/// custom onTimer event
 	TimerEventFunction _customTimerEvent;
-	/// custom upedateEvent, if not null, it should be called before doing anything else in updateEvent
+	/// custom upedateEvent
 	UpdateEventFunction _customUpdateEvent;
 
 	/// Called when it needs to request an update.  
-	/// Will not do anything if not subscribed to update events
 	void _requestUpdate(){
+		if (_requestingUpdate)
+			return;
 		_requestingUpdate = true;
 		if (_parent)
 			_parent.requestUpdate();
 	}
 	/// Called to request this widget to resize at next update
-	/// Will not do anything if not subscribed to resize events
 	void _requestResize(){
+		if (_requestingResize)
+			return;
 		_requestingResize = true;
 		if (_parent)
 			_parent.requestResize();
@@ -305,9 +307,11 @@ private:
 	}
 	/// called by parent for activateEvent
 	void _activateEventCall(bool isActive){
-		/*if (_isActive == isActive)
-			return;*/
+		if (_isActive == isActive)
+			return;
 		_isActive = isActive;
+		if (_eventSub & EventMask.KeyboardWidgetCycleKey)
+			eventSubscribe();
 		if (_eventSub & EventMask.Activate && (!_customActivateEvent || !_customActivateEvent(this, isActive)))
 			this.activateEvent(isActive);
 	}
@@ -429,14 +433,16 @@ protected:
 	/// Called to update this widget
 	void updateEvent(){}
 
-	/// Called after `_display` has been set and this widget is ready to be used
+	/// Called after UI has been run
 	void initialize(){}
 	/// Called when mouse is clicked with cursor on this widget.
 	void mouseEvent(MouseEvent mouse){}
 	/// Called when key is pressed and this widget is active.
 	void keyboardEvent(KeyboardEvent key){}
 	/// Called when widget size is changed, or widget should recalculate it's child widgets' sizes;
-	void resizeEvent(){}
+	void resizeEvent(){
+		_requestUpdate();
+	}
 	/// called right after this widget is activated, or de-activated, i.e: is made _activeWidget, or un-made _activeWidget
 	void activateEvent(bool isActive){}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
@@ -658,6 +664,10 @@ protected:
 		_eventSub = 0;
 		foreach (widget; _widgets)
 			_eventSub |= widget._eventSub;
+		// do not sub to EventMask.KeyboardWidgetCycleKey, unless active widget wants it
+		_eventSub &= !EventMask.KeyboardWidgetCycleKey;
+		if (_activeWidgetIndex > -1)
+			_eventSub |= _widgets[_activeWidgetIndex]._eventSub;
 		if (_eventSub & EventMask.KeyboardAll)
 			_eventSub |= EventMask.Activate; // if children can become active, then need activate too
 		if (_parent)
@@ -710,7 +720,7 @@ protected:
 		_isOverflowing = w > _width || h > _height;
 		if (_isOverflowing){
 			foreach (widget; _widgets)
-				_view._reset();
+				widget._view._reset();
 		}else{
 			foreach (i, widget; _widgets){
 				_view._getSlice(&(widget._view), widget._posX, widget._posY, widget._width, widget._height);
@@ -875,7 +885,6 @@ public:
 	/// adds a widget, and makes space for it
 	void addWidget(QWidget widget, bool allowScrollControl = false){
 		widget._parent = this;
-		widget._requestingUpdate = true;
 		widget._canReqScroll = allowScrollControl && _canReqScroll;
 		_widgets ~= widget;
 		eventSubscribe;
@@ -884,7 +893,6 @@ public:
 	void addWidget(QWidget[] widgets){
 		foreach (i, widget; widgets){
 			widget._parent = this;
-			widget._requestingUpdate = true;
 		}
 		_widgets ~= widgets;
 		eventSubscribe();
@@ -893,6 +901,9 @@ public:
 
 /// Container for widgets to make them scrollable, with optional scrollbars
 class ScrollContainer : QWidget{
+private:
+	/// offset in _widget before adding scrolling to it
+	uint _offX, _offY;
 protected:
 	QWidget _widget; /// the widget to be scrolled
 	bool _scrollbarV, _scrollbarH; /// if vertical and horizontal scrollbars are to be shown
@@ -903,7 +914,7 @@ protected:
 			_parent.eventSubscribe();
 	}
 
-	// re-assings display buffer based on _subScrollX/Y
+	// re-assings display buffer based on _subScrollX/Y, and calls rescrollevent
 	final void rescroll(){
 		if (!_widget)
 			return;
@@ -916,8 +927,8 @@ protected:
 		if (h > _widget._height)
 			h = _widget._height;
 		_view._getSlice(&(_widget._view), 0, 0, w, h);
-		_widget._view._offsetX += _widget._scrollX;
-		_widget._view._offsetY += _widget._scrollY;
+		_widget._view._offsetX = _offX + _widget._scrollX;
+		_widget._view._offsetY = _offY + _widget._scrollY;
 	}
 
 	override void requestScrollX(uint x){
@@ -936,9 +947,12 @@ protected:
 	}
 
 	override void resizeEvent(){
+		_offX = _view._offsetX;
+		_offY = _view._offsetY;
 		if (!_widget)
 			return;
-		requestUpdate();
+		if (_scrollbarH || _scrollbarV)
+			requestUpdate();
 		// try to size widget to fit
 		if (_height > 0 && _width > 0){
 			_widget._width = getLimitedSize(_width - (1*_scrollbarH), _widget._minWidth, _widget._maxWidth);
@@ -947,7 +961,7 @@ protected:
 		rescroll();
 		_widget._resizeEventCall();
 	}
-	
+
 	override void keyboardEvent(KeyboardEvent key){
 		if (_widget)
 			_widget._keyboardEventCall(key);
@@ -961,6 +975,20 @@ protected:
 	override void updateEvent(){
 		if (_widget && _widget.show)
 			_widget._updateEventCall();
+		if (!_widget)
+			return;
+		if (_width > _widget._view._width + (1*(_scrollbarV))){
+			foreach (y; 0 .. _widget._view._height){
+				moveTo(_widget._view._width, y);
+				fillLine(' ', DEFAULT_FG, DEFAULT_BG);
+			}
+		}
+		if (_height > _widget._view._height + (1*(_scrollbarH))){
+			foreach (y; _widget._view._height .. _height - (1*(_scrollbarH))){
+				moveTo(0, y);
+				fillLine(' ', DEFAULT_BG, DEFAULT_FG);
+			}
+		}
 		drawScrollbars();
 	}
 
@@ -1005,7 +1033,6 @@ public:
 		this._scrollbarH = true;
 		_widget = child;
 		_widget._parent = this;
-		_widget._requestingUpdate = true;
 		_widget._canReqScroll = true;
 		_widget._posX = 0;
 		_widget._posY = 0;
@@ -1014,7 +1041,12 @@ public:
 		.destroy(_widget); // kill the child!
 	}
 
-	/// Whether to show vertical scrollbar
+	override void requestResize(){
+		// just do a the resize here
+		resizeEvent();// HACK: this and not _resizeEventCall coz dont want custom event handler kicking in
+	}
+
+	/// Whether to show vertical scrollbar. Modifying this will request update 
 	@property bool scrollbarV(){
 		return _scrollbarV;
 	}
@@ -1022,11 +1054,11 @@ public:
 	@property bool scrollbarV(bool newVal){
 		if (newVal != _scrollbarV){
 			_scrollbarV = newVal;
-			_resizeEventCall();
+			resizeEvent(); // HACK
 		}
 		return _scrollbarV;
 	}
-	/// Whether to show horizontal scrollbar
+	/// Whether to show horizontal scrollbar. Modifying this will request update
 	@property bool scrollbarH(){
 		return _scrollbarH;
 	}
@@ -1034,15 +1066,9 @@ public:
 	@property bool scrollbarH(bool newVal){
 		if (newVal != _scrollbarH){
 			_scrollbarH = newVal;
-			_resizeEventCall();
+			resizeEvent(); // HACK
 		}
 		return _scrollbarH;
-	}
-
-	override void requestResize(){
-		// just do a the resize here
-		rescroll();
-		_resizeEventCall();
 	}
 }
 
