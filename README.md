@@ -6,15 +6,10 @@ QUI is a widget based Text User Interface library for the [D Language](http://dl
 
 ## Features
 
-1. Widget-based
-1. Easy to add more widgets
-1. Widgets are isolated, each widget draws in it's own "area"
-1. Easy to get started with (`source/demo.d` explains how to use most of it)
-1. Event-based
-1. Timer Events, the timer duration can be changed
-1. Support for mouse events
-1. Most, if not all, of the code is commented
-1. Unicode characters supported
+1. Widget based
+1. mouse events
+1. Scrollable widget container
+1. Timer events
 
 ---
 
@@ -36,7 +31,7 @@ The included demo configuration (`source/demo.d`) demonstrates the usage of some
 
 ```bash
 dub fetch qui
-dub run qui --b=release --c=quidemo
+dub run qui -b=release -c=quidemo
 ```
 
 ---
@@ -57,7 +52,7 @@ See the issues tab. If you came across some new issue, start a new one.
 
 ## TODO for upcoming versions
 
-1. Have `QLayout` manage scrolling of long widgets instead of implementing it in each widget
+1. none. Open to suggestions, use issues for suggestions.
 
 ---
 
