@@ -907,9 +907,14 @@ private:
 protected:
 	QWidget _widget; /// the widget to be scrolled
 	bool _scrollbarV, _scrollbarH; /// if vertical and horizontal scrollbars are to be shown
+	bool _pgDnUp; /// if page down/up button should scroll
+	bool _mouseWheel; /// if mouse wheel should scroll
+	uint _drawAreaHeight, _drawAreaWidth; /// height and width after subtracting space for scrollbars
+	
 
 	override void eventSubscribe(){
 		_eventSub = _widget._eventSub | EventMask.Resize;
+		_eventSub |= (EventMask.KeyboardPress*_pgDnUp) | (EventMask.MouseAll*_mouseWheel);
 		if (_parent)
 			_parent.eventSubscribe();
 	}
@@ -921,7 +926,7 @@ protected:
 		_widget._view._reset();
 		if (_width == 0 || _height == 0)
 			return;
-		uint w = _width - (1*_scrollbarH), h = _height - (1*_scrollbarV);
+		uint w = _drawAreaWidth, h = _drawAreaHeight;
 		if (w > _widget._width)
 			w = _widget._width;
 		if (h > _widget._height)
@@ -949,27 +954,54 @@ protected:
 	override void resizeEvent(){
 		_offX = _view._offsetX;
 		_offY = _view._offsetY;
+		_drawAreaHeight = _height - (1*(_height>0 && _scrollbarV));
+		_drawAreaWidth = _width - (1*(_width>0 && _scrollbarV));
 		if (!_widget)
 			return;
 		if (_scrollbarH || _scrollbarV)
 			requestUpdate();
 		// try to size widget to fit
 		if (_height > 0 && _width > 0){
-			_widget._width = getLimitedSize(_width - (1*_scrollbarH), _widget._minWidth, _widget._maxWidth);
-			_widget._height = getLimitedSize(_height - (1*_scrollbarV), _widget._minHeight, _widget._maxHeight);
+			_widget._width = getLimitedSize(_drawAreaWidth, _widget._minWidth, _widget._maxWidth);
+			_widget._height = getLimitedSize(_drawAreaHeight, _widget._minHeight, _widget._maxHeight);
 		}
 		rescroll();
 		_widget._resizeEventCall();
 	}
 
 	override void keyboardEvent(KeyboardEvent key){
-		if (_widget)
-			_widget._keyboardEventCall(key);
+		if (!_widget)
+			return;
+		if (_pgDnUp && _drawAreaHeight < _widget._height && key.state == KeyboardEvent.State.Pressed){
+			if (key.key == Key.PageUp){
+				requestScrollY(_drawAreaHeight > _widget._scrollY ? 0 : _widget._scrollY - _drawAreaHeight);
+				return;
+			}
+			if (key.key == Key.PageDown){
+				requestScrollY(_drawAreaHeight + _widget._scrollY > _widget._height ? 
+					_widget._height - _drawAreaHeight : _widget._scrollY + _drawAreaHeight);
+				return;
+			}
+		}
+		_widget._keyboardEventCall(key);
 	}
 
 	override void mouseEvent(MouseEvent mouse){
-		if (_widget)
-			_widget._mouseEventCall(mouse);
+		if (!_widget)
+			return;
+		if (_mouseWheel && _drawAreaHeight < _widget._height){
+			if (mouse.button == mouse.Button.ScrollUp){
+				if (_widget._scrollY)
+					requestScrollY(_widget._scrollY - 1);
+				return;
+			}
+			if (mouse.button == mouse.Button.ScrollDown){
+				if (_widget._scrollY + _drawAreaHeight < _widget._height)
+					requestScrollY(_widget._scrollY + 1);
+				return;
+			}
+		}
+		_widget._mouseEventCall(mouse);
 	}
 
 	override void updateEvent(){
@@ -997,30 +1029,29 @@ protected:
 		if (!_widget || _width == 0 || _height == 0)
 			return;
 		const dchar verticalLine = '│', horizontalLine = '─';
-		const uint w = _width - (1*_scrollbarV), h = _height - (1*_scrollbarH);
 		if (_scrollbarH && _scrollbarV){
 			moveTo(_width - 1, _height - 1);
 			write('┘', DEFAULT_FG, DEFAULT_BG); // bottom right corner
 		}
 		if (_scrollbarH){
-			moveTo(0, h);
-			fillLine(horizontalLine, DEFAULT_FG, DEFAULT_BG, w);
-			const int maxScroll = _widget._width - w;
+			moveTo(0, _drawAreaHeight);
+			fillLine(horizontalLine, DEFAULT_FG, DEFAULT_BG, _drawAreaWidth);
+			const int maxScroll = _widget._width - _drawAreaWidth;
 			if (maxScroll > 0){
-				const uint barPos = (_widget._scrollX * w) / maxScroll;
-				moveTo(barPos, h);
+				const uint barPos = (_widget._scrollX * _drawAreaWidth) / maxScroll;
+				moveTo(barPos, _drawAreaHeight);
 				write(' ', DEFAULT_BG, DEFAULT_FG);
 			}
 		}
 		if (_scrollbarV){
-			foreach (y; 0 .. h){
-				moveTo(w, y);
+			foreach (y; 0 .. _drawAreaHeight){
+				moveTo(_drawAreaWidth, y);
 				write(verticalLine, DEFAULT_FG, DEFAULT_BG);
 			}
-			const int maxScroll = _widget._height - h;
+			const int maxScroll = _widget._height - _drawAreaHeight;
 			if (maxScroll > 0){
-				const uint barPos = (_widget._scrollY * h) / maxScroll;
-				moveTo(w, barPos);
+				const uint barPos = (_widget._scrollY * _drawAreaHeight) / maxScroll;
+				moveTo(_drawAreaWidth, barPos);
 				write(' ', DEFAULT_BG, DEFAULT_FG);
 			}
 		}
@@ -1044,6 +1075,28 @@ public:
 	override void requestResize(){
 		// just do a the resize here
 		resizeEvent();// HACK: this and not _resizeEventCall coz dont want custom event handler kicking in
+	}
+
+	/// Whether to scroll on page up/down keys
+	@property bool scrollOnPageUpDown(){
+		return _pgDnUp;
+	}
+	/// ditto
+	@property bool scrollOnPageUpDown(bool newVal){
+		_pgDnUp = newVal;
+		eventSubscribe();
+		return _pgDnUp;
+	}
+
+	/// Whether to scroll on mouse scroll wheel
+	@property bool scrollOnMouseWheel(){
+		return _mouseWheel;
+	}
+	/// ditto
+	@property bool scrollOnMouseWheel(bool newVal){
+		_mouseWheel = newVal;
+		eventSubscribe();
+		return _mouseWheel;
 	}
 
 	/// Whether to show vertical scrollbar. Modifying this will request update 
