@@ -733,7 +733,7 @@ protected:
 	override public void mouseEvent(MouseEvent mouse){
 		if (_isOverflowing)
 			return;
-		int index = _activeWidgetIndex;
+		int index;
 		if (_type == Type.Horizontal){
 			foreach (i, w; _widgets){
 				if (w._show && w._posX <= mouse.x && w._posX + w._width > mouse.x){
@@ -754,6 +754,7 @@ protected:
 				if (_activeWidgetIndex > -1)
 					_widgets[_activeWidgetIndex]._activateEventCall(false);
 				_widgets[index]._activateEventCall(true);
+				_activeWidgetIndex = index;
 			}
 			_widgets[index]._mouseEventCall(mouse);
 		}
