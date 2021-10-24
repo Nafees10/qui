@@ -20,18 +20,19 @@ protected:
 		foreach (y; viewportY .. viewportY + viewportHeight){
 			moveTo(viewportX, y);
 			foreach (x; viewportX .. viewportX + viewportWidth){
-				write(((x+y) % 10).to!dstring[0], textColor, backgroundColor);
+				write(((x+y) % 10).to!dstring[0], textColor, y < height && x < width ? backgroundColor : emptyColor);
 			}
 		}
 	}
 public:
 	/// text and background colors
-	Color textColor, backgroundColor;
+	Color textColor, backgroundColor, emptyColor;
 	/// constructor
-	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG){
+	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG, Color emptyColor = Color.green){
 		eventSubscribe(EventMask.Resize | EventMask.Update);
 		this.textColor = textColor;
 		this.backgroundColor = backgroundColor;
+		this.emptyColor = emptyColor;
 	}
 }
 
