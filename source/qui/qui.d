@@ -912,7 +912,6 @@ protected:
 	bool _mouseWheel; /// if mouse wheel should scroll
 	uint _drawAreaHeight, _drawAreaWidth; /// height and width after subtracting space for scrollbars
 	
-
 	override void eventSubscribe(){
 		_eventSub = _widget._eventSub | EventMask.Resize;
 		_eventSub |= (EventMask.KeyboardPress*_pgDnUp) | (EventMask.MouseAll*_mouseWheel);
@@ -940,6 +939,10 @@ protected:
 	override void requestScrollX(uint x){
 		if (!_widget)
 			return;
+		if (_widget._width <= _drawAreaWidth)
+			x = 0;
+		else if (x > _widget._width - _drawAreaWidth)
+			x = _widget._width - _drawAreaWidth;
 		_widget._scrollX = x;
 		rescroll();
 		_widget._resizeEventCall();
@@ -947,6 +950,10 @@ protected:
 	override void requestScrollY(uint y){
 		if (!_widget)
 			return;
+		if (_widget._height <= _drawAreaHeight)
+			y = 0;
+		else if (y > _widget._height - _drawAreaHeight)
+			y = _widget._height - _drawAreaHeight;
 		_widget._scrollY = y;
 		rescroll();
 		_widget._resizeEventCall();
