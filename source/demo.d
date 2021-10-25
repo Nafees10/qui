@@ -11,27 +11,17 @@ version(demo){
 		QTerminal term = new QTerminal();
 		TextLabelWidget label = new TextLabelWidget("Hello World!");
 		ScrollTestingWidget test = new ScrollTestingWidget(Color.black, Color.white);
-		ScrollContainer sContainer = new ScrollContainer(test);
+		QLayout scrollingLayout = new QLayout(QLayout.Type.Vertical);
+		scrollingLayout.addWidget([label, test]);
+		ScrollContainer sContainer = new ScrollContainer(scrollingLayout);
+		sContainer.scrollOnMouseWheel = true;
+		sContainer.scrollOnPageUpDown = true;
 		test.height = 100;
 		label.backgroundColor = Color.blue;
 		label.textColor = Color.green;
 		term.fillColor = Color.black;
 		label.height = 1;
-		term.addWidget([label, sContainer]);
-		term.onKeyboardEvent = delegate(QWidget, KeyboardEvent key){
-			if (key.isChar && key.state == KeyboardEvent.State.Pressed){
-				if (key.key == 'w')
-					test.scrollY = test.scrollY - 1;
-				else if (key.key == 's')
-					test.scrollY = test.scrollY + 1;
-				else if (key.key == 'a')
-					test.scrollX = test.scrollX - 1;
-				else if (key.key == 'd')
-					test.scrollX = test.scrollX + 1;
-				label.caption = [key.key];
-			}
-			return false;
-		};
+		term.addWidget(sContainer);
 		term.run();
 		.destroy(term); 
 	}
