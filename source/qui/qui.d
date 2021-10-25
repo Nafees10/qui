@@ -682,6 +682,8 @@ protected:
 		// if parent is scrollable container, and there are no size limits, then grow as needed
 		if (_minHeight == 0 && _maxHeight == 0 && _minWidth == 0 && _maxWidth == 0 && 
 		_parent && _parent._isScrollableContainer){
+			_width = 0;
+			_height = 0;
 			if (_type == Type.Horizontal){
 				foreach (widget; _widgets){
 					if (_height < widget._height)
