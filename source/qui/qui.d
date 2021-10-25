@@ -105,9 +105,11 @@ private:
 	void _getSlice(Viewport* sub, int x, int y, uint width, uint height){
 		sub._reset();
 		sub._actualWidth = _actualWidth;
+		if (width + height == 0)
+			return;
 		x -= _offsetX;
 		y -= _offsetY;
-		if (x > _width || y > _height || width == 0 || height == 0)
+		if (x > cast(int)_width || y > cast(int)_height || x + width <= 0 || y + height <= 0)
 			return;
 		if (x < 0){
 			sub._offsetX = -x;
@@ -944,8 +946,9 @@ protected:
 		else if (x > _widget._width - _drawAreaWidth)
 			x = _widget._width - _drawAreaWidth;
 		_widget._scrollX = x;
-		rescroll();
-		_widget._resizeEventCall();
+		//rescroll();
+		//_widget._resizeEventCall();
+		resizeEvent();
 	}
 	override void requestScrollY(uint y){
 		if (!_widget)
@@ -955,8 +958,9 @@ protected:
 		else if (y > _widget._height - _drawAreaHeight)
 			y = _widget._height - _drawAreaHeight;
 		_widget._scrollY = y;
-		rescroll();
-		_widget._resizeEventCall();
+		//rescroll();
+		//_widget._resizeEventCall();
+		resizeEvent();
 	}
 
 	override void resizeEvent(){
