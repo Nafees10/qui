@@ -62,70 +62,29 @@ public:
 /// If the text doesn't fit in width, it will move left-right
 class TextLabelWidget : QWidget{
 private:
-	/// number of chars not displayed on left
-	uint xOffset = 0;
-	/// max xOffset
-	uint maxXOffset;
+	/// text and background colors
+	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
+protected:
 	/// the text to display
 	dstring _caption;
-	/// if in the last timerEvent, xOffset was increased
-	bool increasedXOffset = true;
-
-	/// calculates the maxXOffset, and changes xOffset if it's above it
-	void calculateMaxXOffset(){
-		if (_caption.length <= this.width){
-			maxXOffset = 0;
-			xOffset = 0;
-		}else{
-			maxXOffset = cast(uint)_caption.length - this.width;
-			if (xOffset > maxXOffset)
-				xOffset = maxXOffset;
-		}
-	}
-protected:
-	override void timerEvent(uint msecs){
-		static uint accumulatedTime;
-		if (maxXOffset > 0){
-			accumulatedTime += msecs;
-			if (xOffset >= maxXOffset)
-				increasedXOffset = false;
-			else if (xOffset == 0)
-				increasedXOffset = true;
-			while (accumulatedTime >= scrollTimer){
-				accumulatedTime -= scrollTimer;
-				if (increasedXOffset){
-					if (xOffset < maxXOffset)
-						xOffset ++;
-				}else if (xOffset > 0)
-					xOffset --;
-				// request update
-				requestUpdate();
-			}
-		}
-	}
 	
 	override void resizeEvent(){
-		calculateMaxXOffset;
 		requestUpdate();
 	}
 	
 	override void updateEvent(){
-		write(_caption.scrollHorizontal(xOffset, this.width), textColor, backgroundColor);
+		moveTo(0,0);
+		write(_caption, _fg, _bg);
 	}
 
 public:
-	/// text and background colors
-	Color textColor, backgroundColor;
 	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
 	uint scrollTimer;
 	/// constructor
-	this(dstring newCaption = "", uint scrollTimer = 500){
-		eventSubscribe(EventMask.Timer | EventMask.Resize | EventMask.Update);
-		this.caption = newCaption;
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
-		this.maxHeight = 1;
-		this.scrollTimer = scrollTimer;
+	this(dstring caption = "", uint scrollTimer = 500){
+		eventSubscribe(EventMask.Resize | EventMask.Update);
+		_caption = caption;
+		height = 1;
 	}
 
 	/// the text to display
@@ -135,10 +94,30 @@ public:
 	/// ditto
 	@property dstring caption(dstring newCaption){
 		_caption = newCaption;
-		calculateMaxXOffset;
-		// request update
 		requestUpdate();
 		return _caption;
+	}
+
+	/// text color
+	@property Color textColor(){
+		return _fg;
+	}
+	/// ditto
+	@property Color textColor(Color newColor){
+		_fg = newColor;
+		requestUpdate();
+		return _fg;
+	}
+
+	/// background color
+	@property Color backColor(){
+		return _bg;
+	}
+	/// ditto
+	@property Color backColor(Color newColor){
+		_bg = newColor;
+		requestUpdate();
+		return _bg;
 	}
 }
 /*
