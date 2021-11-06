@@ -754,7 +754,8 @@ protected:
 			}
 		}
 		if (index > -1){
-			if (index != _activeWidgetIndex && _widgets[index]._eventSub & EventMask.KeyboardAll){
+			if (mouse.state != MouseEvent.State.Hover && index != _activeWidgetIndex &&
+				_widgets[index]._eventSub & EventMask.KeyboardAll){
 				if (_activeWidgetIndex > -1)
 					_widgets[_activeWidgetIndex]._activateEventCall(false);
 				_widgets[index]._activateEventCall(true);
