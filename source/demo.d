@@ -10,14 +10,14 @@ version(demo){
 	void main (){
 		QTerminal term = new QTerminal();
 		TextLabelWidget label = new TextLabelWidget("Hello World!");
-		ScrollTestingWidget test = new ScrollTestingWidget(Color.black, Color.white);
+		ScrollTestingWidget test = new ScrollTestingWidget(Color.black, Color.white, Color.green, false);
 		QLayout scrollingLayout = new QLayout(QLayout.Type.Vertical);
 		scrollingLayout.addWidget([label, test]);
 		ScrollContainer sContainer = new ScrollContainer(scrollingLayout);
 		sContainer.scrollOnMouseWheel = true;
 		sContainer.scrollOnPageUpDown = true;
 		test.height = 100;
-		label.backgroundColor = Color.blue;
+		label.backColor = Color.blue;
 		label.textColor = Color.green;
 		term.fillColor = Color.black;
 		label.height = 1;
