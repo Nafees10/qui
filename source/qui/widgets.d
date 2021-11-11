@@ -47,7 +47,7 @@ public:
 	/// constructor
 	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG, Color emptyColor = Color.green,
 	bool debugInfo=true){
-		eventSubscribe(EventMask.Resize | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.Update);
 		this.textColor = textColor;
 		this.backgroundColor = backgroundColor;
 		this.emptyColor = emptyColor;
@@ -64,10 +64,9 @@ class TextLabelWidget : QWidget{
 private:
 	/// text and background colors
 	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
-protected:
 	/// the text to display
 	dstring _caption;
-	
+protected:	
 	override void resizeEvent(){
 		requestUpdate();
 	}
@@ -82,9 +81,10 @@ public:
 	uint scrollTimer;
 	/// constructor
 	this(dstring caption = "", uint scrollTimer = 500){
-		eventSubscribe(EventMask.Resize | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.Update);
 		_caption = caption;
 		height = 1;
+		width = cast(uint)caption.length;
 	}
 
 	/// the text to display
@@ -94,6 +94,7 @@ public:
 	/// ditto
 	@property dstring caption(dstring newCaption){
 		_caption = newCaption;
+		width = cast(uint)newCaption.length;
 		requestUpdate();
 		return _caption;
 	}
@@ -120,7 +121,7 @@ public:
 		return _bg;
 	}
 }
-/*
+
 /// To get single-line input from keyboard
 class EditLineWidget : QWidget{
 private:
@@ -128,77 +129,54 @@ private:
 	dchar[] _text;
 	/// position of cursor
 	uint _x;
-	/// how many chars wont be displayed on left
-	uint _scrollX;
-
-	/// called to fix _scrollX and _x when input is changed or _x is changed
-	void reScroll(){
-		adjustScrollingOffset(_x, this.width, cast(uint)_text.length, _scrollX);
-	}
+	/// Foreground and background colors
+	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
 protected:
 	/// override resize to re-scroll
 	override void resizeEvent(){
 		requestUpdate();
-		reScroll;
 	}
 	override void mouseEvent(MouseEvent mouse){
-		if (mouse.button == MouseEvent.Button.Left){
-			_x = mouse.x + _scrollX;
-		}
+		if (mouse.button == MouseEvent.Button.Left && mouse.state == MouseEvent.State.Click)
+			_x = mouse.x;
 		requestUpdate();
-		reScroll;
 	}
 	override void keyboardEvent(KeyboardEvent key){
-		if (key.isChar){
-			//insert that key
-			if (key.key == '\b'){
-				//backspace
-				if (_x > 0){
-					if (_x == _text.length){
-						_text.length --;
-					}else{
-						_text = _text.deleteElement(_x-1);
-					}
-					_x --;
-				}
-			}else if (key.key != '\n'){
-				if (_x == _text.length){
-					//insert at end
-					_text ~= cast(dchar)key.key;
-				}else{
-					_text = _text.insertElement([cast(dchar)key.key], _x);
-				}
-				_x ++;
-			}
-		}else{
-			if (key.key == Key.LeftArrow && _x > 0){
+		if (key.key == '\b'){ // backspace
+			if (_x > 0){
+				if (_x < _text.length)
+					_text[_x - 1 .. $ - 1] = _text[_x .. $];
+				_text.length --;
 				_x --;
-			}else if (key.key == Key.RightArrow && _x < _text.length){
-				_x ++;
-			}else if (key.key == Key.Delete && _x < _text.length){
-				_text = _text.deleteElement(_x);
 			}
+		}else if (key.key == Key.Delete){ // delete
+			if (_x < _text.length){
+				_text[_x .. $ - 1] = _text[_x + 1 .. $];
+				_text.length --;
+			}
+		}else if (key.key == Key.LeftArrow) // <-
+			_x = _x - (1 * (_x > 0));
+		else if (key.key == Key.RightArrow) // ->
+			_x = _x + (1 * (_x < _text.length));
+		else if (key.isChar && key.key != '\n'){ // insert character
+			if (_x == _text.length)
+				_text ~= key.key;
+			else
+				_text = _text[0 .. _x] ~ key.key ~ _text[_x .. $];
 		}
 		requestUpdate();
-		reScroll;
 	}
 	override void updateEvent(){
-		_display.write(cast(dstring)this._text.scrollHorizontal(cast(int)_scrollX, this.width),textColor,backgroundColor);
-		_cursorPosition = Position(_x - _scrollX, 0);
+		moveTo(0,0);
+		write(cast(dstring)_text, _fg, _bg);
+		requestCursorPos(_x, 0);
 	}
 public:
-	/// background, text, caption, and caption's background colors
-	Color backgroundColor, textColor;
 	/// constructor
 	this(dstring text = ""){
-		eventSubscribe(EventMask.Resize | EventMask.MouseAll | EventMask.KeyboardPress | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.MousePress | EventMask.KeyboardPress | EventMask.Update);
 		this._text = cast(dchar[])text.dup;
-		//specify min/max
-		this.minHeight = 1;
-		this.maxHeight = 1;
-
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
+		height = 1;
 	}
 
 	///The text that has been input-ed.
@@ -212,8 +190,30 @@ public:
 		requestUpdate();
 		return cast(dstring)newText;
 	}
-}
 
+	/// text color
+	@property Color textColor(){
+		return _fg;
+	}
+	/// ditto
+	@property Color textColor(Color newColor){
+		_fg = newColor;
+		requestUpdate();
+		return _fg;
+	}
+
+	/// background color
+	@property Color backColor(){
+		return _bg;
+	}
+	/// ditto
+	@property Color backColor(Color newColor){
+		_bg = newColor;
+		requestUpdate();
+		return _bg;
+	}
+}
+/*
 /// Can be used as a simple text editor, or to just display text
 class MemoWidget : QWidget{
 private:
