@@ -190,8 +190,9 @@ public:
 	uint fillLine(dchar c, Color fg, Color bg, uint max=0){
 		uint r = 0;
 		const uint currentY = _seekY;
-		while (r < max && _seekY == currentY){
-			write(c, fg, bg);
+		bool status = true;
+		while (status && (max == 0 || r < max) && _seekY == currentY){
+			status = write(c, fg, bg);
 			r ++;
 		}
 		return r;
@@ -618,8 +619,6 @@ private:
 	Color _fillColor;
 	/// Color to fill with when overflowing
 	Color _overflowColor;
-	/// if it has updated since last resizeEvent
-	bool _updatedAfterResize = true;
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
 	uint _calculateWidgetSize(QWidget widget, uint ratioTotal, uint totalSpace, ref bool free){
@@ -714,8 +713,7 @@ protected:
 				}
 			}
 		}
-		_updatedAfterResize = false;
-		// now reposition everything, and while at it
+		// now reposition everything
 		uint previousSpace = 0; /// space taken by widgets before
 		uint w, h;
 		foreach(widget; _widgets){
@@ -827,19 +825,33 @@ protected:
 	
 	/// called by parent widget to update
 	override void updateEvent(){
-		if (!_updatedAfterResize){
-			_updatedAfterResize = true;
-			Color fill = _isOverflowing ? _overflowColor : _fillColor;
+		if (_isOverflowing){
 			foreach (y; viewportY .. viewportY + viewportHeight){
 				moveTo(viewportX, y);
-				fillLine(' ', DEFAULT_FG, fill);
+				fillLine(' ', DEFAULT_FG, _overflowColor);
 			}
-			if (_isOverflowing)
-				return;
+			return;
 		}
-		foreach(i, widget; _widgets){
-			if (widget._show && widget._requestingUpdate)
-				widget._updateEventCall();
+		if (_type == Type.Horizontal){
+			foreach(i, widget; _widgets){
+				if (widget._show && widget._requestingUpdate)
+					widget._updateEventCall();
+				foreach (y; widget._height .. viewportY + viewportHeight){
+					moveTo(widget._posX, y);
+					fillLine(' ', DEFAULT_FG, _fillColor, widget._width);
+				}
+			}
+		}else{
+			foreach(i, widget; _widgets){
+				if (widget._show && widget._requestingUpdate)
+					widget._updateEventCall();
+				if (widget._width == _width)
+					continue;
+				foreach (y; widget._posY .. widget._posY + widget._height){
+					moveTo(widget._posX + widget._width, y);
+					fillLine(' ', DEFAULT_FG, _fillColor);
+				}
+			}
 		}
 	}
 	/// called to cycle between actveWidgets. This is called by parent widget
