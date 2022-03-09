@@ -9,19 +9,40 @@ version(demo){
 	
 	void main (){
 		QTerminal term = new QTerminal();
-		TextLabelWidget label = new TextLabelWidget("Hello World!");
-		ScrollTestingWidget test = new ScrollTestingWidget(Color.black, Color.white, Color.green, false);
-		QLayout scrollingLayout = new QLayout(QLayout.Type.Vertical);
-		scrollingLayout.addWidget([label, test]);
-		ScrollContainer sContainer = new ScrollContainer(scrollingLayout);
-		sContainer.scrollOnMouseWheel = true;
-		sContainer.scrollOnPageUpDown = true;
+
+		ScrollContainer mainScroll = new ScrollContainer();
+		QLayout mainLayout = new QLayout(QLayout.Type.Vertical);
+		mainScroll.setWidget(mainLayout);
+		term.addWidget(mainScroll);
+
+		QLayout titleLayout = new QLayout(QLayout.Type.Horizontal);
+		titleLayout.height = 1;
+		SplitterWidget titleLeft = new SplitterWidget(), titleRight = new SplitterWidget();
+		titleLeft.color = Color.blue; titleRight.color = Color.blue;
+		TextLabelWidget titleLabel = new TextLabelWidget("QUI Demo");
+		titleLabel.backColor = Color.blue;
+		titleLayout.addWidget([titleLeft, titleLabel, titleRight]);
+
+		mainLayout.addWidget(titleLayout);
+
+		ScrollContainer subScroll = new ScrollContainer();
+		subScroll.height = 40;
+		QLayout scrollTestLayout = new QLayout(QLayout.Type.Horizontal);
+		subScroll.setWidget(scrollTestLayout);
+		scrollTestLayout.height = 50;
+		SplitterWidget leftSpace = new SplitterWidget(), rightSpace = new SplitterWidget();
+		leftSpace.color = Color.green; rightSpace.color = Color.blue;
+		ScrollTestingWidget test = new ScrollTestingWidget();
+		test.width = 100;
 		test.height = 100;
-		label.backColor = Color.blue;
-		label.textColor = Color.green;
-		term.fillColor = Color.black;
-		label.height = 1;
-		term.addWidget(sContainer);
+		scrollTestLayout.addWidget([leftSpace/*, test*/, rightSpace]);
+
+		mainLayout.addWidget(subScroll);
+
+		//mainScroll.scrollOnMouseWheel = true;
+		subScroll.scrollOnPageUpDown = true;
+		subScroll.scrollOnMouseWheel = true;
+
 		term.run();
 		.destroy(term); 
 	}
