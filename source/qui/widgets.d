@@ -18,9 +18,6 @@ protected:
 	/// whether to display debug info
 	bool _debugInfo;
 
-	override void resizeEvent(){
-		requestUpdate();
-	}
 	override void updateEvent(){
 		foreach (y; viewportY .. viewportY + viewportHeight){
 			moveTo(viewportX, y);
@@ -28,25 +25,25 @@ protected:
 				write(((x+y) % 10).to!dstring[0], textColor, y < height && x < width ? backgroundColor : emptyColor);
 			}
 		}
-		if (!_debugInfo)
-			return;
-		moveTo(viewportX, viewportY);
-		write("size, width x height:     " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
-		moveTo(viewportX, viewportY+1);
-		write("min size, width x height: " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
-		moveTo(viewportX, viewportY+2);
-		write("max size, width x height: " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
-		moveTo(viewportX, viewportY+3);
-		write("scroll X, Y: " ~ to!dstring(scrollX)~","~to!dstring(scrollY), DEFAULT_FG, DEFAULT_BG);
-		moveTo(viewportX, viewportY+4);
-		write("view X, Y: " ~ to!dstring(viewportX) ~ "," ~ to!dstring(viewportY), DEFAULT_FG, DEFAULT_BG);
-		moveTo(viewportX, viewportY+5);
-		write("view width x height: " ~ to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight), DEFAULT_FG, DEFAULT_BG);
+		if (_debugInfo){
+			moveTo(viewportX, viewportY);
+			write("size, width x height:     " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+			moveTo(viewportX, viewportY+1);
+			write("min size, width x height: " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+			moveTo(viewportX, viewportY+2);
+			write("max size, width x height: " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+			moveTo(viewportX, viewportY+3);
+			write("scroll X, Y: " ~ to!dstring(scrollX)~","~to!dstring(scrollY), DEFAULT_FG, DEFAULT_BG);
+			moveTo(viewportX, viewportY+4);
+			write("view X, Y: " ~ to!dstring(viewportX) ~ "," ~ to!dstring(viewportY), DEFAULT_FG, DEFAULT_BG);
+			moveTo(viewportX, viewportY+5);
+			write("view width x height: " ~ to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight), DEFAULT_FG, DEFAULT_BG);
+		}
 	}
 public:
 	/// constructor
 	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG, Color emptyColor = Color.green,
-	bool debugInfo=true){
+	bool debugInfo=false){
 		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.Update);
 		this.textColor = textColor;
 		this.backgroundColor = backgroundColor;
@@ -66,16 +63,11 @@ private:
 	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
 	/// the text to display
 	dstring _caption;
-protected:	
-	override void resizeEvent(){
-		requestUpdate();
-	}
-	
+protected:
 	override void updateEvent(){
 		moveTo(0,0);
 		write(_caption, _fg, _bg);
 	}
-
 public:
 	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
 	uint scrollTimer;
@@ -174,7 +166,8 @@ protected:
 public:
 	/// constructor
 	this(dstring text = ""){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.MousePress | EventMask.KeyboardPress | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.MousePress | EventMask.KeyboardPress | 
+			EventMask.Update);
 		this._text = cast(dchar[])text.dup;
 		height = 1;
 	}
@@ -551,26 +544,35 @@ public:
 		_logs.clear;
 		requestUpdate();
 	}
-}
+}*/
 
 /// Just occupies some space. Use this to put space between widgets
 /// 
 /// To specify the size, use the minHeight, maxHeight, minWidth, and maxWidth. only specifying the width and/or height will have no effect
 class SplitterWidget : QWidget{
+private:
+	Color _color;
 protected:
-	override void resizeEvent() {
-		requestUpdate();
-	}
-	
 	override void updateEvent(){
-		_display.fill(' ',DEFAULT_FG, color);
+		foreach (y; viewportY .. viewportY + viewportHeight){
+			moveTo(viewportX, y);
+			fillLine(' ', DEFAULT_FG, _color);
+		}
 	}
 public:
-	/// color of this widget
-	Color color;
 	/// constructor
 	this(){
-		this.color = DEFAULT_BG;
-		eventSubscribe(EventMask.Resize | EventMask.Update);
+		_color = DEFAULT_BG;
+		eventSubscribe(EventMask.Scroll | EventMask.Resize | EventMask.Update);
 	}
-}*/
+	/// color
+	@property Color color(){
+		return _color;
+	}
+	/// ditto
+	@property Color color(Color newColor){
+		_color = newColor;
+		requestUpdate();
+		return _color;
+	}
+}

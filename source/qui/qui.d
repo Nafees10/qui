@@ -618,7 +618,7 @@ private:
 	/// Color to fill with in unoccupied space
 	Color _fillColor;
 	/// Color to fill with when overflowing
-	Color _overflowColor;
+	Color _overflowColor = Color.red;
 
 	/// gets height/width of a widget using it's sizeRatio and min/max-height/width
 	uint _calculateWidgetSize(QWidget widget, uint ratioTotal, uint totalSpace, ref bool free){
@@ -934,7 +934,7 @@ public:
 		widget._parent = this;
 		widget._canReqScroll = allowScrollControl && _canReqScroll;
 		_widgets ~= widget;
-		eventSubscribe;
+		eventSubscribe();
 	}
 	/// ditto
 	void addWidget(QWidget[] widgets){
@@ -954,13 +954,20 @@ private:
 protected:
 	QWidget _widget; /// the widget to be scrolled
 	bool _scrollbarV, _scrollbarH; /// if vertical and horizontal scrollbars are to be shown
-	bool _pgDnUp; /// if page down/up button should scroll
-	bool _mouseWheel; /// if mouse wheel should scroll
+	bool _pgDnUp = false; /// if page down/up button should scroll
+	bool _mouseWheel = false; /// if mouse wheel should scroll
 	uint _drawAreaHeight, _drawAreaWidth; /// height and width after subtracting space for scrollbars
 	
 	override void eventSubscribe(){
-		_eventSub = _widget._eventSub | EventMask.Resize | EventMask.Scroll;
-		_eventSub |= (EventMask.KeyboardPress*_pgDnUp) | (EventMask.MouseAll*_mouseWheel);
+		_eventSub = EventMask.Resize | EventMask.Scroll;
+		if (_widget)
+			_eventSub |= _widget._eventSub;
+		if (_pgDnUp)
+			_eventSub |= EventMask.KeyboardPress;
+		if (_mouseWheel)
+			_eventSub |= EventMask.MouseAll;
+		if (_scrollbarH || _scrollbarV)
+			_eventSub |= EventMask.Update;
 		if (_parent)
 			_parent.eventSubscribe();
 	}
@@ -1023,6 +1030,14 @@ protected:
 		_widget._resizeEventCall();
 	}
 
+	override void scrollEvent(){
+		_offX = _view._offsetX;
+		_offY = _view._offsetY;
+		if (_scrollbarH || _scrollbarV)
+			requestUpdate();
+		rescroll();
+	}
+
 	override void keyboardEvent(KeyboardEvent key){
 		if (!_widget)
 			return;
@@ -1059,10 +1074,10 @@ protected:
 	}
 
 	override void updateEvent(){
-		if (_widget && _widget.show)
-			_widget._updateEventCall();
 		if (!_widget)
 			return;
+		if (_widget.show)
+			_widget._updateEventCall();
 		if (_width > _widget._view._width + (1*(_scrollbarV))){
 			foreach (y; 0 .. _widget._view._height){
 				moveTo(_widget._view._width, y);
@@ -1112,18 +1127,29 @@ protected:
 	}
 public:
 	/// constructor
-	this(QWidget child){
+	this(){
 		this._isScrollableContainer = true;
 		this._scrollbarV = true;
 		this._scrollbarH = true;
+	}
+	~this(){
+		if (_widget)
+			.destroy(_widget); // kill the child!
+	}
+
+	/// Sets the child widget.
+	/// 
+	/// Returns: false if alreadty has a child
+	bool setWidget(QWidget child){
+		if (_widget)
+			return false;
 		_widget = child;
 		_widget._parent = this;
 		_widget._canReqScroll = true;
 		_widget._posX = 0;
 		_widget._posY = 0;
-	}
-	~this(){
-		.destroy(_widget); // kill the child!
+		eventSubscribe();
+		return true;
 	}
 
 	override void requestResize(){
