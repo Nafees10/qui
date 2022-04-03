@@ -405,10 +405,8 @@ protected:
 	/// move seek for next write to terminal.  
 	/// can only write in between:
 	/// `(_viewX .. _viewX + _viewWidth, _viewY .. _viewX + _viewHeight)`
-	/// 
-	/// Returns: false if writing to new coordinates not possible
-	final bool moveTo(uint newX, uint newY){
-		return _view.moveTo(newX, newY);
+	final void moveTo(uint newX, uint newY){
+		_view.moveTo(newX, newY);
 	}
 	/// writes a character on terminal
 	/// 
