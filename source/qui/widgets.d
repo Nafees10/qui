@@ -22,28 +22,37 @@ protected:
 		foreach (y; viewportY .. viewportY + viewportHeight){
 			moveTo(viewportX, y);
 			foreach (x; viewportX .. viewportX + viewportWidth){
-				write(((x+y) % 10).to!dstring[0], textColor, y < height && x < width ? backgroundColor : emptyColor);
+				write(((x+y) % 10).to!dstring[0], textColor, y < height &&
+					x < width ? backgroundColor : emptyColor);
 			}
 		}
 		if (_debugInfo){
 			moveTo(viewportX, viewportY);
-			write("size, width x height:     " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+			write("size, width x height:     " ~
+				to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+1);
-			write("min size, width x height: " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+			write("min size, width x height: " ~
+				to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+2);
-			write("max size, width x height: " ~ to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+			write("max size, width x height: " ~
+				to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+3);
-			write("scroll X, Y: " ~ to!dstring(scrollX)~","~to!dstring(scrollY), DEFAULT_FG, DEFAULT_BG);
+			write("scroll X, Y: " ~
+				to!dstring(scrollX)~","~to!dstring(scrollY), DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+4);
-			write("view X, Y: " ~ to!dstring(viewportX) ~ "," ~ to!dstring(viewportY), DEFAULT_FG, DEFAULT_BG);
+			write("view X, Y: " ~
+				to!dstring(viewportX) ~ "," ~ to!dstring(viewportY), DEFAULT_FG,
+				DEFAULT_BG);
 			moveTo(viewportX, viewportY+5);
-			write("view width x height: " ~ to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight), DEFAULT_FG, DEFAULT_BG);
+			write("view width x height: " ~
+				to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight), DEFAULT_FG,
+				DEFAULT_BG);
 		}
 	}
 public:
 	/// constructor
-	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG, Color emptyColor = Color.green,
-	bool debugInfo=false){
+	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG,
+	Color emptyColor = Color.green, bool debugInfo=false){
 		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.Update);
 		this.textColor = textColor;
 		this.backgroundColor = backgroundColor;
@@ -129,7 +138,8 @@ protected:
 		requestUpdate();
 	}
 	override void mouseEvent(MouseEvent mouse){
-		if (mouse.button == MouseEvent.Button.Left && mouse.state == MouseEvent.State.Click)
+		if (mouse.button == MouseEvent.Button.Left &&
+		mouse.state == MouseEvent.State.Click)
 			_x = mouse.x;
 		requestUpdate();
 	}
@@ -166,8 +176,8 @@ protected:
 public:
 	/// constructor
 	this(dstring text = ""){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.MousePress | EventMask.KeyboardPress | 
-			EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.MousePress |
+			EventMask.KeyboardPress | EventMask.Update);
 		this._text = cast(dchar[])text.dup;
 		height = 1;
 	}
