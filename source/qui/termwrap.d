@@ -15,9 +15,17 @@ public struct Event{
 	struct Keyboard{
 		private this(KeyboardEvent event){
 			key = event.which;
+			state = event.pressed ? State.Pressed : State.Released;
 		}
 		//// what key was pressed
 		dchar key;
+		/// possible states
+		enum State : ubyte{
+			Pressed = 1 << 3,  // key pressed
+			Released = 1 << 4 // key released
+		}
+		/// state
+		ubyte state;
 		/// Non character keys (can match against `this.key`)
 		/// 
 		/// copied from arsd.terminal
@@ -85,27 +93,52 @@ public struct Event{
 		/// Returns: a string representation of the key pressed
 		@property string tostring(){
 			if (isChar())
-				return to!string(key);
+				return "{key:\'"~to!string(key)~"\', state:"~state.to!string~"}";
 			if (isCtrlKey())
-				return to!string(cast(CtrlKeys)key);
-			return to!string(cast(Key)key);
+				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\', state:"~state.to!string~"}";
+			return "{key:\'"~to!string(cast(Key)key)~"\', state:"~state.to!string~"}";
 		}
 	}
 	/// Mouse Event
 	struct Mouse{
 		/// Buttons
-		enum Button{
-			Left, /// Left mouse btn clicked
-			Right, /// Right mouse btn clicked
-			Middle, /// Middle mouse btn clicked
-			ScrollUp, /// Scroll up clicked
-			ScrollDown, /// Scroll Down clicked
-			None, /// no button pressed, mouse was hovered. Not supported on all terminals (works on xterm, not on konsole)
+		enum Button : ubyte{
+			Left 		=	0x00, /// Left mouse btn clicked
+			Right 		=	0x10, /// Right mouse btn clicked
+			Middle 		= 	0x20, /// Middle mouse btn clicked
+			ScrollUp 	=	0x30, /// Scroll up clicked
+			ScrollDown 	= 	0x40, /// Scroll Down clicked
+			None 		=	0x50, /// .
+		}
+		/// State
+		enum State : ubyte{
+			Click	=	1, /// Clicked
+			Release	=	1 << 1, /// Released
+			Hover	=	1 << 2, /// Hovered
 		}
 		/// x and y position of cursor
 		int x, y;
+		/// button and type (press/release/hover)
+		/// access this using `this.button` and `this.state`
+		ubyte type;
 		/// what button was clicked
-		Button button;
+		@property Button button(){
+			return cast(Button)(type & 0xF0);
+		}
+		/// ditto
+		@property Button button(Button newVal){
+			type = this.state | newVal;
+			return newVal;
+		}
+		/// State (Clicked/Released/...)
+		@property State state(){
+			return cast(State)(type & 0x0F);
+		}
+		/// ditto
+		@property State state(State newVal){
+			type = this.button | newVal;
+			return newVal;
+		}
 		/// constructor
 		this (Button btn, int xPos, int yPos){
 			x = xPos;
@@ -114,20 +147,30 @@ public struct Event{
 		}
 		/// constructor, from arsd.terminal.MouseEvent
 		private this(MouseEvent mouseE){
-			if (mouseE.buttons == MouseEvent.Button.Left)
+			if (mouseE.buttons & MouseEvent.Button.Left)
 				this.button = this.Button.Left;
-			else if (mouseE.buttons == MouseEvent.Button.Right)
+			else if (mouseE.buttons & MouseEvent.Button.Right)
 				this.button = this.Button.Right;
-			else if (mouseE.buttons == MouseEvent.Button.Middle)
+			else if (mouseE.buttons & MouseEvent.Button.Middle)
 				this.button = this.Button.Middle;
-			else if (mouseE.buttons == MouseEvent.Button.ScrollUp)
+			else if (mouseE.buttons & MouseEvent.Button.ScrollUp)
 				this.button = this.Button.ScrollUp;
-			else if (mouseE.buttons == MouseEvent.Button.ScrollDown)
+			else if (mouseE.buttons & MouseEvent.Button.ScrollDown)
 				this.button = this.Button.ScrollDown;
-			else if (mouseE.buttons == MouseEvent.Button.None)
+			else
 				this.button = this.Button.None;
+			if (mouseE.eventType == mouseE.Type.Clicked || mouseE.eventType == mouseE.Type.Pressed)
+				this.state = State.Click;
+			else if (mouseE.eventType == mouseE.Type.Released)
+				this.state = State.Release;
+			else
+				this.state = State.Hover;
 			this.x = mouseE.x;
 			this.y = mouseE.y;
+		}
+		/// Returns: string representation of this
+		@property string tostring(){
+			return "{button:"~button.to!string~", state:"~state.to!string~", x:"~x.to!string~", y:"~y.to!string~"}";
 		}
 	}
 	/// Resize event
@@ -187,8 +230,6 @@ public struct Event{
 	}
 }
 
-
-
 /// Wrapper to arsd.terminal to make it bit easier to manage
 public class TermWrapper{
 private:
@@ -198,7 +239,7 @@ public:
 	/// constructor
 	this(){
 		_term = Terminal(ConsoleOutputType.cellular);
-		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEvents | ConsoleInputFlags.raw);
+		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEventsWithRelease | ConsoleInputFlags.raw);
 	}
 	~this(){
 		_term.clear;
@@ -212,28 +253,6 @@ public:
 	@property int height(){
 		return _term.height;
 	}
-	/// fills all cells with a character
-	void fill(dchar ch){
-		const int _w = width, _h = height;
-		dchar[] line;
-		line.length = _w;
-		line[] = ch;
-		// write line _h times
-		for (uint i = 0; i < _h; i ++){
-			_term.moveTo(0,i);
-			_term.write(line);
-		}
-	}
-	/// fills a rectangle with a character
-	void fill(dchar ch, int x1, int x2, int y1, int y2){
-		dchar[] line;
-		line.length = (x2 - x1) + 1;
-		line[] = ch;
-		foreach(i; y1 .. y2 +1){
-			_term.moveTo(x1, i);
-			_term.write(line);
-		}
-	}
 	/// flush to terminal
 	void flush(){
 		_term.flush();
@@ -243,26 +262,9 @@ public:
 		_term.moveTo(x, y);
 		_term.write(ch);
 	}
-	/// writes a character `ch` at a position `(x, y)` with `fg` as foreground and `bg` as background color
-	void put(int x, int y, dchar ch, Color fg, Color bg){
-		_term.color(fg, bg);
-		_term.moveTo(x, y);
-		_term.write(ch);
-	}
 	/// sets colors
 	void color(Color fg, Color bg){
 		_term.color(fg, bg);
-	}
-	/// writes a string at position `(x, y)`
-	void write(int x, int y, dstring str){
-		_term.moveTo(x, y);
-		_term.write(str);
-	}
-	/// writes a string at position `(x, y)` with `fg` as foreground and `bg` as background color
-	void write(int x, int y, dstring str, Color fg, Color bg){
-		_term.color(fg, bg);
-		_term.moveTo(x, y);
-		_term.write(str);
 	}
 	/// moves cursor to position
 	void moveCursor(int x, int y){
@@ -282,15 +284,14 @@ public:
 	bool getEvent(int msecTimeout, ref Event event){
 		StopWatch sw;
 		sw.start;
-		while (msecTimeout - sw.peek.total!"msecs" > 0){
-			if (_input.timedCheckForInput(cast(int)(msecTimeout - sw.peek.total!"msecs"))){
+		while (msecTimeout - cast(int)sw.peek.total!"msecs" > 0){
+			if (_input.timedCheckForInput(msecTimeout - cast(int)sw.peek.total!"msecs")){
 				InputEvent e = _input.nextEvent;
 				if (e.type == InputEvent.Type.HangupEvent || e.type == InputEvent.Type.UserInterruptionEvent){
 					event = Event(Event.Type.HangupInterrupt);
 					return true;
 				}
-				if (e.type == InputEvent.Type.KeyboardEvent && 
-				e.get!(InputEvent.Type.KeyboardEvent).pressed){
+				if (e.type == InputEvent.Type.KeyboardEvent /*&& e.get!(InputEvent.Type.KeyboardEvent).pressed*/){
 					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent)));
 					// fix for issue #16 ("Escape key registered as a character event as well")
 					if (event._key.key == 27)

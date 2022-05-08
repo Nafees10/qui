@@ -6,7 +6,6 @@ module qui.utils;
 
 import qui.qui;
 
-import utils.baseconv;
 import utils.misc;
 import std.conv : to;
 
@@ -21,31 +20,12 @@ import std.conv : to;
 /// * `width` is the number of characters that are to be displayed
 /// 
 /// Returns: the text that should be displayed
-dstring scrollHorizontal(dstring line, integer xOffset, uinteger width){
+dstring scrollHorizontal(dstring line, int xOffset, uint width, dchar spaceChar = ' '){
 	dchar[] r;
-	if (xOffset == 0){
-		// in case it has to do nothing, 
-		r = cast(dchar[])line[0 .. width > line.length ? line.length : width].dup;
-	}else if (xOffset > 0){
-		// only do something if it's not scrolled too far for the line to be even displayed
-		if (xOffset < line.length){
-			r = cast(dchar[])line[xOffset .. line.length].dup;
-		}
-	}else if (xOffset < 0){
-		// only do something if it's not scrolled too far for the line to be even displayed
-		if (cast(integer)(line.length) + xOffset > 0){
-			r.length = xOffset * -1;
-			r[] = ' ';
-			r = r ~ cast(dchar[])line.dup;
-		}
-	}
-	if (r.length < width){
-		uinteger filledLength = r.length;
-		r.length = width;
-		r[filledLength .. r.length] = ' ';
-	}else if (r.length > width){
-		r.length = width;
-	}
+	r.length = width;
+	r[] = spaceChar;
+	for (uint i = xOffset < 0 ? -xOffset : 0; i + xOffset < line.length && i < width; i ++)
+		r[i] = line[i + xOffset];
 	return cast(dstring)r;
 }
 /// 
@@ -60,11 +40,11 @@ unittest{
 }
 
 /// ditto
-dchar[] scrollHorizontal(dchar[] line, integer xOffset, uinteger width){
+dchar[] scrollHorizontal(dchar[] line, int xOffset, uint width){
 	return cast(dchar[])(cast(dstring)line).scrollHorizontal(xOffset, width);
 }
 /// ditto
-char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
+char[] scrollHorizontal(char[] line, int xOffset, uint width){
 	return cast(char[])(cast(dstring)line).scrollHorizontal(xOffset, width);
 }
 
@@ -74,13 +54,12 @@ char[] scrollHorizontal(char[] line, integer xOffset, uinteger width){
 /// * `selected` is the character on which the cursor is. If it's >lineWidth, `selected=lineWidth`
 /// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
 /// * `offset` is the variable storing the offset (_xOffset or _yOffset)
-void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWidth, ref uinteger offset){
+void adjustScrollingOffset(ref uint selected, uint size, uint lineWidth, ref uint offset){
 	// if selected is outside size, it shouldn't be
-	if (selected > lineWidth){
+	if (selected > lineWidth)
 		selected = lineWidth;
-	}
 	// range of characters' index that's visible (1 is inclusive, 2 is not)
-	uinteger visible1, visible2;
+	uint visible1, visible2;
 	visible1 = offset;
 	visible2 = offset + size;
 	if (selected < visible1 || selected >= visible2){
@@ -89,7 +68,7 @@ void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWi
 			offset = selected;
 		}else if (selected >= visible2){
 			// scroll ahead
-			offset = selected+1 - (size);
+			offset = selected+1 - size;
 		}
 	}
 }
@@ -99,27 +78,32 @@ void adjustScrollingOffset(ref uinteger selected, uinteger size, uinteger lineWi
 /// If `text.length > width`, the exceeding characters are removed
 /// 
 /// Returns: the text center aligned in a string
-dstring centerAlignText(dstring text, uinteger width, dchar fill = ' '){
+dstring centerAlignText(dstring text, uint width, dchar fill = ' '){
 	dchar[] r;
+	r.length = width;
 	if (text.length < width){
-		r.length = width;
-		uinteger offset = (width - text.length)/2;
+		uint offset = (width - cast(uint)text.length)/2;
 		r[0 .. offset] = fill;
 		r[offset .. offset+text.length][] = text;
 		r[offset+text.length .. r.length] = fill;
-	}else{
-		r = cast(dchar[])text[0 .. width].dup;
-	}
+	}else
+		r[] = text[0 .. r.length];
 	return cast(dstring)r;
 }
 ///
 unittest{
 	assert("qwr".centerAlignText(7) == "  qwr  ");
+	assert("qwerty".centerAlignText(6) == "qwerty");
+	assert("qwerty".centerAlignText(5) == "qwert");
 }
 
-/// To calculate size of widgets using their sizeRatio
-deprecated uinteger ratioToRaw(uinteger selectedRatio, uinteger ratioTotal, uinteger total){
-	uinteger r;
-	r = cast(uinteger)((cast(float)selectedRatio/cast(float)ratioTotal)*total);
-	return r;
+/// Returns: size after considering minimum and maximum allowed
+/// 
+/// if `min==0`, it is ignored. if `max==0`, it is ignored
+uint getLimitedSize(uint calculated, uint min, uint max){
+	if (min && calculated < min)
+		return min;
+	if (max && calculated > max)
+		return max;
+	return calculated;
 }
