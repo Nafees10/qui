@@ -6,7 +6,7 @@ module qui.qui;
 
 import std.datetime.stopwatch;
 import utils.misc;
-import utils.lists;
+import utils.ds;
 import std.conv : to;
 import qui.termwrap;
 

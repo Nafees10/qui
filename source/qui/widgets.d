@@ -6,7 +6,7 @@ module qui.widgets;
 import qui.qui;
 import qui.utils;
 import utils.misc;
-import utils.lists;
+import utils.ds;
 
 import std.conv : to;
 
