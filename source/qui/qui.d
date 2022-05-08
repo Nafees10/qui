@@ -33,7 +33,7 @@ public alias KeyboardEvent = Event.Keyboard;
 /// mouseEvent function. Return true if the event should be dropped
 alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
 ///keyboardEvent function. Return true if the event should be dropped
-alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent);
+alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent, bool);
 /// resizeEvent function. Return true if the event should be dropped
 alias ResizeEventFunction = bool delegate(QWidget);
 /// scrollEvent function. Return true if the event should be dropped
@@ -59,21 +59,18 @@ enum EventMask : uint{
 	KeyboardPress = 1 << 3,
 	/// key releases. This value matches `KeyboardEvent.State.Released`
 	KeyboardRelease = 1 << 4,
-	/// keyboard events concerning active widget cycling key.
-	/// Use this in combination with KeyboardPress or KeyboardRelease
-	KeyboardWidgetCycleKey = 1 << 5,
 	/// widget scrolling.
-	Scroll = 1 << 6,
-	/// widget resize. this is ignored, resize will always be called
-	Resize = 0,
+	Scroll = 1 << 5,
+	/// widget resize.
+	Resize = 1 << 6,
 	/// widget activated/deactivated.
 	Activate = 1 << 7,
 	/// timer
 	Timer = 1 << 8,
 	/// initialize
 	Initialize = 1 << 9,
-	/// draw itself. this is ignored, use `QWidget.requestUpdate();`
-	Update = 0,
+	/// draw itself.
+	Update = 1 << 10,
 	/// All mouse events
 	MouseAll = MousePress | MouseRelease | MouseHover,
 	/// all keyboard events, this does **NOT** include KeyboardWidgetCycleKey
@@ -241,13 +238,13 @@ private:
 	/// whether this widget is requesting update
 	bool _requestingUpdate = true;
 	/// Whether to call resize before next update
-	bool _requestingResize;
+	bool _requestingResize = false;
 	/// the parent widget
 	QWidget _parent = null;
 	/// if it can make parent change scrolling
 	bool _canReqScroll = false;
 	/// if this widget is itself a scrollable container
-	bool _isScrollableContainer;
+	bool _isScrollableContainer = false;
 	/// Events this widget is subscribed to, see `EventMask`
 	uint _eventSub = 0;
 	/// whether this widget should be drawn or not.
@@ -264,7 +261,7 @@ private:
 	/// custom resize event
 	ResizeEventFunction _customResizeEvent;
 	/// custom rescroll event
-	scrollEventFunction _customscrollEvent;
+	scrollEventFunction _customScrollEvent;
 	/// custom onActivate event,
 	ActivateEventFunction _customActivateEvent;
 	/// custom onTimer event
@@ -309,66 +306,77 @@ private:
 	}
 
 	/// called by parent for initialize event
-	void _initializeCall(){
+	bool _initializeCall(){
 		if (!(_eventSub & EventMask.Initialize))
-			return;
-		if (!_customInitEvent || !_customInitEvent(this))
-			this.initialize();
+			return false;
+		if (_customInitEvent && _customInitEvent(this))
+			return true;
+		return this.initialize();
 	}
 	/// called by parent for mouseEvent
-	void _mouseEventCall(MouseEvent mouse){
+	bool _mouseEventCall(MouseEvent mouse){
 		if (!(_eventSub & mouse.state)) 
-			return;
+			return false;
 		// mouse input comes relative to visible area
 		mouse.x = (mouse.x - cast(int)this._posX) + _view._offsetX;
 		mouse.y = (mouse.y - cast(int)this._posY) + _view._offsetY;
-		if (!_customMouseEvent || !_customMouseEvent(this, mouse))
-			this.mouseEvent(mouse);
+		if (_customMouseEvent && _customMouseEvent(this, mouse))
+			return true;
+		return this.mouseEvent(mouse);
 	}
 	/// called by parent for keyboardEvent
-	void _keyboardEventCall(KeyboardEvent key){
+	bool _keyboardEventCall(KeyboardEvent key, bool cycle){
 		if (!(_eventSub & key.state))
-			return;
-		if (!_customKeyboardEvent || !_customKeyboardEvent(this, key))
-			this.keyboardEvent(key);
+			return false;
+		if (_customKeyboardEvent && _customKeyboardEvent(this, key, cycle))
+			return true;
+		return this.keyboardEvent(key, cycle);
 	}
 	/// called by parent for resizeEvent
-	void _resizeEventCall(){
+	bool _resizeEventCall(){
 		_requestingResize = false;
-		if (!_customResizeEvent || !_customResizeEvent(this))
-			this.resizeEvent();
+		if (!(_eventSub & EventMask.Resize))
+			return false;
+		if (_customResizeEvent && _customResizeEvent(this))
+			return true;
+		return this.resizeEvent();
 	}
 	/// called by parent for scrollEvent
-	void _scrollEventCall(){
-		if (_eventSub & EventMask.Scroll &&
-		(!_customscrollEvent || !_customscrollEvent(this)))
-			this.scrollEvent();
+	bool _scrollEventCall(){
+		if (!(_eventSub & EventMask.Scroll))
+			return false;
+		if (_customScrollEvent && _customScrollEvent(this))
+			return true;
+		return this.scrollEvent();
 	}
 	/// called by parent for activateEvent
-	void _activateEventCall(bool isActive){
+	bool _activateEventCall(bool isActive){
+		if (!(_eventSub & EventMask.Activate))
+			return false;
 		if (_isActive == isActive)
-			return;
+			return false;
 		_isActive = isActive;
-		if (_eventSub & EventMask.KeyboardWidgetCycleKey)
-			eventSubscribe();
-		if (_eventSub & EventMask.Activate &&
-		(!_customActivateEvent || !_customActivateEvent(this, isActive)))
-			this.activateEvent(isActive);
+		if (_customActivateEvent && _customActivateEvent(this, isActive))
+			return true;
+		return this.activateEvent(isActive);
 	}
 	/// called by parent for mouseEvent
-	void _timerEventCall(uint msecs){
-		if (_eventSub && EventMask.Timer &&
-		(!_customTimerEvent || !_customTimerEvent(this, msecs)))
-			this.timerEvent(msecs);
+	bool _timerEventCall(uint msecs){
+		if (!(_eventSub & EventMask.Timer))
+			return false;
+		if (_customTimerEvent && _customTimerEvent(this, msecs))
+			return true;
+		return timerEvent(msecs);
 	}
 	/// called by parent for updateEvent
-	void _updateEventCall(){
-		if (!_requestingUpdate)
-			return;
+	bool _updateEventCall(){
+		if (!_requestingUpdate || !(_eventSub & EventMask.Activate))
+			return false;
 		_requestingUpdate = false;
 		_view.moveTo(_view._offsetX,_view._offsetY);
-		if (!_customUpdateEvent || !_customUpdateEvent(this))
-			this.updateEvent();
+		if (_customUpdateEvent && _customUpdateEvent(this))
+			return true;
+		return this.updateEvent();
 	}
 protected:
 	/// minimum width
@@ -427,12 +435,6 @@ protected:
 		return _view.fillLine(c, fg, bg, max);
 	}
 
-	/// For cycling between widgets.
-	/// 
-	/// Returns: whether any cycling happened
-	bool cycleActiveWidget(){
-		return false;
-	}
 	/// activate the passed widget if this is actually the correct widget
 	/// 
 	/// Returns: if it was activated or not
@@ -471,28 +473,28 @@ protected:
 	}
 
 	/// Called to update this widget
-	void updateEvent(){}
+	bool updateEvent(){}
 	/// Called after UI has been run
-	void initialize(){}
+	bool initialize(){}
 	/// Called when mouse is clicked with cursor on this widget.
-	void mouseEvent(MouseEvent mouse){}
+	bool mouseEvent(MouseEvent mouse){}
 	/// Called when key is pressed and this widget is active.
-	void keyboardEvent(KeyboardEvent key){}
+	bool keyboardEvent(KeyboardEvent key, bool cycle){}
 	/// Called when widget size is changed,
 	/// or widget should recalculate it's child widgets' sizes;  
 	/// calls requestUpdate by default
-	void resizeEvent(){
+	bool resizeEvent(){
 		_requestUpdate();
 	}
 	/// Called when the widget is rescrolled, but size not changed.  
 	/// calls requestUpdate by default
-	void scrollEvent(){
+	bool scrollEvent(){
 		_requestUpdate();
 	}
 	/// called right after this widget is activated, or de-activated
-	void activateEvent(bool isActive){}
+	bool activateEvent(bool isActive){}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
-	void timerEvent(uint msecs){}
+	bool timerEvent(uint msecs){}
 public:
 	/// To request parent to trigger an update event
 	void requestUpdate(){
@@ -710,29 +712,38 @@ private:
 		}
 		.destroy(widgetStack);
 	}
+
+	/// find the next widget to activate
+	/// Returns: index, or -1 if no one wanna be active
+	int _nextActiveWidget(){
+		for (int i = _activeWidgetIndex + 1; i < _widgets.length; i ++){
+			if ((_widgets[i]._eventSub & EventMask.KeyboardAll) && _widgets[i]._show)
+				return i;
+		}
+		return -1;
+	}
 protected:
 	override void eventSubscribe(){
 		_eventSub = 0;
 		foreach (widget; _widgets)
 			_eventSub |= widget._eventSub;
-		// do not sub to EventMask.KeyboardWidgetCycleKey, unless active widget wants it
-		_eventSub &= !EventMask.KeyboardWidgetCycleKey;
-		if (_activeWidgetIndex > -1)
-			_eventSub |= _widgets[_activeWidgetIndex]._eventSub;
+		
 		// if children can become active, then need activate too
 		if (_eventSub & EventMask.KeyboardAll)
 			_eventSub |= EventMask.Activate;
+		
 		_eventSub |= EventMask.Scroll;
+
 		if (_parent)
 			_parent.eventSubscribe();
 	}
 
 	/// Recalculates size and position for all visible widgets
-	override void resizeEvent(){
+	override bool resizeEvent(){
 		_recalculateWidgetsSize(); // resize everything
 		// if parent is scrollable container, and there are no size limits,
 		// then grow as needed
-		if (_minHeight == 0 && _maxHeight == 0 && _minWidth == 0 && _maxWidth == 0 && 
+		if (_minHeight + _maxHeight + _minWidth + _maxWidth == 0 && 
 		_parent && _parent._isScrollableContainer){
 			_width = 0;
 			_height = 0;
@@ -784,26 +795,28 @@ protected:
 				widget._resizeEventCall();
 			}
 		}
+		return true;
 	}
 
 	/// Resize event
-	override void scrollEvent(){
+	override bool scrollEvent(){
 		if (_isOverflowing){
 			foreach (widget; _widgets)
 				widget._view._reset();
-			return;
+			return false;
 		}
 		foreach (i, widget; _widgets){
 			_view._getSlice(&(widget._view), widget._posX, widget._posY,
 				widget._width, widget._height);
 			widget._scrollEventCall();
 		}
+		return true;
 	}
 	
 	/// Redirects the mouseEvent to the appropriate widget
-	override public void mouseEvent(MouseEvent mouse){
+	override public bool mouseEvent(MouseEvent mouse){
 		if (_isOverflowing)
-			return;
+			return false;
 		int index;
 		if (_type == Type.Horizontal){
 			foreach (i, w; _widgets){
@@ -829,42 +842,62 @@ protected:
 				_activeWidgetIndex = index;
 			}
 			_widgets[index]._mouseEventCall(mouse);
+			return true;
 		}
+		return false;
 	}
 
 	/// Redirects the keyboardEvent to appropriate widget
-	override public void keyboardEvent(KeyboardEvent key){
+	override public bool keyboardEvent(KeyboardEvent key, bool cycle){
 		if (_isOverflowing)
-			return;
-		if (_activeWidgetIndex > -1)
-			_widgets[_activeWidgetIndex]._keyboardEventCall(key);
+			return false;
+		if (_activeWidgetIndex > -1 &&
+		_widgets[_activeWidgetIndex]._keyboardEventCall(key, cycle))
+			return true;
+		
+		if (!cycle)
+			return false;
+		immutable int next = _nextActiveWidget();
+
+		if (_activeWidgetIndex > -1 && next != _activeWidgetIndex)
+			_widgets[_activeWidgetIndex]._activateEventCall(false);
+
+		if (next == -1)
+			return false;
+		_activeWidgetIndex = next;
+		_widgets[_activeWidgetIndex]._activateEventCall(true);
+		return true;
 	}
 
 	/// override initialize to initliaze child widgets
-	override void initialize(){
+	override bool initialize(){
 		foreach (widget; _widgets){
 			widget._view._reset();
 			widget._initializeCall();
 		}
+		return true;
 	}
 
 	/// override timer event to call child widgets' timers
-	override void timerEvent(uint msecs){
+	override bool timerEvent(uint msecs){
 		foreach (widget; _widgets)
 			widget._timerEventCall(msecs);
+		return true;
 	}
 
 	/// override activate event
-	override void activateEvent(bool isActive){
+	override bool activateEvent(bool isActive){
 		if (isActive){
 			_activeWidgetIndex = -1;
-			this.cycleActiveWidget();
-		}else if (_activeWidgetIndex > -1)
+			_activeWidgetIndex = _nextActiveWidget();
+		}
+		if (_activeWidgetIndex > -1)
 			_widgets[_activeWidgetIndex]._activateEventCall(isActive);
+		return true;
 	}
 	
 	/// called by parent widget to update
-	override void updateEvent(){
+	override bool updateEvent(){
 		if (_isOverflowing){
 			foreach (y; viewportY .. viewportY + viewportHeight){
 				moveTo(viewportX, y);
@@ -893,32 +926,7 @@ protected:
 				}
 			}
 		}
-	}
-	/// called to cycle between actveWidgets. This is called by parent widget
-	/// 
-	/// Returns: true if cycled to another widget, false if _activeWidgetIndex set to -1
-	override bool cycleActiveWidget(){
-		// check if need to cycle within current active widget
-		if (_activeWidgetIndex == -1 ||
-		!(_widgets[_activeWidgetIndex].cycleActiveWidget())){
-			int lastActiveWidgetIndex = _activeWidgetIndex;
-			for (_activeWidgetIndex ++; _activeWidgetIndex < _widgets.length;
-			_activeWidgetIndex ++){
-				if ((_widgets[_activeWidgetIndex]._eventSub & EventMask.KeyboardAll) &&
-				_widgets[_activeWidgetIndex]._show)
-					break;
-			}
-			if (_activeWidgetIndex >= _widgets.length)
-				_activeWidgetIndex = -1;
-			
-			if (lastActiveWidgetIndex != _activeWidgetIndex){
-				if (lastActiveWidgetIndex > -1)
-					_widgets[lastActiveWidgetIndex]._activateEventCall(false);
-				if (_activeWidgetIndex > -1)
-					_widgets[_activeWidgetIndex]._activateEventCall(true);
-			}
-		}
-		return _activeWidgetIndex != -1;
+		return true;
 	}
 
 	/// activate the passed widget if it's in the current layout
@@ -1062,7 +1070,7 @@ protected:
 		rescroll();
 	}
 
-	override void resizeEvent(){
+	override bool resizeEvent(){
 		_offX = _view._offsetX;
 		_offY = _view._offsetY;
 		_drawAreaHeight = _height - (1*(_height>0 && _scrollbarV));
@@ -1080,55 +1088,59 @@ protected:
 		}
 		rescroll(false);
 		_widget._resizeEventCall();
+
+		return true;
 	}
 
-	override void scrollEvent(){
+	override bool scrollEvent(){
 		_offX = _view._offsetX;
 		_offY = _view._offsetY;
 		if (_scrollbarH || _scrollbarV)
 			requestUpdate();
 		rescroll();
+
+		return true;
 	}
 
-	override void keyboardEvent(KeyboardEvent key){
+	override bool keyboardEvent(KeyboardEvent key, bool cycle){
 		if (!_widget)
-			return;
-		if (_pgDnUp && _drawAreaHeight < _widget._height &&
+			return false;
+		if (!cycle && _pgDnUp && _drawAreaHeight < _widget._height &&
 		key.state == KeyboardEvent.State.Pressed){
 			if (key.key == Key.PageUp){
 				requestScrollY(_drawAreaHeight > _widget._scrollY ? 0 :
 					_widget._scrollY - _drawAreaHeight);
-				return;
+				return true;
 			}
 			if (key.key == Key.PageDown){
 				requestScrollY(_drawAreaHeight + _widget._scrollY > _widget._height ? 
 					_widget._height - _drawAreaHeight :
 					_widget._scrollY + _drawAreaHeight);
-				return;
+				return true;
 			}
 		}
-		_widget._keyboardEventCall(key);
+		return _widget._keyboardEventCall(key, cycle);
 	}
 
-	override void mouseEvent(MouseEvent mouse){
+	override bool mouseEvent(MouseEvent mouse){
 		if (!_widget)
 			return;
 		if (_mouseWheel && _drawAreaHeight < _widget._height){
 			if (mouse.button == mouse.Button.ScrollUp){
 				if (_widget._scrollY)
 					requestScrollY(_widget._scrollY - 1);
-				return;
+				return true;
 			}
 			if (mouse.button == mouse.Button.ScrollDown){
 				if (_widget._scrollY + _drawAreaHeight < _widget._height)
 					requestScrollY(_widget._scrollY + 1);
-				return;
+				return true;
 			}
 		}
-		_widget._mouseEventCall(mouse);
+		return _widget._mouseEventCall(mouse);
 	}
 
-	override void updateEvent(){
+	override bool updateEvent(){
 		if (!_widget)
 			return;
 		if (_widget.show)
@@ -1146,6 +1158,8 @@ protected:
 			}
 		}
 		drawScrollbars();
+
+		return true;
 	}
 
 	/// draws scrollbars, very basic stuff
@@ -1327,7 +1341,7 @@ protected:
 		_cursorY = y;
 	}
 
-	override void resizeEvent(){
+	override bool resizeEvent(){
 		_height = _termWrap.height;
 		_width = _termWrap.width;
 		_view._buffer.length = _width * _height;
@@ -1335,26 +1349,16 @@ protected:
 		_view._actualWidth = _width;
 		_view._height = _height;
 		super.resizeEvent();
+		return true;
 	}
 
-	override void keyboardEvent(KeyboardEvent key){
-		if (_isOverflowing)
-			return;
-		QWidget activeWidget = null;
-		uint eSub = 0;
-		if (_activeWidgetIndex > -1){
-			activeWidget = _widgets[_activeWidgetIndex];
-			eSub = activeWidget._eventSub;
-		}
-		if (key.key == _activeWidgetCycleKey &&
-		key.state == KeyboardEvent.State.Pressed &&
-		(!activeWidget || !(eSub & EventMask.KeyboardWidgetCycleKey)))
-			this.cycleActiveWidget();
-		else if (activeWidget)
-			activeWidget._keyboardEventCall(key);
+	override bool keyboardEvent(KeyboardEvent key, bool cycle){
+		cycle = key.state == KeyboardEvent.State.Pressed &&
+			key.key == _activeWidgetCycleKey;
+		return super.keyboardEvent(key, cycle);
 	}
 	
-	override void updateEvent(){
+	override bool updateEvent(){
 		// resize if needed
 		if (_requestingResize)
 			this._resizeEventCall();
@@ -1372,6 +1376,7 @@ protected:
 			_termWrap.cursorVisible = true;
 		}
 		_termWrap.flush();
+		return true;
 	}
 
 public:
