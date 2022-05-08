@@ -29,24 +29,28 @@ protected:
 		if (_debugInfo){
 			moveTo(viewportX, viewportY);
 			write("size, width x height:     " ~
-				to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+				to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|',
+				DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+1);
 			write("min size, width x height: " ~
-				to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+				to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|',
+				DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+2);
 			write("max size, width x height: " ~
-				to!dstring(width) ~ "x" ~ to!dstring(height), DEFAULT_FG, DEFAULT_BG);
+				to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|',
+				DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+3);
 			write("scroll X, Y: " ~
-				to!dstring(scrollX)~","~to!dstring(scrollY), DEFAULT_FG, DEFAULT_BG);
+				to!dstring(scrollX) ~ "," ~ to!dstring(scrollY) ~ '|',
+				DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+4);
 			write("view X, Y: " ~
-				to!dstring(viewportX) ~ "," ~ to!dstring(viewportY), DEFAULT_FG,
-				DEFAULT_BG);
+				to!dstring(viewportX) ~ "," ~ to!dstring(viewportY) ~ '|',
+				DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+5);
 			write("view width x height: " ~
-				to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight), DEFAULT_FG,
-				DEFAULT_BG);
+				to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight) ~ '|',
+				DEFAULT_FG, DEFAULT_BG);
 		}
 		return true;
 	}
