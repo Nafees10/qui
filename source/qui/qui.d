@@ -271,7 +271,7 @@ private:
 
 	/// Called when it needs to request an update.  
 	void _requestUpdate(){
-		if (_requestingUpdate)
+		if (_requestingUpdate || !(_eventSub & EventMask.Update))
 			return;
 		_requestingUpdate = true;
 		if (_parent)
@@ -339,6 +339,7 @@ private:
 	/// called by parent for resizeEvent
 	bool _resizeEventCall(){
 		_requestingResize = false;
+		_requestUpdate();
 		if (!(_eventSub & EventMask.Resize))
 			return false;
 		if (_customResizeEvent && _customResizeEvent(this))
@@ -347,6 +348,7 @@ private:
 	}
 	/// called by parent for scrollEvent
 	bool _scrollEventCall(){
+		_requestUpdate();
 		if (!(_eventSub & EventMask.Scroll))
 			return false;
 		if (_customScrollEvent && _customScrollEvent(this))
@@ -476,10 +478,6 @@ protected:
 		return _requestScrollY(y);
 	}
 
-	/// Called to update this widget
-	bool updateEvent(){
-		return false;
-	}
 	/// Called after UI has been run
 	bool initialize(){
 		return false;
@@ -494,16 +492,12 @@ protected:
 	}
 	/// Called when widget size is changed,
 	/// or widget should recalculate it's child widgets' sizes;  
-	/// calls requestUpdate by default
 	bool resizeEvent(){
-		_requestUpdate();
-		return true;
+		return false;
 	}
 	/// Called when the widget is rescrolled, but size not changed.  
-	/// calls requestUpdate by default
 	bool scrollEvent(){
-		_requestUpdate();
-		return true;
+		return false;
 	}
 	/// called right after this widget is activated, or de-activated
 	bool activateEvent(bool isActive){
@@ -511,6 +505,10 @@ protected:
 	}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
 	bool timerEvent(uint msecs){
+		return false;
+	}
+	/// Called to update this widget
+	bool updateEvent(){
 		return false;
 	}
 public:
@@ -761,7 +759,7 @@ protected:
 		_recalculateWidgetsSize(); // resize everything
 		// if parent is scrollable container, and there are no size limits,
 		// then grow as needed
-		if (_minHeight + _maxHeight + _minWidth + _maxWidth == 0 && 
+		if (minHeight + maxHeight + minWidth + maxWidth == 0 && 
 		_parent && _parent._isScrollableContainer){
 			_width = 0;
 			_height = 0;
@@ -1106,10 +1104,10 @@ protected:
 			requestUpdate();
 		// try to size widget to fit
 		if (_height > 0 && _width > 0){
-			_widget._width = getLimitedSize(_drawAreaWidth, _widget._minWidth,
-				_widget._maxWidth);
-			_widget._height = getLimitedSize(_drawAreaHeight, _widget._minHeight,
-				_widget._maxHeight);
+			_widget._width = getLimitedSize(_drawAreaWidth, _widget.minWidth,
+				_widget.maxWidth);
+			_widget._height = getLimitedSize(_drawAreaHeight, _widget.minHeight,
+				_widget.maxHeight);
 		}
 		rescroll(false);
 		_widget._resizeEventCall();

@@ -551,7 +551,7 @@ public:
 		.destroy(_logs);
 	}
 	
-	///adds string to the log, and scrolls down to it.
+	/// adds string to the log, and scrolls down to it.
 	/// newline character is not allowed
 	void add(dstring item){
 		//check if needs to overwrite
@@ -562,7 +562,12 @@ public:
 			_logs.append(item);
 		requestUpdate();
 	}
-	///clears the log
+	/// ditto
+	void add(string item){
+		add(item.to!dstring);
+	}
+
+	/// clears the log
 	void clear(){
 		_logs.clear;
 		requestUpdate();
