@@ -7,7 +7,7 @@ QUI is a widget based Text User Interface library for the [D Language](http://dl
 ## Features
 
 1. Widget based
-1. mouse events
+1. Mouse events
 1. Scrollable widget container
 1. Timer events
 
@@ -22,7 +22,8 @@ To use qui in your dub package, run this in your dub package's directory:
 
 ## Getting Started
 
-All the widgets are contained in `qui.widgets`, and the base classes are in `qui.qui`.  
+Some built in widgets are contained in `qui.widgets`, and the base classes are in `qui.qui`.  
+
 You should also read through `docs/*.md` for a quick start on how to use and write new widgets.
 
 ### Building demo
@@ -58,4 +59,5 @@ See the issues tab. If you came across some new issue, start a new one.
 
 ## License
 QUI is licensed under the MIT license - see [LICENSE](LICENSE).  
+
 QUI uses [Adam D. Ruppe](https://github.com/adamdruppe)'s [terminal.d](https://github.com/adamdruppe/arsd/blob/master/terminal.d) which is licensed under the Boost License - see `source/arsd/LICENSE`.
