@@ -370,7 +370,7 @@ private:
 	}
 	/// called by parent for updateEvent
 	bool _updateEventCall(){
-		if (!_requestingUpdate || !(_eventSub & EventMask.Activate))
+		if (!_requestingUpdate || !(_eventSub & EventMask.Update))
 			return false;
 		_requestingUpdate = false;
 		_view.moveTo(_view._offsetX,_view._offsetY);
