@@ -1130,6 +1130,9 @@ protected:
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
 		if (!_widget)
 			return false;
+		if (_widget.isActive && _widget._keyboardEventCall(key, cycle))
+			return true;
+		
 		if (!cycle && _pgDnUp && _drawAreaHeight < _widget._height &&
 		key.state == KeyboardEvent.State.Pressed){
 			if (key.key == Key.PageUp){
@@ -1137,17 +1140,24 @@ protected:
 					_widget._scrollY - _drawAreaHeight);
 			}
 			if (key.key == Key.PageDown){
-				return requestScrollY(_drawAreaHeight + _widget._scrollY > _widget._height ? 
+				return requestScrollY(
+					_drawAreaHeight + _widget._scrollY > _widget._height ? 
 					_widget._height - _drawAreaHeight :
 					_widget._scrollY + _drawAreaHeight);
 			}
 		}
-		return _widget._keyboardEventCall(key, cycle);
+		_widget._activateEventCall(false);
+		return false;
 	}
 
 	override bool mouseEvent(MouseEvent mouse){
 		if (!_widget)
 			return false;
+		if (_widget._mouseEventCall(mouse)){
+			_widget._activateEventCall(true);
+			return true;
+		}
+		_widget._activateEventCall(false);
 		if (_mouseWheel && _drawAreaHeight < _widget._height){
 			if (mouse.button == mouse.Button.ScrollUp){
 				if (_widget._scrollY)
@@ -1158,7 +1168,7 @@ protected:
 					return requestScrollY(_widget._scrollY + 1);
 			}
 		}
-		return _widget._mouseEventCall(mouse);
+		return false;
 	}
 
 	override bool updateEvent(){
