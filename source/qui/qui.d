@@ -473,28 +473,42 @@ protected:
 	}
 
 	/// Called to update this widget
-	bool updateEvent(){}
+	bool updateEvent(){
+		return false;
+	}
 	/// Called after UI has been run
-	bool initialize(){}
+	bool initialize(){
+		return false;
+	}
 	/// Called when mouse is clicked with cursor on this widget.
-	bool mouseEvent(MouseEvent mouse){}
+	bool mouseEvent(MouseEvent mouse){
+		return false;
+	}
 	/// Called when key is pressed and this widget is active.
-	bool keyboardEvent(KeyboardEvent key, bool cycle){}
+	bool keyboardEvent(KeyboardEvent key, bool cycle){
+		return false;
+	}
 	/// Called when widget size is changed,
 	/// or widget should recalculate it's child widgets' sizes;  
 	/// calls requestUpdate by default
 	bool resizeEvent(){
 		_requestUpdate();
+		return true;
 	}
 	/// Called when the widget is rescrolled, but size not changed.  
 	/// calls requestUpdate by default
 	bool scrollEvent(){
 		_requestUpdate();
+		return true;
 	}
 	/// called right after this widget is activated, or de-activated
-	bool activateEvent(bool isActive){}
+	bool activateEvent(bool isActive){
+		return false;
+	}
 	/// called often. `msecs` is the msecs since last timerEvent, not accurate
-	bool timerEvent(uint msecs){}
+	bool timerEvent(uint msecs){
+		return false;
+	}
 public:
 	/// To request parent to trigger an update event
 	void requestUpdate(){
@@ -903,7 +917,7 @@ protected:
 				moveTo(viewportX, y);
 				fillLine(' ', DEFAULT_FG, _overflowColor);
 			}
-			return;
+			return false;
 		}
 		if (_type == Type.Horizontal){
 			foreach(i, widget; _widgets){
@@ -1076,7 +1090,7 @@ protected:
 		_drawAreaHeight = _height - (1*(_height>0 && _scrollbarV));
 		_drawAreaWidth = _width - (1*(_width>0 && _scrollbarV));
 		if (!_widget)
-			return;
+			return false;
 		if (_scrollbarH || _scrollbarV)
 			requestUpdate();
 		// try to size widget to fit
@@ -1124,7 +1138,7 @@ protected:
 
 	override bool mouseEvent(MouseEvent mouse){
 		if (!_widget)
-			return;
+			return false;
 		if (_mouseWheel && _drawAreaHeight < _widget._height){
 			if (mouse.button == mouse.Button.ScrollUp){
 				if (_widget._scrollY)
@@ -1142,7 +1156,7 @@ protected:
 
 	override bool updateEvent(){
 		if (!_widget)
-			return;
+			return false;
 		if (_widget.show)
 			_widget._updateEventCall();
 		if (_width > _widget._view._width + (1*(_scrollbarV))){
@@ -1296,11 +1310,11 @@ private:
 			else{ // otherwise read it as a Ctrl+C
 				KeyboardEvent keyEvent;
 				keyEvent.key = KeyboardEvent.CtrlKeys.CtrlC;
-				this._keyboardEventCall(keyEvent);
+				this._keyboardEventCall(keyEvent, false);
 			}
 		}else if (event.type == Event.Type.Keyboard){
 			KeyboardEvent kPress = event.keyboard;
-			this._keyboardEventCall(kPress);
+			this._keyboardEventCall(kPress, false);
 		}else if (event.type == Event.Type.Mouse){
 			this._mouseEventCall(event.mouse);
 		}else if (event.type == Event.Type.Resize){

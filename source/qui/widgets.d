@@ -18,7 +18,7 @@ protected:
 	/// whether to display debug info
 	bool _debugInfo;
 
-	override void updateEvent(){
+	override bool updateEvent(){
 		foreach (y; viewportY .. viewportY + viewportHeight){
 			moveTo(viewportX, y);
 			foreach (x; viewportX .. viewportX + viewportWidth){
@@ -48,6 +48,7 @@ protected:
 				to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight), DEFAULT_FG,
 				DEFAULT_BG);
 		}
+		return true;
 	}
 public:
 	/// constructor
@@ -73,9 +74,10 @@ private:
 	/// the text to display
 	dstring _caption;
 protected:
-	override void updateEvent(){
+	override bool updateEvent(){
 		moveTo(0,0);
 		write(_caption, _fg, _bg);
+		return true;
 	}
 public:
 	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
@@ -134,16 +136,20 @@ private:
 	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
 protected:
 	/// override resize to re-scroll
-	override void resizeEvent(){
+	override bool resizeEvent(){
 		requestUpdate();
+		return true;
 	}
-	override void mouseEvent(MouseEvent mouse){
+	override bool mouseEvent(MouseEvent mouse){
 		if (mouse.button == MouseEvent.Button.Left &&
 		mouse.state == MouseEvent.State.Click)
 			_x = mouse.x;
 		requestUpdate();
+		return true;
 	}
-	override void keyboardEvent(KeyboardEvent key){
+	override bool keyboardEvent(KeyboardEvent key, bool cycle){
+		if (cycle)
+			return false;
 		if (key.key == '\b'){ // backspace
 			if (_x > 0){
 				if (_x < _text.length)
@@ -167,11 +173,13 @@ protected:
 				_text = _text[0 .. _x] ~ key.key ~ _text[_x .. $];
 		}
 		requestUpdate();
+		return true;
 	}
-	override void updateEvent(){
+	override bool updateEvent(){
 		moveTo(0,0);
 		write(cast(dstring)_text, _fg, _bg);
 		requestCursorPos(_x, 0);
+		return true;
 	}
 public:
 	/// constructor
@@ -563,11 +571,12 @@ class SplitterWidget : QWidget{
 private:
 	Color _color;
 protected:
-	override void updateEvent(){
+	override bool updateEvent(){
 		foreach (y; viewportY .. viewportY + viewportHeight){
 			moveTo(viewportX, y);
 			fillLine(' ', DEFAULT_FG, _color);
 		}
+		return true;
 	}
 public:
 	/// constructor
