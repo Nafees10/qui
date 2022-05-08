@@ -476,7 +476,7 @@ public:
 	@property List!dstring lines(){
 		return _lines;
 	}
-}
+}*/
 
 /// Displays an un-scrollable log
 /// 
@@ -507,8 +507,7 @@ private:
 		return r;
 	}
 protected:
-	override void updateEvent(){
-		_display.colors(textColor, backgroundColor);
+	override bool updateEvent(){
 		int lastY = this.height;
 		for (int i = cast(uint)_logs.length-1; i >= 0; i --){
 			dstring line = getLine(i);
@@ -519,26 +518,28 @@ protected:
 				wrappedLine = wrappedLine[wrappedLine.length - lastY .. $];
 			immutable int startY = lastY - cast(uint)wrappedLine.length;
 			foreach (lineno, currentLine; wrappedLine){
-				_display.cursor = Position(0, cast(uint)lineno + startY);
-				_display.write(currentLine);
-				if (currentLine.length < this.width)
-					_display.fillLine(' ', textColor, backgroundColor);
+				moveTo(0, cast(uint)lineno + startY);
+				write(currentLine, textColor, backgroundColor);
+				if (currentLine.length < width)
+					fillLine(' ', textColor, backgroundColor);
 			}
 			lastY = startY;
 		}
-		_display.cursor = Position(0, 0);
+		moveTo(0, 0);
 		foreach (y; 0 .. lastY)
-			_display.fillLine(' ', textColor, backgroundColor);
+			fillLine(' ', textColor, backgroundColor);
+		return true;
 	}
 	
-	override void resizeEvent() {
+	override bool resizeEvent() {
 		requestUpdate();
+		return true;
 	}
 public:
 	/// background and text color
 	Color backgroundColor, textColor;
 	/// constructor
-	this(uint maxLen=100){
+	this(uint maxLen = 100){
 		_maxLines = maxLen;
 		_logs = new List!dstring;
 		_startIndex = 0;
@@ -547,7 +548,7 @@ public:
 		backgroundColor = DEFAULT_BG;
 	}
 	~this(){
-		_logs.destroy;
+		.destroy(_logs);
 	}
 	
 	///adds string to the log, and scrolls down to it.
@@ -566,7 +567,7 @@ public:
 		_logs.clear;
 		requestUpdate();
 	}
-}*/
+}
 
 /// Just occupies some space. Use this to put space between widgets
 /// 
