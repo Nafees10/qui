@@ -293,16 +293,20 @@ private:
 				y < 0 ? y : _posY + y - _view._offsetY);
 	}
 	/// Called to request _scrollX to be adjusted
-	void _requestScrollX(uint x){
+	/// Returns: true if _scrollX was modified
+	bool _requestScrollX(uint x){
 		if (_canReqScroll && _parent &&
 		_view._width < _width && x < _width - _view._width)
-			_parent.requestScrollX(x + _posX);
+			return _parent.requestScrollX(x + _posX);
+		return false;
 	}
 	/// Called to request _scrollY to be adjusted
-	void _requestScrollY(uint y){
+	/// Returns: true if _scrollY was modified
+	bool _requestScrollY(uint y){
 		if (_canReqScroll && _parent &&
 		_view._height < _height && y < _height - _view._height)
-			_parent.requestScrollY(y + _posY);
+			return _parent.requestScrollY(y + _posY);
+		return false;
 	}
 
 	/// called by parent for initialize event
@@ -360,7 +364,7 @@ private:
 			return true;
 		return this.activateEvent(isActive);
 	}
-	/// called by parent for mouseEvent
+	/// called by parent for timerEvent
 	bool _timerEventCall(uint msecs){
 		if (!(_eventSub & EventMask.Timer))
 			return false;
@@ -464,12 +468,12 @@ protected:
 	}
 
 	/// called to request to scrollX
-	void requestScrollX(uint x){
-		_requestScrollX(x);
+	bool requestScrollX(uint x){
+		return _requestScrollX(x);
 	}
 	/// called to request to scrollY
-	void requestScrollY(uint y){
-		_requestScrollY(y);
+	bool requestScrollY(uint y){
+		return _requestScrollY(y);
 	}
 
 	/// Called to update this widget
@@ -855,8 +859,7 @@ protected:
 				_widgets[index]._activateEventCall(true);
 				_activeWidgetIndex = index;
 			}
-			_widgets[index]._mouseEventCall(mouse);
-			return true;
+			return _widgets[index]._mouseEventCall(mouse);
 		}
 		return false;
 	}
@@ -1063,25 +1066,33 @@ protected:
 			_widget._scrollEventCall();
 	}
 
-	override void requestScrollX(uint x){
+	override bool requestScrollX(uint x){
 		if (!_widget)
-			return;
+			return false;
 		if (_widget._width <= _drawAreaWidth)
 			x = 0;
 		else if (x > _widget._width - _drawAreaWidth)
 			x = _widget._width - _drawAreaWidth;
+		
+		if (_widget._scrollX == x)
+			return false;
 		_widget._scrollX = x;
 		rescroll();
+		return true;
 	}
-	override void requestScrollY(uint y){
+	override bool requestScrollY(uint y){
 		if (!_widget)
-			return;
+			return false;
 		if (_widget._height <= _drawAreaHeight)
 			y = 0;
 		else if (y > _widget._height - _drawAreaHeight)
 			y = _widget._height - _drawAreaHeight;
+		
+		if (_widget._scrollY == y)
+			return false;
 		_widget._scrollY = y;
 		rescroll();
+		return true;
 	}
 
 	override bool resizeEvent(){
@@ -1122,15 +1133,13 @@ protected:
 		if (!cycle && _pgDnUp && _drawAreaHeight < _widget._height &&
 		key.state == KeyboardEvent.State.Pressed){
 			if (key.key == Key.PageUp){
-				requestScrollY(_drawAreaHeight > _widget._scrollY ? 0 :
+				return requestScrollY(_drawAreaHeight > _widget._scrollY ? 0 :
 					_widget._scrollY - _drawAreaHeight);
-				return true;
 			}
 			if (key.key == Key.PageDown){
-				requestScrollY(_drawAreaHeight + _widget._scrollY > _widget._height ? 
+				return requestScrollY(_drawAreaHeight + _widget._scrollY > _widget._height ? 
 					_widget._height - _drawAreaHeight :
 					_widget._scrollY + _drawAreaHeight);
-				return true;
 			}
 		}
 		return _widget._keyboardEventCall(key, cycle);
@@ -1142,13 +1151,11 @@ protected:
 		if (_mouseWheel && _drawAreaHeight < _widget._height){
 			if (mouse.button == mouse.Button.ScrollUp){
 				if (_widget._scrollY)
-					requestScrollY(_widget._scrollY - 1);
-				return true;
+					return requestScrollY(_widget._scrollY - 1);
 			}
 			if (mouse.button == mouse.Button.ScrollDown){
 				if (_widget._scrollY + _drawAreaHeight < _widget._height)
-					requestScrollY(_widget._scrollY + 1);
-				return true;
+					return requestScrollY(_widget._scrollY + 1);
 			}
 		}
 		return _widget._mouseEventCall(mouse);
