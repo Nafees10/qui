@@ -37,7 +37,7 @@ alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent, bool);
 /// resizeEvent function. Return true if the event should be dropped
 alias ResizeEventFunction = bool delegate(QWidget);
 /// scrollEvent function. Return true if the event should be dropped
-alias scrollEventFunction = bool delegate(QWidget);
+alias ScrollEventFunction = bool delegate(QWidget);
 /// activateEvent function. Return true if the event should be dropped
 alias ActivateEventFunction = bool delegate(QWidget, bool);
 /// TimerEvent function. Return true if the event should be dropped
@@ -129,7 +129,7 @@ private:
 		x -= _offsetX;
 		y -= _offsetY;
 		if (x > cast(int)_width || y > cast(int)_height ||
-		x + width <= 0 ||y + height <= 0)
+		x + width <= 0 || y + height <= 0)
 			return;
 		if (x < 0){
 			sub._offsetX = -x;
@@ -261,7 +261,7 @@ private:
 	/// custom resize event
 	ResizeEventFunction _customResizeEvent;
 	/// custom rescroll event
-	scrollEventFunction _customScrollEvent;
+	ScrollEventFunction _customScrollEvent;
 	/// custom onActivate event,
 	ActivateEventFunction _customActivateEvent;
 	/// custom onTimer event
@@ -535,6 +535,10 @@ public:
 	/// use to change the custom resize event
 	final @property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
 		return _customResizeEvent = func;
+	}
+	/// use to change the custom scroll event
+	final @property ScrollEventFunction onScrollEvent(ScrollEventFunction func){
+		return _customScrollEvent = func;
 	}
 	/// use to change the custom activate event
 	final @property ActivateEventFunction onActivateEvent(ActivateEventFunction func){
