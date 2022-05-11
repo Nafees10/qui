@@ -15,10 +15,6 @@ version(demo){
 		ScrollContainer mainScroll = new ScrollContainer();
 		mainScroll.scrollOnMouseWheel = true;
 		mainScroll.scrollOnPageUpDown = true;
-		mainScroll.onKeyboardEvent = delegate(QWidget, KeyboardEvent key, bool){
-			log.add("mainScroll->keyboard called");
-			return false;
-		};
 
 		QLayout mainLayout = new QLayout(QLayout.Type.Vertical);
 
@@ -28,18 +24,15 @@ version(demo){
 		ScrollContainer subScroll = new ScrollContainer();
 		subScroll.scrollOnPageUpDown = true;
 		subScroll.scrollOnMouseWheel = true;
-		subScroll.onKeyboardEvent = delegate(QWidget, KeyboardEvent key, bool){
-			log.add("subScroll->keyboard called");
-			return false;
-		};
 
-		ScrollTestingWidget subTest = new ScrollTestingWidget();
+		ScrollTestingWidget subTest = new ScrollTestingWidget(DEFAULT_FG, DEFAULT_BG,
+			Color.green, true);
 		subTest.height = 50;
 		subTest.width = 70;
 
 		subScroll.setWidget(subTest);
 
-		mainLayout.addWidget([split, subScroll]);
+		mainLayout.addWidget([subScroll, split]);
 		mainLayout.height = 50;
 		
 		mainScroll.setWidget(mainLayout);
@@ -47,6 +40,11 @@ version(demo){
 		term.addWidget(mainScroll);
 
 		term.addWidget(log);
+
+		mainLayout.onScrollEvent = delegate(QWidget){
+			log.add(subScroll.width.to!string ~ 'x' ~ subScroll.height.to!string);
+			return false;
+		};
 
 		term.run();
 		.destroy(term); 
