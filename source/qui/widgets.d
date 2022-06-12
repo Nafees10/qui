@@ -22,8 +22,9 @@ protected:
 		foreach (y; viewportY .. viewportY + viewportHeight){
 			moveTo(viewportX, y);
 			foreach (x; viewportX .. viewportX + viewportWidth){
-				write(((x+y) % 10).to!dstring[0], textColor, y < height &&
-					x < width ? backgroundColor : emptyColor);
+				write(((x+y) % 10).to!dstring[0], textColor,
+					y < height && x < width ?
+						backgroundColor : emptyColor);
 			}
 		}
 		if (_debugInfo){
@@ -45,20 +46,23 @@ protected:
 				DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+4);
 			write("view X, Y: " ~
-				to!dstring(viewportX) ~ "," ~ to!dstring(viewportY) ~ '|',
-				DEFAULT_FG, DEFAULT_BG);
+				to!dstring(viewportX) ~ "," ~ to!dstring(viewportY) ~
+				'|', DEFAULT_FG, DEFAULT_BG);
 			moveTo(viewportX, viewportY+5);
 			write("view width x height: " ~
-				to!dstring(viewportWidth) ~ "x" ~ to!dstring(viewportHeight) ~ '|',
+				to!dstring(viewportWidth) ~ "x" ~
+				to!dstring(viewportHeight) ~ '|',
 				DEFAULT_FG, DEFAULT_BG);
 		}
 		return true;
 	}
 public:
 	/// constructor
-	this(Color textColor = DEFAULT_FG, Color backgroundColor = DEFAULT_BG,
-	Color emptyColor = Color.green, bool debugInfo=false){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.Update);
+	this(Color textColor = DEFAULT_FG,
+			Color backgroundColor = DEFAULT_BG,
+			Color emptyColor = Color.green, bool debugInfo=false){
+		eventSubscribe(EventMask.Resize | EventMask.Scroll |
+			EventMask.Update);
 		this.textColor = textColor;
 		this.backgroundColor = backgroundColor;
 		this.emptyColor = emptyColor;
@@ -84,11 +88,12 @@ protected:
 		return true;
 	}
 public:
-	/// milliseconds after it scrolls 1 pixel, in case text too long to fit in 1 line
+	/// milliseconds after it scrolls 1 character
 	uint scrollTimer;
 	/// constructor
 	this(dstring caption = "", uint scrollTimer = 500){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll |
+			EventMask.Update);
 		_caption = caption;
 		height = 1;
 		width = cast(uint)caption.length;
@@ -188,8 +193,9 @@ protected:
 public:
 	/// constructor
 	this(dstring text = ""){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll | EventMask.MousePress |
-			EventMask.KeyboardPress | EventMask.Update);
+		eventSubscribe(EventMask.Resize | EventMask.Scroll |
+			EventMask.MousePress | EventMask.KeyboardPress |
+			EventMask.Update);
 		this._text = cast(dchar[])text.dup;
 		height = 1;
 	}
@@ -479,9 +485,6 @@ public:
 }*/
 
 /// Displays an un-scrollable log
-/// 
-/// It's content cannot be modified by user, like a MemoWidget with editing disabled, but automatically scrolls down as new lines 
-/// are added, and it wraps long lines.
 class LogWidget : QWidget{
 private:
 	/// stores the logs
@@ -515,8 +518,10 @@ protected:
 			if (wrappedLine.length == 0)
 				continue;
 			if (lastY < wrappedLine.length)
-				wrappedLine = wrappedLine[wrappedLine.length - lastY .. $];
-			immutable int startY = lastY - cast(uint)wrappedLine.length;
+				wrappedLine =
+					wrappedLine[wrappedLine.length - lastY .. $];
+			immutable int startY = lastY - cast(uint)
+				wrappedLine.length;
 			foreach (lineno, currentLine; wrappedLine){
 				moveTo(0, cast(uint)lineno + startY);
 				write(currentLine, textColor, backgroundColor);
@@ -575,8 +580,6 @@ public:
 }
 
 /// Just occupies some space. Use this to put space between widgets
-/// 
-/// To specify the size, use the minHeight, maxHeight, minWidth, and maxWidth. only specifying the width and/or height will have no effect
 class SplitterWidget : QWidget{
 private:
 	Color _color;
@@ -592,7 +595,8 @@ public:
 	/// constructor
 	this(){
 		_color = DEFAULT_BG;
-		eventSubscribe(EventMask.Scroll | EventMask.Resize | EventMask.Update);
+		eventSubscribe(EventMask.Scroll | EventMask.Resize |
+			EventMask.Update);
 	}
 	/// color
 	@property Color color(){
