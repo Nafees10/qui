@@ -72,9 +72,7 @@ public:
 
 /// Displays some text
 ///
-/// And it can't handle new-line characters
-///
-/// If the text doesn't fit in width, it will move left-right
+/// doesnt handle new-line characters
 class TextLabelWidget : QWidget{
 private:
 	/// text and background colors
@@ -88,17 +86,14 @@ protected:
 		return true;
 	}
 public:
-	/// milliseconds after it scrolls 1 character
-	uint scrollTimer;
 	/// constructor
-	this(dstring caption = "", uint scrollTimer = 500){
+	this(dstring caption = ""){
 		eventSubscribe(EventMask.Resize | EventMask.Scroll |
 			EventMask.Update);
 		_caption = caption;
 		height = 1;
 		width = cast(uint)caption.length;
 	}
-
 	/// the text to display
 	@property dstring caption(){
 		return _caption;
@@ -110,7 +105,6 @@ public:
 		requestUpdate();
 		return _caption;
 	}
-
 	/// text color
 	@property Color textColor(){
 		return _fg;
@@ -121,7 +115,6 @@ public:
 		requestUpdate();
 		return _fg;
 	}
-
 	/// background color
 	@property Color backColor(){
 		return _bg;
@@ -171,11 +164,11 @@ protected:
 				_text[_x .. $ - 1] = _text[_x + 1 .. $];
 				_text.length --;
 			}
-		}else if (key.key == Key.LeftArrow) // <-
+		}else if (key.key == Key.LeftArrow){ // <-
 			_x = _x - (1 * (_x > 0));
-		else if (key.key == Key.RightArrow) // ->
+		}else if (key.key == Key.RightArrow){ // ->
 			_x = _x + (1 * (_x < _text.length));
-		else if (key.isChar && key.key != '\n'){ // insert character
+		}else if (key.isChar && key.key != '\n'){ // insert character
 			if (_x == _text.length)
 				_text ~= key.key;
 			else
