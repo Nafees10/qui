@@ -79,7 +79,6 @@ enum EventMask : uint{
 	/// All mouse events
 	MouseAll = MousePress | MouseRelease | MouseHover,
 	/// All keyboard events
-	/// this does **NOT** include KeyboardWidgetCycleKey
 	KeyboardAll = KeyboardPress | KeyboardRelease,
 	/// All keyboard and mouse events
 	InputAll = MouseAll | KeyboardAll,
