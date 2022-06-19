@@ -4,6 +4,8 @@ This guide will help you understand how to write/use QUI widgets.
 
 # QWidget properties
 
+Every Widget is a class that inherits the `QWidget` class from `qui.qui`.
+
 ## Protected
 
 * `uint _minWidth` - Minimum width specifier. Accessed through setter/getter
@@ -37,8 +39,6 @@ This guide will help you understand how to write/use QUI widgets.
 * `uint maxHeight` - Maximum height. Setter triggers a resize event.
 
 # Events
-
-See `events.md` for documentation on events and custom event handlers.  
 
 All event functions are boolean functions. They must return true if the Widget handled the event, else, false.  
 
