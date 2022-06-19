@@ -710,7 +710,7 @@ private:
 	uint _calculateWidgetSize(QWidget widget, uint ratioTotal,
 			uint totalSpace, ref bool free){
 		immutable uint calculatedSize =
-			cast(uint)(widget._sizeRatio * totalSpace / ratioTotal);
+			cast(uint)(widget.sizeRatio * totalSpace / ratioTotal);
 		if (_type == QLayout.Type.Horizontal){
 			free = widget.minWidth == 0 && widget.maxWidth == 0;
 			return getLimitedSize(calculatedSize, widget.minWidth,
@@ -729,9 +729,9 @@ private:
 			_width : _height;
 		bool free = false;
 		foreach (widget; _widgets){
-			if (!widget._show)
+			if (!widget.show)
 				continue;
-			totalRatio += widget._sizeRatio;
+			totalRatio += widget.sizeRatio;
 			widget._height = getLimitedSize(_height,
 				widget.minHeight, widget.maxHeight);
 			
@@ -754,7 +754,7 @@ private:
 				widget._width = space;
 			else
 				widget._height = space;
-			limitWRatio += widget._sizeRatio;
+			limitWRatio += widget.sizeRatio;
 			limitWSize += space;
 		}
 		totalSpace -= limitWSize;
@@ -767,7 +767,7 @@ private:
 				widget._width = space;
 			else
 				widget._height = space;
-			totalRatio -= widget._sizeRatio;
+			totalRatio -= widget.sizeRatio;
 			totalSpace -= space;
 		}
 		.destroy(widgetStack);
@@ -778,8 +778,8 @@ private:
 	int _nextActiveWidget(){
 		for (int i = _activeWidgetIndex + 1; i < _widgets.length;
 				i ++){
-			if ((_widgets[i]._eventSub & EventMask.KeyboardAll) &&
-					_widgets[i]._show)
+			if ((_widgets[i].eventSub & EventMask.KeyboardAll) &&
+					_widgets[i].show)
 				return i;
 		}
 		return -1;
@@ -788,7 +788,7 @@ protected:
 	override void eventSubscribe(){
 		_eventSub = 0;
 		foreach (widget; _widgets)
-			_eventSub |= widget._eventSub;
+			_eventSub |= widget.eventSub;
 		
 		// if children can become active, then need activate too
 		if (_eventSub & EventMask.KeyboardAll)
@@ -805,21 +805,22 @@ protected:
 		_recalculateWidgetsSize(); // resize everything
 		// if parent is scrollable container, and there are no size
 		// limits, then grow as needed
+		// TODO: replace _isScrollableContainer with property
 		if (minHeight + maxHeight + minWidth + maxWidth == 0 && 
 				_parent && _parent._isScrollableContainer){
 			_width = 0;
 			_height = 0;
 			if (_type == Type.Horizontal){
 				foreach (widget; _widgets){
-					if (_height < widget._height)
-						_height = widget._height;
-					_width += widget._width;
+					if (_height < widget.height)
+						_height = widget.height;
+					_width += widget.width;
 				}
 			}else{
 				foreach (widget; _widgets){
-					if (_width < widget._width)
-						_width = widget._width;
-					_height += widget._height;
+					if (_width < widget.width)
+						_width = widget.width;
+					_height += widget.height;
 				}
 			}
 		}
@@ -828,22 +829,22 @@ protected:
 		uint previousSpace = 0;
 		uint w, h;
 		foreach(widget; _widgets){
-			if (!widget._show)
+			if (!widget.show)
 				continue;
 			if (_type == QLayout.Type.Horizontal){
 				widget._posY = 0;
 				widget._posX = previousSpace;
-				previousSpace += widget._width;
-				w += widget._width;
-				if (widget._height > h)
-					h = widget._height;
+				previousSpace += widget.width;
+				w += widget.width;
+				if (widget.height > h)
+					h = widget.height;
 			}else{
 				widget._posX = 0;
 				widget._posY = previousSpace;
-				previousSpace += widget._height;
-				h += widget._height;
-				if (widget._width > w)
-					w = widget._width;
+				previousSpace += widget.height;
+				h += widget.height;
+				if (widget.width > w)
+					w = widget.width;
 			}
 		}
 		_isOverflowing = w > _width || h > _height;
@@ -853,7 +854,7 @@ protected:
 		}else{
 			foreach (i, widget; _widgets){
 				_view._getSlice(&(widget._view), widget._posX,
-					widget._posY, widget._width, widget._height);
+					widget._posY, widget.width, widget.height);
 				widget._resizeEventCall();
 			}
 		}
@@ -869,7 +870,7 @@ protected:
 		}
 		foreach (i, widget; _widgets){
 			_view._getSlice(&(widget._view), widget._posX,
-				widget._posY, widget._width, widget._height);
+				widget._posY, widget.width, widget.height);
 			widget._scrollEventCall();
 		}
 		return true;
@@ -882,16 +883,16 @@ protected:
 		int index;
 		if (_type == Type.Horizontal){
 			foreach (i, w; _widgets){
-				if (w._show && w._posX <= mouse.x &&
-						w._posX + w._width > mouse.x){
+				if (w.show && w._posX <= mouse.x &&
+						w._posX + w.width > mouse.x){
 					index = cast(int)i;
 					break;
 				}
 			}
 		}else{
 			foreach (i, w; _widgets){
-				if (w._show && w._posY <= mouse.y &&
-						w._posY + w._height > mouse.y){
+				if (w.show && w._posY <= mouse.y &&
+						w._posY + w.height > mouse.y){
 					index = cast(int)i;
 					break;
 				}
@@ -900,7 +901,7 @@ protected:
 		if (index > -1){
 			if (mouse.state != MouseEvent.State.Hover &&
 					index != _activeWidgetIndex &&
-					_widgets[index]._eventSub &
+					_widgets[index].eventSub &
 						EventMask.KeyboardAll){
 				if (_activeWidgetIndex > -1)
 					_widgets[_activeWidgetIndex]._activateEventCall(
@@ -919,7 +920,8 @@ protected:
 		if (_isOverflowing)
 			return false;
 		if (_activeWidgetIndex > -1 &&
-		_widgets[_activeWidgetIndex]._keyboardEventCall(key, cycle))
+				_widgets[_activeWidgetIndex]._keyboardEventCall(
+					key, cycle))
 			return true;
 		
 		if (!cycle)
@@ -975,24 +977,24 @@ protected:
 		}
 		if (_type == Type.Horizontal){
 			foreach(i, widget; _widgets){
-				if (widget._show && widget._requestingUpdate)
+				if (widget.show && widget._requestingUpdate)
 					widget._updateEventCall();
-				foreach (y; widget._height ..
+				foreach (y; widget.height ..
 						viewportY + viewportHeight){
 					moveTo(widget._posX, y);
 					fillLine(' ', DEFAULT_FG, _fillColor,
-						widget._width);
+						widget.width);
 				}
 			}
 		}else{
 			foreach(i, widget; _widgets){
-				if (widget._show && widget._requestingUpdate)
+				if (widget.show && widget._requestingUpdate)
 					widget._updateEventCall();
-				if (widget._width == _width)
+				if (widget.width == _width)
 					continue;
 				foreach (y; widget._posY ..
-						widget._posY + widget._height){
-					moveTo(widget._posX + widget._width, y);
+						widget._posY + widget.height){
+					moveTo(widget._posX + widget.width, y);
 					fillLine(' ', DEFAULT_FG, _fillColor);
 				}
 			}
@@ -1008,8 +1010,8 @@ protected:
 		// search and activate recursively
 		_activeWidgetIndex = -1;
 		foreach (index, widget; _widgets) {
-			if ((widget._eventSub & EventMask.KeyboardAll) &&
-					widget._show &&
+			if ((widget.eventSub & EventMask.KeyboardAll) &&
+					widget.show &&
 					widget.searchAndActivateWidget(target)){
 				_activeWidgetIndex = cast(int)index;
 				break;
@@ -1062,7 +1064,7 @@ public:
 	/// to make scrolling requests
 	void addWidget(QWidget widget, bool allowScrollControl = false){
 		widget._parent = this;
-		widget._canReqScroll = allowScrollControl && _canReqScroll;
+		widget._canReqScroll = allowScrollControl;
 		_widgets ~= widget;
 		eventSubscribe();
 	}
@@ -1096,7 +1098,7 @@ protected:
 	override void eventSubscribe(){
 		_eventSub = EventMask.Resize | EventMask.Scroll;
 		if (_widget)
-			_eventSub |= _widget._eventSub;
+			_eventSub |= _widget.eventSub;
 		if (_pgDnUp)
 			_eventSub |= EventMask.KeyboardPress;
 		if (_mouseWheel)
@@ -1116,13 +1118,13 @@ protected:
 		if (_width == 0 || _height == 0)
 			return;
 		uint w = _drawAreaWidth, h = _drawAreaHeight;
-		if (w > _widget._width)
-			w = _widget._width;
-		if (h > _widget._height)
-			h = _widget._height;
+		if (w > _widget.width)
+			w = _widget.width;
+		if (h > _widget.height)
+			h = _widget.height;
 		_view._getSlice(&(_widget._view), 0, 0, w, h);
-		_widget._view._offsetX = _offX + _widget._scrollX;
-		_widget._view._offsetY = _offY + _widget._scrollY;
+		_widget._view._offsetX = _offX + _widget.scrollX;
+		_widget._view._offsetY = _offY + _widget.scrollY;
 		if (callScrollEvent)
 			_widget._scrollEventCall();
 	}
@@ -1130,12 +1132,12 @@ protected:
 	override bool requestScrollX(uint x){
 		if (!_widget)
 			return false;
-		if (_widget._width <= _drawAreaWidth)
+		if (_widget.width <= _drawAreaWidth)
 			x = 0;
-		else if (x > _widget._width - _drawAreaWidth)
-			x = _widget._width - _drawAreaWidth;
+		else if (x > _widget.width - _drawAreaWidth)
+			x = _widget.width - _drawAreaWidth;
 		
-		if (_widget._scrollX == x)
+		if (_widget.scrollX == x)
 			return false;
 		_widget._scrollX = x;
 		rescroll();
@@ -1144,12 +1146,12 @@ protected:
 	override bool requestScrollY(uint y){
 		if (!_widget)
 			return false;
-		if (_widget._height <= _drawAreaHeight)
+		if (_widget.height <= _drawAreaHeight)
 			y = 0;
-		else if (y > _widget._height - _drawAreaHeight)
-			y = _widget._height - _drawAreaHeight;
+		else if (y > _widget.height - _drawAreaHeight)
+			y = _widget.height - _drawAreaHeight;
 		
-		if (_widget._scrollY == y)
+		if (_widget.scrollY == y)
 			return false;
 		_widget._scrollY = y;
 		rescroll();
@@ -1195,19 +1197,19 @@ protected:
 				cycle))
 			return true;
 		
-		if (!cycle && _pgDnUp && _drawAreaHeight < _widget._height
-				&& key.state == KeyboardEvent.State.Pressed){
+		if (!cycle && _pgDnUp &&
+				 key.state == KeyboardEvent.State.Pressed){
 			if (key.key == Key.PageUp){
 				return requestScrollY(
-					_drawAreaHeight > _widget._scrollY ? 0 :
-					_widget._scrollY - _drawAreaHeight);
+					_drawAreaHeight > _widget.scrollY ? 0 :
+					_widget.scrollY - _drawAreaHeight);
 			}
 			if (key.key == Key.PageDown){
 				return requestScrollY(
-					_drawAreaHeight + _widget._scrollY >
-						_widget._height ? 
-					_widget._height - _drawAreaHeight :
-					_widget._scrollY + _drawAreaHeight);
+					_drawAreaHeight + _widget.scrollY >
+					_widget.height ? 
+					_widget.height - _drawAreaHeight :
+					_widget.scrollY + _drawAreaHeight);
 			}
 		}
 		_widget._activateEventCall(false);
@@ -1222,15 +1224,13 @@ protected:
 			return true;
 		}
 		_widget._activateEventCall(false);
-		if (_mouseWheel && _drawAreaHeight < _widget._height){
+		if (_mouseWheel && _drawAreaHeight < _widget.height){
 			if (mouse.button == mouse.Button.ScrollUp){
-				if (_widget._scrollY)
-					return requestScrollY(_widget._scrollY - 1);
+				if (_widget.scrollY)
+					return requestScrollY(_widget.scrollY - 1);
 			}
 			if (mouse.button == mouse.Button.ScrollDown){
-				if (_widget._scrollY + _drawAreaHeight <
-						_widget._height)
-					return requestScrollY(_widget._scrollY + 1);
+				return requestScrollY(_widget.scrollY + 1);
 			}
 		}
 		return false;
@@ -1241,21 +1241,7 @@ protected:
 			return false;
 		if (_widget.show)
 			_widget._updateEventCall();
-		/*
-		if (_width > _widget._view._width + (1*(_scrollbarV))){
-			foreach (y; 0 .. _widget._view._height){
-				moveTo(_widget._view._width, y);
-				fillLine(' ', DEFAULT_FG, DEFAULT_BG);
-			}
-		}
-		if (_height > _widget._view._height + (1*(_scrollbarH))){
-			foreach (y; _widget._view._height ..
-					_height - (1*(_scrollbarH))){
-				moveTo(0, y);
-				fillLine(' ', DEFAULT_BG, DEFAULT_FG);
-			}
-		}
-		*/
+		// TODO: fill unoccupied space, if any
 		drawScrollbars();
 
 		return true;
@@ -1274,10 +1260,10 @@ protected:
 			moveTo(0, _drawAreaHeight);
 			fillLine(horizontalLine, DEFAULT_FG, DEFAULT_BG,
 				_drawAreaWidth);
-			const int maxScroll = _widget._width - _drawAreaWidth;
+			const int maxScroll = _widget.width - _drawAreaWidth;
 			if (maxScroll > 0){
 				const uint barPos =
-					(_widget._scrollX * _drawAreaWidth) / maxScroll;
+					(_widget.scrollX * _drawAreaWidth) / maxScroll;
 				moveTo(barPos, _drawAreaHeight);
 				write(' ', DEFAULT_BG, DEFAULT_FG);
 			}
@@ -1287,10 +1273,10 @@ protected:
 				moveTo(_drawAreaWidth, y);
 				write(verticalLine, DEFAULT_FG, DEFAULT_BG);
 			}
-			const int maxScroll = _widget._height - _drawAreaHeight;
+			const int maxScroll = _widget.height - _drawAreaHeight;
 			if (maxScroll > 0){
 				const uint barPos =
-					(_widget._scrollY * _drawAreaHeight) / maxScroll;
+					(_widget.scrollY * _drawAreaHeight) / maxScroll;
 				moveTo(_drawAreaWidth, barPos);
 				write(' ', DEFAULT_BG, DEFAULT_FG);
 			}
