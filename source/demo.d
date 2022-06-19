@@ -25,8 +25,8 @@ version(demo){
 		subScroll.scrollOnPageUpDown = true;
 		subScroll.scrollOnMouseWheel = true;
 
-		ScrollTestingWidget subTest = new ScrollTestingWidget(DEFAULT_FG, DEFAULT_BG,
-			Color.green, true);
+		ScrollTestingWidget subTest = new ScrollTestingWidget(
+			DEFAULT_FG, DEFAULT_BG, Color.green, true);
 		subTest.height = 50;
 		subTest.width = 70;
 
@@ -42,7 +42,8 @@ version(demo){
 		term.addWidget(log);
 
 		mainLayout.onScrollEvent = delegate(QWidget){
-			log.add(subScroll.width.to!string ~ 'x' ~ subScroll.height.to!string);
+			log.add(subScroll.width.to!string ~ 'x' ~
+				subScroll.height.to!string);
 			return false;
 		};
 
