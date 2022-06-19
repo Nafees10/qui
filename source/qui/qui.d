@@ -103,8 +103,11 @@ struct Cell{
 struct Viewport{
 private:
 	Cell[] _buffer;
+	/// where cursor is right now
 	uint _seekX, _seekY;
+	/// size of buffer (from `SIZE - offset`)
 	uint _width, _height;
+	/// actual width of the full buffer
 	uint _actualWidth;
 	// these are subtracted, only when seek is set, not after
 	uint _offsetX, _offsetY;
@@ -139,14 +142,16 @@ private:
 		x -= _offsetX;
 		y -= _offsetY;
 		if (x > cast(int)_width || y > cast(int)_height ||
-		x + width <= 0 || y + height <= 0)
+				x + width <= 0 || y + height <= 0)
 			return;
 		if (x < 0){
 			sub._offsetX = -x;
+			width += x;
 			x = 0;
 		}
 		if (y < 0){
 			sub._offsetY = -y;
+			height += y;
 			y = 0;
 		}
 		if (width + x > _width)
@@ -1236,6 +1241,7 @@ protected:
 			return false;
 		if (_widget.show)
 			_widget._updateEventCall();
+		/*
 		if (_width > _widget._view._width + (1*(_scrollbarV))){
 			foreach (y; 0 .. _widget._view._height){
 				moveTo(_widget._view._width, y);
@@ -1249,6 +1255,7 @@ protected:
 				fillLine(' ', DEFAULT_BG, DEFAULT_FG);
 			}
 		}
+		*/
 		drawScrollbars();
 
 		return true;
