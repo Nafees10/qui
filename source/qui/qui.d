@@ -586,6 +586,11 @@ public:
 	final @property bool isActive(){
 		return _isActive;
 	}
+	/// Returns: true if this widget is a container that supports
+	/// scrolling
+	final @property bool isScrollableContainer(){
+		return _isScrollableContainer;
+	}
 	/// Returns: EventMask of subscribed events
 	final @property uint eventSub(){
 		return _eventSub;
@@ -804,9 +809,8 @@ protected:
 		_recalculateWidgetsSize(); // resize everything
 		// if parent is scrollable container, and there are no size
 		// limits, then grow as needed
-		// TODO: replace _isScrollableContainer with property
 		if (minHeight + maxHeight + minWidth + maxWidth == 0 && 
-				_parent && _parent._isScrollableContainer){
+				_parent && _parent.isScrollableContainer){
 			_width = 0;
 			_height = 0;
 			if (_type == Type.Horizontal){
