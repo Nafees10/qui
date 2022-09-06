@@ -1097,6 +1097,8 @@ protected:
 	bool _mouseWheel = false;
 	/// height and width available to widget
 	uint _drawAreaHeight, _drawAreaWidth;
+	/// Scrollbar colors
+	Color _sbarBg = DEFAULT_BG, _sbarFg = DEFAULT_FG;
 	
 	override void eventSubscribe(){
 		_eventSub = EventMask.Resize | EventMask.Scroll;
@@ -1254,34 +1256,35 @@ protected:
 	void drawScrollbars(){
 		if (!_widget || _width == 0 || _height == 0)
 			return;
-		const dchar verticalLine = '│', horizontalLine = '─';
+		static const dchar verticalLine = '│', horizontalLine = '─';
+		static const dchar block = '█';
 		if (_scrollbarH && _scrollbarV){
 			moveTo(_width - 1, _height - 1);
-			write('┘', DEFAULT_FG, DEFAULT_BG);
+			write('┘', _sbarFg, _sbarBg);
 		}
 		if (_scrollbarH){
 			moveTo(0, _drawAreaHeight);
-			fillLine(horizontalLine, DEFAULT_FG, DEFAULT_BG,
+			fillLine(horizontalLine, _sbarFg, _sbarBg,
 				_drawAreaWidth);
 			const int maxScroll = _widget.width - _drawAreaWidth;
 			if (maxScroll > 0){
 				const uint barPos =
 					(_widget.scrollX * _drawAreaWidth) / maxScroll;
 				moveTo(barPos, _drawAreaHeight);
-				write(' ', DEFAULT_BG, DEFAULT_FG);
+				write(block, _sbarFg, _sbarBg);
 			}
 		}
 		if (_scrollbarV){
 			foreach (y; 0 .. _drawAreaHeight){
 				moveTo(_drawAreaWidth, y);
-				write(verticalLine, DEFAULT_FG, DEFAULT_BG);
+				write(verticalLine, _sbarFg, _sbarBg);
 			}
 			const int maxScroll = _widget.height - _drawAreaHeight;
 			if (maxScroll > 0){
 				const uint barPos =
 					(_widget.scrollY * _drawAreaHeight) / maxScroll;
 				moveTo(_drawAreaWidth, barPos);
-				write(' ', DEFAULT_BG, DEFAULT_FG);
+				write(block, _sbarFg, _sbarBg);
 			}
 		}
 	}
@@ -1295,6 +1298,25 @@ public:
 	~this(){
 		if (_widget)
 			.destroy(_widget);
+	}
+
+	/// Scrollbar foreground color
+	@property Color scrollbarForeground(){
+		return _sbarFg;
+	}
+	/// ditto
+	@property Color scrollbarForeground(Color newVal){
+		_requestUpdate();
+		return _sbarFg = newVal;
+	}
+	/// Scrollbar background color
+	@property Color scrollbarBackground(){
+		return _sbarBg;
+	}
+	/// ditto
+	@property Color scrollbarBackground(Color newVal){
+		_requestUpdate();
+		return _sbarBg = newVal;
 	}
 
 	/// Sets the child widget.
