@@ -3,12 +3,14 @@
 +/
 module qui.qui;
 
-import std.datetime.stopwatch;
 import utils.misc;
 import utils.ds;
-import std.conv : to;
-import qui.termwrap;
 
+import std.datetime.stopwatch;
+import std.conv : to;
+import std.process;
+
+import qui.termwrap;
 import qui.utils;
 
 /// default foreground color, white
@@ -1502,6 +1504,9 @@ public:
 	/// constructor
 	this(QLayout.Type displayType = QLayout.Type.Vertical,
 			ushort timerDuration = 500){
+		// fix for issue #18 (resizing on alacritty borked)
+		if (environment["TERM"] == "alacritty")
+			environment["TERM"] = "xterm";
 		super(displayType);
 		timerMsecs = timerDuration;
 
