@@ -132,11 +132,10 @@ private:
 	/// of this
 	///
 	/// Returns: true if done, false if not
-	void _getSlice(Viewport* sub, int x, int y, uint width,
-			uint height){
+	void _getSlice(Viewport* sub, int x, int y, uint width, uint height){
 		sub._reset();
 		sub._actualWidth = _actualWidth;
-		if (width + height == 0)
+		if (width == 0 || height == 0)
 			return;
 		x -= _offsetX;
 		y -= _offsetY;
@@ -175,7 +174,7 @@ public:
 	void moveTo(uint x, uint y){
 		_seekX = x;
 		_seekY = y;
-		if (_seekY >= _width){
+		if (_seekX >= _width){
 			_seekX = 0;
 			_seekY ++;
 		}
@@ -186,7 +185,7 @@ public:
 	bool write(dchar c, Color fg, Color bg){
 		if (_seekX < _offsetX || _seekY < _offsetY){
 			_seekX ++;
-			if (_seekY >= _width){
+			if (_seekX >= _width){
 				_seekX = 0;
 				_seekY ++;
 			}
@@ -1321,7 +1320,7 @@ public:
 
 	/// Sets the child widget.
 	/// 
-	/// Returns: false if alreadty has a child
+	/// Returns: false if already has a child
 	bool setWidget(QWidget child){
 		if (_widget)
 			return false;
@@ -1474,7 +1473,7 @@ protected:
 			key.key == _activeWidgetCycleKey;
 		return super.keyboardEvent(key, cycle);
 	}
-	
+
 	override bool updateEvent(){
 		// resize if needed
 		if (_requestingResize)
