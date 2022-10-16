@@ -14,7 +14,7 @@ Every Widget is a class that inherits the `QWidget` class from `qui.qui`.
 * `uint _maxHeight` - Maximum height specifier. Accessed through setter/getter
 * `uint viewportX` _(read only)_ - how many columns, from left, are out of view.  
 	Use this to optimise drawing by only drawing visible portion.
-* `uint viewportY` _(read only__ - how many rows, from top, are out of view.  
+* `uint viewportY` _(read only)_ - how many rows, from top, are out of view.  
 	Use this to optimise drawing by only drawing visible portion.
 * `uint viewportWidth` _(read only)_ - how many rows are visible.
 * `uint viewportHeight` _(read only)_ - how many columns are visible.
@@ -44,9 +44,6 @@ All event functions are boolean functions. They must return true if the Widget h
 
 An example can be: a number input widget, must return true on its keyboard event function, when they key is pressed and is a digit. in all other cases, it must return false.  
 
-You are to overload the event handling functions, to do the tasks you want your widget
-to do.
-
 ## Event Subscribing
 
 By default, no event handler functions of a QWidget inheriting class will be called.  
@@ -75,7 +72,7 @@ The coordinates in MouseEvent are relative to top-left (0,0) corner of this widg
 ## `bool keyboardEvent(KeyboardEvent, bool)`
 Called when this widget is the active widget, and a keyboard event occurs.  
 
-It also receives a flag, which is true in the case where the parent wants to cycle
+It also receives a flag, which is true in case the parent wants to cycle
 focus to next possible active widget. In most scenarios, you will want to do nothing
 and `return false` in case the flag is true.  
 
@@ -135,7 +132,6 @@ All events can be assigned custom event handlers in this manner.
 
 These functions are called before the event handler of that widget is called. And if the custom handler returns true, the event is dropped and the event handler for widget is **not** called.  
 
-
 # Drawing on Terminal
 
 The `update()` delegate of a widget is called by it's parent widget each time the widget should re-draw itself.
@@ -146,14 +142,19 @@ Each QWidget class has these protected delegates, which can be used to write:
 ## `bool isWritable(uint x, uint y)`
 This will return true if a widget can write at x, y.
 
+Visible area is (`[inclusive .. exclusive]`):  
+
+* `x: [ viewportX .. viewportX + viewportWidth ]`
+* `y: [ viewportY .. viewportY + viewportHeight ]`
+
 ## `void moveTo(uint x, uint y)`
 This will try to move the seek to x, y. So the next write happens at x, y.  
 
-Seek is incremented. It will wrap over to next row if it was the last column
-of current row.
-
 ## `bool write(dchar c, Color foreground, Color background)`
 This will write character c, with colors, at current seek.  
+
+Seek is incremented. It will wrap over to next row if it was the last column
+of current row.
 
 It returns true if it was written, or false if it was outside writing area
 
