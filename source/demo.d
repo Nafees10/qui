@@ -47,6 +47,11 @@ version(demo){
 			return false;
 		};
 
+		term.onMouseEvent = delegate(QWidget, MouseEvent mouse){
+			log.add(mouse.tostring.to!dstring);
+			return false;
+		};
+
 		term.run();
 		.destroy(term); 
 	}
