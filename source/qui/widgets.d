@@ -495,37 +495,40 @@ private:
 	/// wrap a line
 	dstring[] wrapLine(dstring str){
 		dstring[] r;
-		str = str;
 		while (str.length > 0){
-			r ~= this.width > str.length ? str : str[0 .. this.width];
-			str = this.width < str.length ? str[this.width .. $] : [];
+			if (width > str.length){
+				r ~= str;
+				str = [];
+			}else{
+				r ~= str[0 .. width];
+				str = str[width .. $];
+			}
 		}
 		return r;
 	}
 protected:
 	override bool updateEvent(){
-		int lastY = this.height;
-		for (int i = cast(uint)_logs.length-1; i >= 0; i --){
+		int hLeft = this.height;
+		for (int i = cast(int)_logs.length-1; i >= 0; i --){
 			dstring line = getLine(i);
-			dstring[] wrappedLine = wrapLine(line);
-			if (wrappedLine.length == 0)
+			if (!line.length)
 				continue;
-			if (lastY < wrappedLine.length)
-				wrappedLine =
-					wrappedLine[wrappedLine.length - lastY .. $];
-			immutable int startY = lastY - cast(uint)
-				wrappedLine.length;
+			dstring[] wrappedLine = wrapLine(line);
+			if (hLeft < wrappedLine.length)
+				wrappedLine = wrappedLine[wrappedLine.length - hLeft .. $];
+			immutable int startY = hLeft - cast(int)wrappedLine.length;
 			foreach (lineno, currentLine; wrappedLine){
-				moveTo(0, cast(uint)lineno + startY);
+				moveTo(0, cast(int)lineno + startY);
 				write(currentLine, textColor, backgroundColor);
 				if (currentLine.length < width)
 					fillLine(' ', textColor, backgroundColor);
 			}
-			lastY = startY;
+			hLeft = startY;
 		}
-		moveTo(0, 0);
-		foreach (y; 0 .. lastY)
+		foreach (y; 0 .. hLeft){
+			moveTo(0, y);
 			fillLine(' ', textColor, backgroundColor);
+		}
 		return true;
 	}
 	
