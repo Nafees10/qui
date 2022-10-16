@@ -18,6 +18,9 @@ Every Widget is a class that inherits the `QWidget` class from `qui.qui`.
 	Use this to optimise drawing by only drawing visible portion.
 * `uint viewportWidth` _(read only)_ - how many rows are visible.
 * `uint viewportHeight` _(read only)_ - how many columns are visible.
+* `requestScrollX(uint)` - Request parent to scroll on X coordinates
+* `requestScrollY(uint)` - Request parent to scroll on Y coordinates
+* `requestCursorPos(x, y)` - Request parent to draw cursor at x, y. or hide if they are negative
 
 ## Public
 
