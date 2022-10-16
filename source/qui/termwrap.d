@@ -239,7 +239,7 @@ public:
 	/// constructor
 	this(){
 		_term = Terminal(ConsoleOutputType.cellular);
-		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEventsWithRelease | ConsoleInputFlags.raw);
+		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEvents | ConsoleInputFlags.raw);
 	}
 	~this(){
 		_term.clear;
