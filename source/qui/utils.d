@@ -1,5 +1,5 @@
 ﻿/++
-	Contains functions that might be useful in making new widgets, 
+	Contains functions that might be useful in making new widgets,
 	like for formatting text.
 +/
 module qui.utils;
@@ -10,15 +10,15 @@ import utils.misc;
 import std.conv : to;
 
 /// To scroll a line, by an xOffset
-/// 
-/// Can be used to scroll to right, or to left (by making xOffset negative).  
+///
+/// Can be used to scroll to right, or to left (by making xOffset negative).
 /// Can also be used to fill an empty line with empty space (`' '`) to make it fill width, if `line.length < width`
-/// 
+///
 /// Arguments:
-/// * `line` is the full line  
-/// * `xOffset` is the number of characters scrolled right  
+/// * `line` is the full line
+/// * `xOffset` is the number of characters scrolled right
 /// * `width` is the number of characters that are to be displayed
-/// 
+///
 /// Returns: the text that should be displayed
 dstring scrollHorizontal(dstring line, int xOffset, uint width, dchar spaceChar = ' '){
 	dchar[] r;
@@ -28,7 +28,7 @@ dstring scrollHorizontal(dstring line, int xOffset, uint width, dchar spaceChar 
 		r[i] = line[i + xOffset];
 	return cast(dstring)r;
 }
-/// 
+///
 unittest{
 	assert("0123456789".scrollHorizontal(5, 2) == "56");
 	assert("0123456789".scrollHorizontal(0,10) == "0123456789");
@@ -49,7 +49,7 @@ char[] scrollHorizontal(char[] line, int xOffset, uint width){
 }
 
 /// Adjusts offset (aka _scrollX or _scrollY) in scrolling so the selected character is visible TODO: FIX THIS
-/// 
+///
 /// Arguemnts:
 /// * `selected` is the character on which the cursor is. If it's >lineWidth, `selected=lineWidth`
 /// * `size` is the width/height (depending on if it's horizontal or vertical scrolling) of the space where the line is to be displayed
@@ -74,9 +74,9 @@ void adjustScrollingOffset(ref uint selected, uint size, uint lineWidth, ref uin
 }
 
 /// Center-aligns text
-/// 
+///
 /// If `text.length > width`, the exceeding characters are removed
-/// 
+///
 /// Returns: the text center aligned in a string
 dstring centerAlignText(dstring text, uint width, dchar fill = ' '){
 	dchar[] r;
@@ -98,7 +98,7 @@ unittest{
 }
 
 /// Returns: size after considering minimum and maximum allowed
-/// 
+///
 /// if `min==0`, it is ignored. if `max==0`, it is ignored
 uint getLimitedSize(uint calculated, uint min, uint max){
 	if (min && calculated < min)

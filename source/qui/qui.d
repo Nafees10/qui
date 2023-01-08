@@ -14,28 +14,27 @@ import qui.termwrap;
 import qui.utils;
 
 /// default foreground color, white
-enum Color DEFAULT_FG = Color.white;
+enum Color DEFAULT_FG = Color.DEFAULT;
 /// default background color, black
-enum Color DEFAULT_BG = Color.black;
+enum Color DEFAULT_BG = Color.DEFAULT;
 /// default background color of overflowing layouts, red
 enum Color DEFAULT_OVERFLOW_BG = Color.red;
 /// default active widget cycling key, tab
 enum dchar WIDGET_CYCLE_KEY = '\t';
 
 /// Colors
-public alias Color = qui.termwrap.Color;
+alias Color = qui.termwrap.Color;
 /// Availabe Keys (keyboard) for input
-public alias Key = qui.termwrap.Event.Keyboard.Key;
+alias Key = qui.termwrap.Event.Keyboard.Key;
 /// Mouse Event
-public alias MouseEvent = Event.Mouse;
+alias MouseEvent = Event.Mouse;
 /// Keyboard Event
-public alias KeyboardEvent = Event.Keyboard;
+alias KeyboardEvent = Event.Keyboard;
 
 /// MouseEvent function. Return true to drop event
 alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
 /// KeyboardEvent function. Return true to drop event
-alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent,
-	bool);
+alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent, bool);
 /// ResizeEvent function. Return true to drop event
 alias ResizeEventFunction = bool delegate(QWidget);
 /// ScrollEvent function. Return true to drop event
@@ -127,14 +126,13 @@ private:
 
 	/// seek position in _buffer calculated from _seekX & _seekY
 	@property int _seek(){
-		return (_seekX - _offsetX) +
-			((_seekY - _offsetY) * _actualWidth);
+		return (_seekX - _offsetX) + ((_seekY - _offsetY) * _actualWidth);
 	}
 	/// set another Viewport so that it is a rectangular slice
 	/// of this
 	///
 	/// Returns: true if done, false if not
-	void _getSlice(Viewport* sub, int x, int y, uint width, uint height){
+	void _getSlice(ref Viewport sub, int x, int y, uint width, uint height){
 		sub._reset();
 		sub._actualWidth = _actualWidth;
 		if (width == 0 || height == 0)
@@ -158,8 +156,8 @@ private:
 			width = _width - x;
 		if (height + y > _height)
 			height = _height - y;
-		immutable uint buffStart  = x + (y*_actualWidth),
-			buffEnd = buffStart + ((height-1)*_actualWidth) + width;
+		immutable uint buffStart  = x + (y * _actualWidth),
+			buffEnd = buffStart + ((height - 1) * _actualWidth) + width;
 		if (buffEnd > _buffer.length || buffStart >= buffEnd)
 			return;
 		sub._width = width;
@@ -182,7 +180,7 @@ public:
 		}
 	}
 	/// Writes a character at current position and move ahead
-	/// 
+	///
 	/// Returns: false if outside writing area
 	bool write(dchar c, Color fg, Color bg){
 		if (_seekX < _offsetX || _seekY < _offsetY){
@@ -205,7 +203,7 @@ public:
 		return true;
 	}
 	/// Writes a string.
-	/// 
+	///
 	/// Returns: number of characters written
 	uint write(dstring s, Color fg, Color bg){
 		uint r;
@@ -218,14 +216,13 @@ public:
 	}
 	/// Fills line, starting from current coordinates,
 	/// with maximum `max` number of chars, if `max>0`
-	/// 
+	///
 	/// Returns: number of characters written
 	uint fillLine(dchar c, Color fg, Color bg, uint max=0){
 		uint r = 0;
 		const uint currentY = _seekY;
 		bool status = true;
-		while (status && (max == 0 || r < max) &&
-				_seekY == currentY){
+		while (status && (max == 0 || r < max) && _seekY == currentY){
 			status = write(c, fg, bg);
 			r ++;
 		}
@@ -284,7 +281,7 @@ private:
 	/// custom upedateEvent
 	UpdateEventFunction _customUpdateEvent;
 
-	/// Called when it needs to request an update.  
+	/// Called when it needs to request an update.
 	void _requestUpdate(){
 		if (_requestingUpdate || !(_eventSub & EventMask.Update))
 			return;
@@ -304,12 +301,9 @@ private:
 	/// Will do nothing if not active widget
 	void _requestCursorPos(int x, int y){
 		if (_isActive && _parent)
-			_parent.requestCursorPos(x < 0 ?
-					x :
-					_posX + x - _view._offsetX,
-				y < 0 ?
-					y :
-					_posY + y - _view._offsetY);
+			_parent.requestCursorPos(
+					x < 0 ? x : _posX + x - _view._offsetX,
+					y < 0 ? y : _posY + y - _view._offsetY);
 	}
 	/// Called to request _scrollX to be adjusted
 	/// Returns: true if _scrollX was modified
@@ -338,7 +332,7 @@ private:
 	}
 	/// called by parent for mouseEvent
 	bool _mouseEventCall(MouseEvent mouse){
-		if (!(_eventSub & mouse.state)) 
+		if (!(_eventSub & mouse.state))
 			return false;
 		// mouse input comes relative to visible area
 		mouse.x = (mouse.x - cast(int)this._posX) + _view._offsetX;
@@ -351,8 +345,7 @@ private:
 	bool _keyboardEventCall(KeyboardEvent key, bool cycle){
 		if (!(_eventSub & key.state))
 			return false;
-		if (_customKeyboardEvent &&
-				_customKeyboardEvent(this, key, cycle))
+		if (_customKeyboardEvent && _customKeyboardEvent(this, key, cycle))
 			return true;
 		return this.keyboardEvent(key, cycle);
 	}
@@ -382,8 +375,7 @@ private:
 		if (_isActive == isActive)
 			return false;
 		_isActive = isActive;
-		if (_customActivateEvent &&
-				_customActivateEvent(this, isActive))
+		if (_customActivateEvent && _customActivateEvent(this, isActive))
 			return true;
 		return this.activateEvent(isActive);
 	}
@@ -438,7 +430,7 @@ protected:
 		return _view.isWritable(x,y);
 	}
 
-	/// move seek for next write to terminal.  
+	/// move seek for next write to terminal.
 	/// can only write in between:
 	/// `(_viewX .. _viewX + _viewWidth,
 	/// _viewY .. _viewX + _viewHeight)`
@@ -446,28 +438,28 @@ protected:
 		_view.moveTo(newX, newY);
 	}
 	/// writes a character on terminal
-	/// 
+	///
 	/// Returns: true if done, false if outside writing area
 	final bool write(dchar c, Color fg, Color bg){
 		return _view.write(c, fg, bg);
 	}
 	/// writes a string to terminal.
 	/// if it does not fit in one line, it is wrapped
-	/// 
+	///
 	/// Returns: number of characters written
 	final uint write(dstring s, Color fg, Color bg){
 		return _view.write(s, fg, bg);
 	}
 	/// fill current line with a character.
 	/// `max` is ignored if `max==0`
-	/// 
+	///
 	/// Returns: number of cells written
 	final uint fillLine(dchar c, Color fg, Color bg, uint max = 0){
 		return _view.fillLine(c, fg, bg, max);
 	}
 
 	/// activate the passed widget if this is the correct widget
-	/// 
+	///
 	/// Returns: if it was activated or not
 	bool searchAndActivateWidget(QWidget target) {
 		if (this == target) {
@@ -488,7 +480,7 @@ protected:
 	void eventSubscribe(){}
 
 	/// to set cursor position on terminal.
-	/// only works if this is active widget.  
+	/// only works if this is active widget.
 	/// set x or y or both to negative to hide cursor
 	void requestCursorPos(int x, int y){
 		_requestCursorPos(x, y);
@@ -512,7 +504,7 @@ protected:
 		return false;
 	}
 	/// Called when key is pressed and this widget is active.
-	/// 
+	///
 	/// `cycle` indicates if widget cycling should happen, if this
 	/// widget has child widgets
 	bool keyboardEvent(KeyboardEvent key, bool cycle){
@@ -522,7 +514,7 @@ protected:
 	bool resizeEvent(){
 		return false;
 	}
-	/// Called when the widget is rescrolled, ~but size not changed.~  
+	/// Called when the widget is rescrolled, ~but size not changed.~
 	bool scrollEvent(){
 		return false;
 	}
@@ -531,7 +523,7 @@ protected:
 		return false;
 	}
 	/// called often.
-	/// 
+	///
 	/// `msecs` is the msecs since last timerEvent, not accurate
 	bool timerEvent(uint msecs){
 		return false;
@@ -554,8 +546,7 @@ public:
 		return _customInitEvent = func;
 	}
 	/// custom mouse event
-	final @property MouseEventFuction onMouseEvent(
-			MouseEventFuction func){
+	final @property MouseEventFuction onMouseEvent(MouseEventFuction func){
 		return _customMouseEvent = func;
 	}
 	/// custom keyboard event
@@ -564,13 +555,11 @@ public:
 		return _customKeyboardEvent = func;
 	}
 	/// custom resize event
-	final @property ResizeEventFunction onResizeEvent(
-			ResizeEventFunction func){
+	final @property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
 		return _customResizeEvent = func;
 	}
 	/// custom scroll event
-	final @property ScrollEventFunction onScrollEvent(
-			ScrollEventFunction func){
+	final @property ScrollEventFunction onScrollEvent(ScrollEventFunction func){
 		return _customScrollEvent = func;
 	}
 	/// custom activate event
@@ -579,8 +568,7 @@ public:
 		return _customActivateEvent = func;
 	}
 	/// custom timer event
-	final @property TimerEventFunction onTimerEvent(
-			TimerEventFunction func){
+	final @property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
 	}
 	/// Returns: true if this widget is the current active widget
@@ -718,30 +706,27 @@ private:
 			cast(uint)(widget.sizeRatio * totalSpace / ratioTotal);
 		if (_type == QLayout.Type.Horizontal){
 			free = widget.minWidth == 0 && widget.maxWidth == 0;
-			return getLimitedSize(calculatedSize, widget.minWidth,
-				widget.maxWidth);
+			return getLimitedSize(calculatedSize, widget.minWidth, widget.maxWidth);
 		}
 		free = widget.minHeight == 0 && widget.maxHeight == 0;
-		return getLimitedSize(calculatedSize, widget.minHeight,
-			widget.maxHeight);
+		return getLimitedSize(calculatedSize, widget.minHeight, widget.maxHeight);
 	}
-	
+
 	/// recalculates the size of every widget inside layout
 	void _recalculateWidgetsSize(){
 		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
 		uint totalRatio = 0;
-		uint totalSpace = _type == QLayout.Type.Horizontal ?
-			_width : _height;
+		uint totalSpace = _type == QLayout.Type.Horizontal ? _width : _height;
 		bool free = false;
 		foreach (widget; _widgets){
 			if (!widget.show)
 				continue;
 			totalRatio += widget.sizeRatio;
-			widget._height = getLimitedSize(_height,
-				widget.minHeight, widget.maxHeight);
-			
-			widget._width = getLimitedSize(_width,
-				widget.minWidth, widget.maxWidth);
+			widget._height = getLimitedSize(_height, widget.minHeight,
+					widget.maxHeight);
+
+			widget._width = getLimitedSize(_width, widget.minWidth,
+					widget.maxWidth);
 			widgetStack.push(widget);
 		}
 		// do widgets with size limits
@@ -749,8 +734,8 @@ private:
 		uint limitWRatio, limitWSize;
 		for (int i = 0; i < widgetStack.count; i ++){
 			QWidget widget = widgetStack.pop;
-			immutable uint space = _calculateWidgetSize(widget,
-				totalRatio, totalSpace, free);
+			immutable uint space = _calculateWidgetSize(widget, totalRatio,
+					totalSpace, free);
 			if (free){
 				widgetStack.push(widget);
 				continue;
@@ -781,10 +766,8 @@ private:
 	/// find the next widget to activate
 	/// Returns: index, or -1 if no one wanna be active
 	int _nextActiveWidget(){
-		for (int i = _activeWidgetIndex + 1; i < _widgets.length;
-				i ++){
-			if ((_widgets[i].eventSub & EventMask.KeyboardAll) &&
-					_widgets[i].show)
+		for (int i = _activeWidgetIndex + 1; i < _widgets.length; i ++){
+			if ((_widgets[i].eventSub & EventMask.KeyboardAll) && _widgets[i].show)
 				return i;
 		}
 		return -1;
@@ -794,11 +777,11 @@ protected:
 		_eventSub = 0;
 		foreach (widget; _widgets)
 			_eventSub |= widget.eventSub;
-		
+
 		// if children can become active, then need activate too
 		if (_eventSub & EventMask.KeyboardAll)
 			_eventSub |= EventMask.Activate;
-		
+
 		_eventSub |= EventMask.Scroll;
 
 		if (_parent)
@@ -808,9 +791,9 @@ protected:
 	/// Recalculates size and position for all visible widgets
 	override bool resizeEvent(){
 		_recalculateWidgetsSize(); // resize everything
-		// if parent is scrollable container, and there are no size
-		// limits, then grow as needed
-		if (minHeight + maxHeight + minWidth + maxWidth == 0 && 
+		// if parent is scrollable container, and there are no size limits, then
+		// grow as needed
+		if (minHeight + maxHeight + minWidth + maxWidth == 0 &&
 				_parent && _parent.isScrollableContainer){
 			_width = 0;
 			_height = 0;
@@ -857,8 +840,8 @@ protected:
 				widget._view._reset();
 		}else{
 			foreach (i, widget; _widgets){
-				_view._getSlice(&(widget._view), widget._posX,
-					widget._posY, widget.width, widget.height);
+				_view._getSlice(widget._view, widget._posX, widget._posY,
+						widget.width, widget.height);
 				widget._resizeEventCall();
 			}
 		}
@@ -873,13 +856,13 @@ protected:
 			return false;
 		}
 		foreach (i, widget; _widgets){
-			_view._getSlice(&(widget._view), widget._posX,
-				widget._posY, widget.width, widget.height);
+			_view._getSlice(widget._view, widget._posX, widget._posY,
+					widget.width, widget.height);
 			widget._scrollEventCall();
 		}
 		return true;
 	}
-	
+
 	/// Redirects the mouseEvent to the appropriate widget
 	override public bool mouseEvent(MouseEvent mouse){
 		if (_isOverflowing)
@@ -887,16 +870,14 @@ protected:
 		int index;
 		if (_type == Type.Horizontal){
 			foreach (i, w; _widgets){
-				if (w.show && w._posX <= mouse.x &&
-						w._posX + w.width > mouse.x){
+				if (w.show && w._posX <= mouse.x && w._posX + w.width > mouse.x){
 					index = cast(int)i;
 					break;
 				}
 			}
 		}else{
 			foreach (i, w; _widgets){
-				if (w.show && w._posY <= mouse.y &&
-						w._posY + w.height > mouse.y){
+				if (w.show && w._posY <= mouse.y && w._posY + w.height > mouse.y){
 					index = cast(int)i;
 					break;
 				}
@@ -905,11 +886,9 @@ protected:
 		if (index > -1){
 			if (mouse.state != MouseEvent.State.Hover &&
 					index != _activeWidgetIndex &&
-					_widgets[index].eventSub &
-						EventMask.KeyboardAll){
+					_widgets[index].eventSub & EventMask.KeyboardAll){
 				if (_activeWidgetIndex > -1)
-					_widgets[_activeWidgetIndex]._activateEventCall(
-						false);
+					_widgets[_activeWidgetIndex]._activateEventCall(false);
 				_widgets[index]._activateEventCall(true);
 				_activeWidgetIndex = index;
 			}
@@ -919,15 +898,13 @@ protected:
 	}
 
 	/// Redirects the keyboardEvent to appropriate widget
-	override public bool keyboardEvent(KeyboardEvent key,
-			bool cycle){
+	override public bool keyboardEvent(KeyboardEvent key, bool cycle){
 		if (_isOverflowing)
 			return false;
 		if (_activeWidgetIndex > -1 &&
-				_widgets[_activeWidgetIndex]._keyboardEventCall(
-					key, cycle))
+				_widgets[_activeWidgetIndex]._keyboardEventCall(key, cycle))
 			return true;
-		
+
 		if (!cycle)
 			return false;
 		immutable int next = _nextActiveWidget();
@@ -965,11 +942,10 @@ protected:
 			_activeWidgetIndex = _nextActiveWidget();
 		}
 		if (_activeWidgetIndex > -1)
-			_widgets[_activeWidgetIndex]._activateEventCall(
-				isActive);
+			_widgets[_activeWidgetIndex]._activateEventCall(isActive);
 		return true;
 	}
-	
+
 	/// called by parent widget to update
 	override bool updateEvent(){
 		if (_isOverflowing){
@@ -983,8 +959,7 @@ protected:
 			foreach(i, widget; _widgets){
 				if (widget.show && widget._requestingUpdate)
 					widget._updateEventCall();
-				foreach (y; widget.height ..
-						viewportY + viewportHeight){
+				foreach (y; widget.height .. viewportY + viewportHeight){
 					moveTo(widget._posX, y);
 					fillLine(' ', DEFAULT_FG, _fillColor,
 						widget.width);
@@ -996,8 +971,7 @@ protected:
 					widget._updateEventCall();
 				if (widget.width == _width)
 					continue;
-				foreach (y; widget._posY ..
-						widget._posY + widget.height){
+				foreach (y; widget._posY .. widget._posY + widget.height){
 					moveTo(widget._posX + widget.width, y);
 					fillLine(' ', DEFAULT_FG, _fillColor);
 				}
@@ -1025,8 +999,7 @@ protected:
 		// and then manipulate the current layout
 		if (lastActiveWidgetIndex != _activeWidgetIndex &&
 				lastActiveWidgetIndex > -1)
-			_widgets[lastActiveWidgetIndex]._activateEventCall(
-				false);
+			_widgets[lastActiveWidgetIndex]._activateEventCall(false);
 		return _activeWidgetIndex != -1;
 	}
 
@@ -1063,7 +1036,7 @@ public:
 		return _overflowColor = newColor;
 	}
 	/// adds a widget
-	/// 
+	///
 	/// `allowScrollControl` specifies if the widget will be able
 	/// to make scrolling requests
 	void addWidget(QWidget widget, bool allowScrollControl = false){
@@ -1100,17 +1073,14 @@ protected:
 	uint _drawAreaHeight, _drawAreaWidth;
 	/// Scrollbar colors
 	Color _sbarBg = DEFAULT_BG, _sbarFg = DEFAULT_FG;
-	
+
 	override void eventSubscribe(){
-		_eventSub = EventMask.Resize | EventMask.Scroll;
 		if (_widget)
 			_eventSub |= _widget.eventSub;
-		if (_pgDnUp)
-			_eventSub |= EventMask.KeyboardPress;
-		if (_mouseWheel)
-			_eventSub |= EventMask.MouseAll;
-		if (_scrollbarH || _scrollbarV)
-			_eventSub |= EventMask.Update;
+		_eventSub |= EventMask.Resize | EventMask.Scroll |
+			(EventMask.KeyboardPress * _pgDnUp) |
+			(EventMask.MouseAll * _mouseWheel) |
+			(EventMask.Update * (_scrollbarH || _scrollbarV));
 		if (_parent)
 			_parent.eventSubscribe();
 	}
@@ -1128,7 +1098,7 @@ protected:
 			w = _widget.width;
 		if (h > _widget.height)
 			h = _widget.height;
-		_view._getSlice(&(_widget._view), 0, 0, w, h);
+		_view._getSlice(_widget._view, 0, 0, w, h);
 		_widget._view._offsetX = _offX + _widget.scrollX;
 		_widget._view._offsetY = _offY + _widget.scrollY;
 		if (callScrollEvent)
@@ -1142,7 +1112,7 @@ protected:
 			x = 0;
 		else if (x > _widget.width - _drawAreaWidth)
 			x = _widget.width - _drawAreaWidth;
-		
+
 		if (_widget.scrollX == x)
 			return false;
 		_widget._scrollX = x;
@@ -1156,7 +1126,7 @@ protected:
 			y = 0;
 		else if (y > _widget.height - _drawAreaHeight)
 			y = _widget.height - _drawAreaHeight;
-		
+
 		if (_widget.scrollY == y)
 			return false;
 		_widget._scrollY = y;
@@ -1167,8 +1137,8 @@ protected:
 	override bool resizeEvent(){
 		_offX = _view._offsetX;
 		_offY = _view._offsetY;
-		_drawAreaHeight = _height - (1*(_height>0 && _scrollbarV));
-		_drawAreaWidth = _width - (1*(_width>0 && _scrollbarV));
+		_drawAreaHeight = _height - (1 * (_height > 0 && _scrollbarV));
+		_drawAreaWidth = _width - (1 * (_width > 0 && _scrollbarV));
 		if (!_widget)
 			return false;
 		if (_scrollbarH || _scrollbarV)
@@ -1199,23 +1169,20 @@ protected:
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
 		if (!_widget)
 			return false;
-		if (_widget.isActive && _widget._keyboardEventCall(key,
-				cycle))
+		if (_widget.isActive && _widget._keyboardEventCall(key, cycle))
 			return true;
-		
-		if (!cycle && _pgDnUp &&
-				 key.state == KeyboardEvent.State.Pressed){
+
+		if (!cycle && _pgDnUp && key.state == KeyboardEvent.State.Pressed){
 			if (key.key == Key.PageUp){
 				return requestScrollY(
-					_drawAreaHeight > _widget.scrollY ? 0 :
-					_widget.scrollY - _drawAreaHeight);
+						_drawAreaHeight > _widget.scrollY ? 0 :
+						_widget.scrollY - _drawAreaHeight);
 			}
 			if (key.key == Key.PageDown){
 				return requestScrollY(
-					_drawAreaHeight + _widget.scrollY >
-					_widget.height ? 
-					_widget.height - _drawAreaHeight :
-					_widget.scrollY + _drawAreaHeight);
+						_drawAreaHeight + _widget.scrollY > _widget.height ?
+						_widget.height - _drawAreaHeight :
+						_widget.scrollY + _drawAreaHeight);
 			}
 		}
 		_widget._activateEventCall(false);
@@ -1269,8 +1236,7 @@ protected:
 				_drawAreaWidth);
 			const int maxScroll = _widget.width - _drawAreaWidth;
 			if (maxScroll > 0){
-				const uint barPos =
-					(_widget.scrollX * _drawAreaWidth) / maxScroll;
+				const uint barPos = (_widget.scrollX * _drawAreaWidth) / maxScroll;
 				moveTo(barPos, _drawAreaHeight);
 				write(block, _sbarFg, _sbarBg);
 			}
@@ -1282,13 +1248,13 @@ protected:
 			}
 			const int maxScroll = _widget.height - _drawAreaHeight;
 			if (maxScroll > 0){
-				const uint barPos =
-					(_widget.scrollY * _drawAreaHeight) / maxScroll;
+				const uint barPos = (_widget.scrollY * _drawAreaHeight) / maxScroll;
 				moveTo(_drawAreaWidth, barPos);
 				write(block, _sbarFg, _sbarBg);
 			}
 		}
 	}
+
 public:
 	/// constructor
 	this(){
@@ -1321,7 +1287,7 @@ public:
 	}
 
 	/// Sets the child widget.
-	/// 
+	///
 	/// Returns: false if already has a child
 	bool setWidget(QWidget child){
 		if (_widget)
@@ -1362,9 +1328,9 @@ public:
 		return _mouseWheel;
 	}
 
-	/// Whether to show vertical scrollbar.  
-	/// 
-	/// Modifying this will request update 
+	/// Whether to show vertical scrollbar.
+	///
+	/// Modifying this will request update
 	@property bool scrollbarV(){
 		return _scrollbarV;
 	}
@@ -1376,8 +1342,8 @@ public:
 		}
 		return _scrollbarV;
 	}
-	/// Whether to show horizontal scrollbar.  
-	/// 
+	/// Whether to show horizontal scrollbar.
+	///
 	/// Modifying this will request update
 	@property bool scrollbarH(){
 		return _scrollbarH;
@@ -1450,7 +1416,7 @@ protected:
 
 	override void eventSubscribe(){
 		// ignore what children want, this needs all events
-		// so custom event handlers can be set up 
+		// so custom event handlers can be set up
 		_eventSub = uint.max;
 	}
 
@@ -1482,8 +1448,7 @@ protected:
 			this._resizeEventCall();
 		_cursorX = -1;
 		_cursorY = -1;
-		// no, this is not a mistake, dont change this to
-		// updateEventCall again!
+		// no, this is not a mistake, dont change this to updateEventCall again
 		super.updateEvent();
 		// flush _view._buffer to _termWrap
 		_flushBuffer();
@@ -1533,7 +1498,7 @@ public:
 	@property bool terminateOnHangup(bool newVal){
 		return _stopOnInterrupt = newVal;
 	}
-	
+
 	/// starts the UI loop
 	void run(){
 		_initializeCall();
@@ -1561,7 +1526,7 @@ public:
 	}
 
 	/// search the passed widget recursively and activate it
-	/// 
+	///
 	/// Returns: true if the widget was made active, false if not
 	bool activateWidget(QWidget target) {
 		return this.searchAndActivateWidget(target);
