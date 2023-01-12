@@ -249,7 +249,7 @@ private:
 	void moveCursor(uint x, uint y){
 		_cursorX = x;
 		_cursorY = y;
-		
+
 		if (_cursorY > lineCount)
 			_cursorY = lineCount-1;
 		if (_cursorX > readLine(_cursorY).length)
@@ -267,7 +267,7 @@ private:
 			_lines.append(line);
 		else
 			_lines.set(index,line);
-		
+
 	}
 	/// deletes a line
 	void removeLine(uint index){
@@ -295,7 +295,7 @@ protected:
 		if (count > 0){
 			//write lines to memo
 			for (uint i = _scrollY; i < count && _display.cursor.y < this.height; i++){
-				_display.write(readLine(i).scrollHorizontal(_scrollX, this.width), 
+				_display.write(readLine(i).scrollHorizontal(_scrollX, this.width),
 					textColor, backgroundColor);
 			}
 		}
@@ -308,7 +308,7 @@ protected:
 		requestUpdate();
 		reScroll();
 	}
-	
+
 	override void mouseEvent(MouseEvent mouse){
 		//calculate mouse position, relative to scroll
 		mouse.x = mouse.x + cast(int)_scrollX;
@@ -362,7 +362,7 @@ protected:
 						overwriteLine(_cursorY, cast(dstring)deleteElement(cast(dchar[])currentLine,_cursorX-1));
 						_cursorX --;
 					}
-					
+
 				}else if (key.key == '\n'){
 					//insert a newline
 					if (_cursorX == readLine(_cursorY).length){
@@ -466,7 +466,7 @@ public:
 	~this(){
 		.destroy(_lines);
 	}
-	
+
 	///returns a list of lines in memo
 	///
 	///To modify the content, just modify it in the returned list
@@ -531,7 +531,7 @@ protected:
 		}
 		return true;
 	}
-	
+
 	override bool resizeEvent() {
 		requestUpdate();
 		return true;
@@ -551,7 +551,7 @@ public:
 	~this(){
 		.destroy(_logs);
 	}
-	
+
 	/// adds string to the log, and scrolls down to it.
 	/// newline character is not allowed
 	void add(dstring item){

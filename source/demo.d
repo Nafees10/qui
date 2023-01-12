@@ -6,7 +6,7 @@ version(demo){
 	import std.path;
 	import std.file : thisExePath;
 	import utils.misc : fileToArray;
-	
+
 	void main (){
 		QTerminal term = new QTerminal(QLayout.Type.Horizontal);
 
@@ -34,7 +34,7 @@ version(demo){
 
 		mainLayout.addWidget([subScroll, split]);
 		mainLayout.height = 50;
-		
+
 		mainScroll.setWidget(mainLayout);
 
 		term.addWidget(mainScroll);
@@ -53,6 +53,6 @@ version(demo){
 		};
 
 		term.run();
-		.destroy(term); 
+		.destroy(term);
 	}
 }
