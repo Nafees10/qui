@@ -1455,7 +1455,7 @@ public:
 	/// constructor
 	this(QLayout.Type displayType = QLayout.Type.Vertical,
 			ushort timerDuration = 500){
-		// fix for issue #18 (resizing on alacritty borked)
+		// HACK: fix for issue #18 (resizing on alacritty borked)
 		if (environment["TERM"] == "alacritty")
 			environment["TERM"] = "xterm";
 		super(displayType);
