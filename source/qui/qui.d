@@ -790,51 +790,37 @@ protected:
 
 	/// Recalculates size and position for all visible widgets
 	override bool resizeEvent(){
-		_recalculateWidgetsSize(); // resize everything
-		// if parent is scrollable container, and there are no size limits, then
-		// grow as needed
-		if (minHeight + maxHeight + minWidth + maxWidth == 0 &&
-				_parent && _parent.isScrollableContainer){
-			_width = 0;
-			_height = 0;
-			if (_type == Type.Horizontal){
-				foreach (widget; _widgets){
-					if (_height < widget.height)
-						_height = widget.height;
-					_width += widget.width;
-				}
-			}else{
-				foreach (widget; _widgets){
-					if (_width < widget.width)
-						_width = widget.width;
-					_height += widget.height;
-				}
-			}
-		}
-		// now reposition everything
-		/// space taken by widgets before
-		uint previousSpace = 0;
-		uint w, h;
-		foreach(widget; _widgets){
+		// resize everything
+		_recalculateWidgetsSize();
+		// position everything, and grow if can
+		uint space, maxW, maxH;
+		foreach (widget; _widgets){
 			if (!widget.show)
 				continue;
-			if (_type == QLayout.Type.Horizontal){
-				widget._posY = 0;
-				widget._posX = previousSpace;
-				previousSpace += widget.width;
-				w += widget.width;
-				if (widget.height > h)
-					h = widget.height;
+			widget._posX = widget._posY = 0;
+			maxH = maxH < widget.height ? widget.height : maxH;
+			maxW = maxW < widget.width ? widget.width : maxW;
+			if (_type == Type.Horizontal){
+				widget._posX = space;
+				space += widget.width;
 			}else{
-				widget._posX = 0;
-				widget._posY = previousSpace;
-				previousSpace += widget.height;
-				h += widget.height;
-				if (widget.width > w)
-					w = widget.width;
+				widget._posY = space;
+				space += widget.height;
 			}
 		}
-		_isOverflowing = w > _width || h > _height;
+		if (maxW > width || maxH > height){
+			// if parent is scrollable container and there no size limits
+			// then grow to required size
+			// TODO grow till maxWidth or maxHeight reached
+			if (minHeight + maxHeight + minWidth + maxWidth == 0 && _parent &&
+					_parent.isScrollableContainer){
+				_isOverflowing = false;
+				_height = maxH;
+				_width = maxW;
+			}else{
+				_isOverflowing = true;
+			}
+		}
 		if (_isOverflowing){
 			foreach (widget; _widgets)
 				widget._view._reset();
