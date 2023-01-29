@@ -4,69 +4,68 @@
 module qui.widgets;
 
 import qui.qui;
-import qui.utils;
 import utils.misc;
 import utils.ds;
 
 import std.conv : to;
+debug import std.stdio;
 
 /// for testing only.
 class ScrollTestingWidget : QWidget{
 protected:
-	/// text and background colors
-	Color textColor, backgroundColor, emptyColor;
 	/// whether to display debug info
 	bool _debugInfo;
 
+	override bool adoptEvent(bool adopted){
+		if (!adopted)
+			return false;
+		requestResize;
+		return true;
+	}
+
+	override bool scrollEvent(){
+		requestUpdate;
+		return true;
+	}
+
+	override bool resizeEvent(){
+		requestUpdate;
+		return true;
+	}
+
 	override bool updateEvent(){
-		foreach (y; viewportY .. viewportY + viewportHeight){
-			moveTo(viewportX, y);
-			foreach (x; viewportX .. viewportX + viewportWidth){
-				write(((x+y) % 10).to!dstring[0], textColor,
-					y < height && x < width ?
-						backgroundColor : emptyColor);
-			}
+		foreach (y; view.y .. view.y + view.height){
+			view.moveTo(view.x, y);
+			foreach (x; view.x .. view.x + view.width)
+				view.write(((x+y) % 10).to!dstring[0]);
 		}
-		if (_debugInfo){
-			moveTo(viewportX, viewportY);
-			write("size, width x height:     " ~
-				to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|',
-				DEFAULT_FG, DEFAULT_BG);
-			moveTo(viewportX, viewportY+1);
-			write("min size, width x height: " ~
-				to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|',
-				DEFAULT_FG, DEFAULT_BG);
-			moveTo(viewportX, viewportY+2);
-			write("max size, width x height: " ~
-				to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|',
-				DEFAULT_FG, DEFAULT_BG);
-			moveTo(viewportX, viewportY+3);
-			write("scroll X, Y: " ~
-				to!dstring(scrollX) ~ "," ~ to!dstring(scrollY) ~ '|',
-				DEFAULT_FG, DEFAULT_BG);
-			moveTo(viewportX, viewportY+4);
-			write("view X, Y: " ~
-				to!dstring(viewportX) ~ "," ~ to!dstring(viewportY) ~
-				'|', DEFAULT_FG, DEFAULT_BG);
-			moveTo(viewportX, viewportY+5);
-			write("view width x height: " ~
-				to!dstring(viewportWidth) ~ "x" ~
-				to!dstring(viewportHeight) ~ '|',
-				DEFAULT_FG, DEFAULT_BG);
+		debug{
+			stderr.writeln("size, width x height:", width, "x", height, '|');
+
+			stderr.writeln("view X,Y:            ", view.x, ",", view.y, '|');
+
+			stderr.writeln("view width x height: ", view.width, "x", view.height,'|');
 		}
+		if (!_debugInfo)
+			return true;
+		view.moveTo(view.x, view.y);
+		view.write("size, width x height:     " ~
+			to!dstring(width) ~ "x" ~ to!dstring(height) ~ '|');
+
+		view.moveTo(view.x, view.y + 1);
+		view.write("view X, Y: " ~
+			to!dstring(view.x) ~ "," ~ to!dstring(view.y) ~ '|');
+
+		view.moveTo(view.x, view.y + 2);
+		view.write("view width x height: " ~
+			to!dstring(view.width) ~ "x" ~ to!dstring(view.height) ~ '|');
 		return true;
 	}
 public:
 	/// constructor
-	this(Color textColor = DEFAULT_FG,
-			Color backgroundColor = DEFAULT_BG,
-			Color emptyColor = Color.green, bool debugInfo=false){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll |
-			EventMask.Update);
-		this.textColor = textColor;
-		this.backgroundColor = backgroundColor;
-		this.emptyColor = emptyColor;
-		this._debugInfo = debugInfo;
+	this(bool debugInfo = false,
+			Color textColor = Color.DEFAULT, Color backgroundColor = Color.DEFAULT){
+		_debugInfo = debugInfo;
 	}
 }
 
@@ -76,24 +75,45 @@ public:
 class TextLabelWidget : QWidget{
 private:
 	/// text and background colors
-	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
+	Color _fg = Color.DEFAULT, _bg = Color.DEFAULT;
 	/// the text to display
 	dstring _caption;
 protected:
+
+	override bool adoptEvent(bool adopted){
+		if (!adopted)
+			return false;
+		requestResize;
+		return true;
+	}
+
+	override bool scrollEvent(){
+		requestUpdate;
+		return true;
+	}
+
+	override bool resizeEvent(){
+		requestUpdate;
+		return true;
+	}
+
 	override bool updateEvent(){
-		moveTo(0,0);
-		write(_caption, _fg, _bg);
+		view.moveTo(view.x, view.y);
+		if (view.x > _caption.length)
+			view.fillLine(' ', _fg, _bg);
+		else
+			view.write(_caption[view.x .. $], _fg, _bg);
 		return true;
 	}
 public:
 	/// constructor
 	this(dstring caption = ""){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll |
-			EventMask.Update);
 		_caption = caption;
-		height = 1;
-		width = cast(uint)caption.length;
+		_maxHeight = 1;
+		_maxWidth = cast(uint)caption.length;
+		_minWidth = _maxWidth;
 	}
+
 	/// the text to display
 	@property dstring caption(){
 		return _caption;
@@ -101,10 +121,12 @@ public:
 	/// ditto
 	@property dstring caption(dstring newCaption){
 		_caption = newCaption;
-		width = cast(uint)newCaption.length;
-		requestUpdate();
+		_maxWidth = cast(uint)caption.length;
+		_minWidth = _maxWidth;
+		requestUpdate;
 		return _caption;
 	}
+
 	/// text color
 	@property Color textColor(){
 		return _fg;
@@ -112,9 +134,10 @@ public:
 	/// ditto
 	@property Color textColor(Color newColor){
 		_fg = newColor;
-		requestUpdate();
+		requestUpdate;
 		return _fg;
 	}
+
 	/// background color
 	@property Color backColor(){
 		return _bg;
@@ -122,8 +145,21 @@ public:
 	/// ditto
 	@property Color backColor(Color newColor){
 		_bg = newColor;
-		requestUpdate();
+		requestUpdate;
 		return _bg;
+	}
+
+	override @property uint minWidth(){
+		return cast(uint)_caption.length;
+	}
+	override @property uint maxWidth(){
+		return cast(uint)_caption.length;
+	}
+	override @property uint minHeight(){
+		return 1;
+	}
+	override @property uint maxHeight(){
+		return 1;
 	}
 }
 
@@ -132,76 +168,127 @@ class EditLineWidget : QWidget{
 private:
 	/// text that's been input-ed
 	dchar[] _text;
-	/// position of cursor
+	/// position of cursor. Next write happens at `_text[_x]`,
+	/// next deletion happens at `_text[_x - 1]`
 	uint _x;
 	/// Foreground and background colors
-	Color _fg = DEFAULT_FG, _bg = DEFAULT_BG;
+	Color _fg = Color.DEFAULT, _bg = Color.DEFAULT;
+
 protected:
-	/// override resize to re-scroll
-	override bool resizeEvent(){
-		requestUpdate();
+	/// moves cursor to left by n characters
+	void cursorMoveLeft(uint n = 1){
+		if (n > _x)
+			_x = 0;
+		else
+			_x -= n;
+	}
+
+	/// moves cursor to right by n characters
+	void cursorMoveRight(uint n = 1){
+		_x += n;
+		if (_x > _text.length)
+			_x = cast(uint)_text.length;
+	}
+
+	/// does backspace at current cursor position
+	void cursorBackspace(){
+		if (_x == 0)
+			return;
+		if (_x < _text.length)
+			_text[_x - 1 .. $ - 1] = _text[_x .. $];
+		_text.length --;
+		_x --;
+	}
+
+	/// does delete at current cursor position
+	void cursorDelete(){
+		if (_x >= _text.length)
+			return;
+		_text[_x .. $ - 1] = _text[_x + 1 .. $];
+		_text.length --;
+	}
+
+	/// Writes a character at current cursor position
+	void cursorInsert(dchar key){
+		if (_x == _text.length)
+			_text ~= key;
+		else
+			_text = _text[0 .. _x] ~ key ~ _text[_x .. $];
+	}
+
+	/// Ensures cursor position is valid, if not, fixes it
+	void cursorCorrect(){
+		if (_x > _text.length)
+			_x = cast(uint)text.length;
+	}
+
+	override bool adoptEvent(bool adopted){
+		if (!adopted)
+			return false;
+		requestResize;
 		return true;
 	}
+
+	override bool resizeEvent(){
+		requestUpdate;
+		return true;
+	}
+
+	override bool scrollEvent(){
+		requestUpdate;
+		return true;
+	}
+
 	override bool mouseEvent(MouseEvent mouse){
 		if (mouse.button == MouseEvent.Button.Left &&
-		mouse.state == MouseEvent.State.Click)
+				mouse.state == MouseEvent.State.Click)
 			_x = mouse.x;
-		requestUpdate();
+		requestUpdate;
 		return true;
 	}
+
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
-		if (cycle)
+		if (cycle || key.key == '\n')
 			return false;
-		if (key.key == '\b'){ // backspace
-			if (_x > 0){
-				if (_x < _text.length)
-					_text[_x - 1 .. $ - 1] = _text[_x .. $];
-				_text.length --;
-				_x --;
-			}
-		}else if (key.key == Key.Delete){ // delete
-			if (_x < _text.length){
-				_text[_x .. $ - 1] = _text[_x + 1 .. $];
-				_text.length --;
-			}
-		}else if (key.key == Key.LeftArrow){ // <-
-			_x = _x - (1 * (_x > 0));
-		}else if (key.key == Key.RightArrow){ // ->
-			_x = _x + (1 * (_x < _text.length));
-		}else if (key.isChar && key.key != '\n'){ // insert character
-			if (_x == _text.length)
-				_text ~= key.key;
-			else
-				_text = _text[0 .. _x] ~ key.key ~ _text[_x .. $];
+		switch (key.key){
+			case '\b':
+				cursorBackspace; break;
+			case Key.Delete:
+				cursorDelete; break;
+			case Key.LeftArrow:
+				cursorMoveLeft; break;
+			case Key.RightArrow:
+				cursorMoveRight; break;
+			default:
+				cursorInsert(key.key); break;
 		}
-		requestUpdate();
+		requestUpdate;
 		return true;
 	}
+
 	override bool updateEvent(){
-		moveTo(0,0);
-		write(cast(dstring)_text, _fg, _bg);
-		requestCursorPos(_x, 0);
+		view.moveTo(view.x, view.y);
+		if (view.x > _text.length)
+			view.fillLine(' ', _fg, _bg);
+		else
+			view.write(cast(dstring)_text[view.x .. $], _fg, _bg);
 		return true;
 	}
 public:
 	/// constructor
 	this(dstring text = ""){
-		eventSubscribe(EventMask.Resize | EventMask.Scroll |
-			EventMask.MousePress | EventMask.KeyboardPress |
-			EventMask.Update);
 		this._text = cast(dchar[])text.dup;
-		height = 1;
+		_maxHeight = 1;
 	}
 
-	///The text that has been input-ed.
+	/// text
 	@property dstring text(){
 		return cast(dstring)_text.dup;
 	}
-	///The text that has been input-ed.
+	/// ditto
 	@property dstring text(dstring newText){
 		_text = cast(dchar[])newText.dup;
-		// request update
-		requestUpdate();
+		requestUpdate;
 		return cast(dstring)newText;
 	}
 
@@ -212,7 +299,7 @@ public:
 	/// ditto
 	@property Color textColor(Color newColor){
 		_fg = newColor;
-		requestUpdate();
+		requestUpdate;
 		return _fg;
 	}
 
@@ -223,345 +310,112 @@ public:
 	/// ditto
 	@property Color backColor(Color newColor){
 		_bg = newColor;
-		requestUpdate();
+		requestUpdate;
 		return _bg;
 	}
+
+	override @property uint minWidth(){
+		return cast(uint)_text.length;
+	}
+	override @property uint maxWidth(){
+		return cast(uint)_text.length;
+	}
+	override @property uint minHeight(){
+		return 1;
+	}
+	override @property uint maxHeight(){
+		return 1;
+	}
 }
-/*
-/// Can be used as a simple text editor, or to just display text
-class MemoWidget : QWidget{
-private:
-	List!dstring _lines;
-	/// how many characters/lines are skipped
-	uint _scrollX, _scrollY;
-	/// whether the cursor is, relative to line#0 character#0
-	uint _cursorX, _cursorY;
-	/// whether the text in it will be editable
-	bool _enableEditing = true;
-	/// used by widget itself to recalculate scrolling
-	void reScroll(){
-		// _scrollY
-		adjustScrollingOffset(_cursorY, this.height, lineCount, _scrollY);
-		// _scrollX
-		adjustScrollingOffset(_cursorX, this.width, cast(uint)readLine(_cursorY).length, _scrollX);
-	}
-	/// used by widget itself to move cursor
-	void moveCursor(uint x, uint y){
-		_cursorX = x;
-		_cursorY = y;
-
-		if (_cursorY > lineCount)
-			_cursorY = lineCount-1;
-		if (_cursorX > readLine(_cursorY).length)
-			_cursorX = cast(uint)readLine(_cursorY).length;
-	}
-	/// Reads a line from widgetLines
-	dstring readLine(uint index){
-		if (index >= _lines.length)
-			return "";
-		return _lines.read(index);
-	}
-	/// overwrites a line
-	void overwriteLine(uint index, dstring line){
-		if (index == _lines.length)
-			_lines.append(line);
-		else
-			_lines.set(index,line);
-
-	}
-	/// deletes a line
-	void removeLine(uint index){
-		if (index < _lines.length)
-			_lines.remove(index);
-	}
-	/// inserts a line
-	void insertLine(uint index, dstring line){
-		if (index == _lines.length)
-			_lines.append(line);
-		else
-			_lines.insert(index, line);
-	}
-	/// adds a line
-	void addLine(dstring line){
-		_lines.append(line);
-	}
-	/// returns lines count
-	@property uint lineCount(){
-		return cast(uint)_lines.length+1;
-	}
-protected:
-	override void updateEvent(){
-		const uint count = lineCount;
-		if (count > 0){
-			//write lines to memo
-			for (uint i = _scrollY; i < count && _display.cursor.y < this.height; i++){
-				_display.write(readLine(i).scrollHorizontal(_scrollX, this.width),
-					textColor, backgroundColor);
-			}
-		}
-		_display.fill(' ', textColor, backgroundColor);
-		// cursor position, in case this is active
-		_cursorPosition = Position(_cursorX - _scrollX, _cursorY - _scrollY);
-	}
-
-	override void resizeEvent(){
-		requestUpdate();
-		reScroll();
-	}
-
-	override void mouseEvent(MouseEvent mouse){
-		//calculate mouse position, relative to scroll
-		mouse.x = mouse.x + cast(int)_scrollX;
-		mouse.y = mouse.y + cast(int)_scrollY;
-		if (mouse.button == mouse.Button.Left){
-			requestUpdate();
-			moveCursor(mouse.x, mouse.y);
-		}else if (mouse.button == mouse.Button.ScrollDown){
-			if (_cursorY+1 < lineCount){
-				requestUpdate();
-				moveCursor(_cursorX, _cursorY + 4);
-				reScroll();
-			}
-		}else if (mouse.button == mouse.Button.ScrollUp){
-			if (_cursorY > 0){
-				requestUpdate();
-				if (_cursorY < 4){
-					moveCursor(_cursorX, 0);
-				}else{
-					moveCursor(_cursorX, _cursorY - 4);
-				}
-				reScroll();
-			}
-		}
-	}
-	// too big of a mess to be dealt with right now, TODO try to make this shorter
-	override void keyboardEvent(KeyboardEvent key){
-		if (key.isChar){
-			if (_enableEditing){
-				requestUpdate();
-				dstring currentLine = readLine(_cursorY);
-				//check if backspace
-				if (key.key == '\b'){
-					//make sure that it's not the first line, first line cannot be removed
-					if (_cursorY > 0){
-						//check if has to remove a '\n'
-						if (_cursorX == 0){
-							_cursorY --;
-							//if line's not empty, append it to previous line
-							_cursorX = cast(uint)readLine(_cursorY).length;
-							if (currentLine != ""){
-								//else, append this line to previous
-								overwriteLine(_cursorY, readLine(_cursorY)~currentLine);
-							}
-							removeLine(_cursorY+1);
-						}else{
-							overwriteLine(_cursorY, cast(dstring)deleteElement(cast(dchar[])currentLine,_cursorX-1));
-							_cursorX --;
-						}
-					}else if (_cursorX > 0){
-						overwriteLine(_cursorY, cast(dstring)deleteElement(cast(dchar[])currentLine,_cursorX-1));
-						_cursorX --;
-					}
-
-				}else if (key.key == '\n'){
-					//insert a newline
-					if (_cursorX == readLine(_cursorY).length){
-						if (_cursorY >= lineCount - 1){
-							_lines.append("");
-						}else{
-							insertLine(_cursorY + 1,"");
-						}
-					}else{
-						dstring[2] line;
-						line[0] = readLine(_cursorY);
-						line[1] = line[0][_cursorX .. line[0].length];
-						line[0] = line[0][0 .. _cursorX];
-						overwriteLine(_cursorY, line[0]);
-						if (_cursorY >= lineCount - 1){
-							_lines.append(line[1]);
-						}else{
-							insertLine(_cursorY + 1, line[1]);
-						}
-					}
-					_cursorY ++;
-					_cursorX = 0;
-				}else if (key.key == '\t'){
-					//convert it to 4 spaces
-					overwriteLine(_cursorY, cast(dstring)insertElement(cast(dchar[])currentLine,cast(dchar[])"    ",_cursorX));
-					_cursorX += 4;
-				}else{
-					//insert that char
-					overwriteLine(_cursorY, cast(dstring)insertElement(cast(dchar[])currentLine,[cast(dchar)key.key],_cursorX));
-					_cursorX ++;
-				}
-			}
-		}else{
-			if (key.key == Key.Delete && _enableEditing){
-				requestUpdate();
-				//check if is deleting \n
-				if (_cursorX == readLine(_cursorY).length && _cursorY+1 < lineCount){
-					//merge next line with this one
-					dchar[] line = cast(dchar[])readLine(_cursorY)~readLine(_cursorY+1);
-					overwriteLine(_cursorY, cast(dstring)line);
-					//remove next line
-					removeLine(_cursorY+1);
-				}else if (_cursorX < readLine(_cursorY).length){
-					dchar[] line = cast(dchar[])readLine(_cursorY);
-					line = line.deleteElement(_cursorX);
-					overwriteLine(_cursorY, cast(dstring)line);
-				}
-			}else if (key.key == Key.DownArrow){
-				if (_cursorY+1 < lineCount){
-					requestUpdate();
-					_cursorY ++;
-				}
-			}else if (key.key == Key.UpArrow){
-				if (_cursorY > 0){
-					requestUpdate();
-					_cursorY --;
-				}
-			}else if (key.key == Key.LeftArrow){
-				if ((_cursorY >= 0 && _cursorX > 0) || (_cursorY > 0 && _cursorX == 0)){
-					requestUpdate();
-					if (_cursorX == 0){
-						_cursorY --;
-						_cursorX = cast(uint)readLine(_cursorY).length;
-					}else{
-						_cursorX --;
-					}
-				}
-			}else if (key.key == Key.RightArrow){
-				requestUpdate();
-				if (_cursorX == readLine(_cursorY).length){
-					if (_cursorY+1 < lineCount){
-						_cursorX = 0;
-						_cursorY ++;
-						_scrollX = 0;
-					}
-				}else{
-					_cursorX ++;
-				}
-			}
-		}
-		// I'll use this this time not to move the cursor, but to fix the cursor position
-		moveCursor(_cursorX,_cursorY);
-		reScroll();
-	}
-public:
-	/// background and text colors
-	Color backgroundColor, textColor;
-	/// constructor
-	this(bool allowEditing = true){
-		_lines = new List!dstring;
-		_scrollX = 0;
-		_scrollY = 0;
-		_cursorX = 0;
-		_cursorY = 0;
-		eventSubscribe(EventMask.Initialize | EventMask.MouseAll | EventMask.KeyboardPress |
-		EventMask.Resize | EventMask.Update);
-
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
-	}
-	~this(){
-		.destroy(_lines);
-	}
-
-	///returns a list of lines in memo
-	///
-	///To modify the content, just modify it in the returned list
-	///
-	///class `List` is defined in `utils.lists.d`
-	@property List!dstring lines(){
-		return _lines;
-	}
-}*/
 
 /// Displays an un-scrollable log
 class LogWidget : QWidget{
 private:
 	/// stores the logs
-	List!dstring _logs;
+	dstring[] _logs;
 	/// The index in _logs where the oldest added line is
 	uint _startIndex;
-	/// the maximum number of lines to store
-	uint _maxLines;
-	/// Returns: line at an index
-	dstring getLine(uint index){
+	/// the maximum number of logs to store
+	uint _maxLogs;
+	/// background and text color
+	Color _bg, _fg;
+
+	/// Returns: log at an index
+	dstring log(uint index){
 		if (index >= _logs.length)
 			return "";
-		return _logs.read((index + _startIndex) % _maxLines);
+		return _logs[(index + _startIndex) % _maxLogs];
 	}
-	/// wrap a line
-	dstring[] wrapLine(dstring str){
-		dstring[] r;
-		while (str.length > 0){
-			if (width > str.length){
-				r ~= str;
-				str = [];
-			}else{
-				r ~= str[0 .. width];
-				str = str[width .. $];
-			}
+
+	/// wrap a line, and modify str to exclude the first row
+	/// Returns: the first row in wrapped lines
+	dstring wrapLine(ref dstring str){
+		dstring ret;
+		if (str.length > width){
+			ret = str[0 .. width];
+			str = str[width + 1 .. $];
+		}else{
+			ret = str;
+			str = null;
 		}
-		return r;
+		return ret;
+	}
+
+	/// Returns: height of a log (due to wrapping)
+	uint logHeight(dstring str){
+		if (!width)
+			return 0;
+		return cast(uint)(str.length + width - 1) / width;
 	}
 protected:
 	override bool updateEvent(){
-		int hLeft = this.height;
-		for (int i = cast(int)_logs.length-1; i >= 0; i --){
-			dstring line = getLine(i);
-			if (!line.length)
-				continue;
-			dstring[] wrappedLine = wrapLine(line);
-			if (hLeft < wrappedLine.length)
-				wrappedLine = wrappedLine[wrappedLine.length - hLeft .. $];
-			immutable int startY = hLeft - cast(int)wrappedLine.length;
-			foreach (lineno, currentLine; wrappedLine){
-				moveTo(0, cast(int)lineno + startY);
-				write(currentLine, textColor, backgroundColor);
-				if (currentLine.length < width)
-					fillLine(' ', textColor, backgroundColor);
+		if (!view.height || !view.width)
+			return false;
+		int y = view.height;
+		for (int i = cast(int)_logs.length - 1; i >= 0 && y >= 0; i --){
+			dstring line = _logs[i];
+			immutable uint logHeight = logHeight(line);
+			foreach (wrapI; y - logHeight .. y){
+				dstring wrapped = wrapLine(line);
+				if (wrapI < 0)
+					continue;
+				view.moveTo(0, wrapI);
+				view.write(wrapped, _fg, _bg);
 			}
-			hLeft = startY;
+			y -= logHeight;
 		}
-		foreach (y; 0 .. hLeft){
-			moveTo(0, y);
-			fillLine(' ', textColor, backgroundColor);
+		foreach (i; 0 .. y){
+			view.moveTo(0, i);
+			view.fillLine(' ', _fg, _bg);
 		}
 		return true;
 	}
 
 	override bool resizeEvent() {
-		requestUpdate();
+		requestUpdate;
 		return true;
 	}
 public:
-	/// background and text color
-	Color backgroundColor, textColor;
 	/// constructor
-	this(uint maxLen = 100){
-		_maxLines = maxLen;
-		_logs = new List!dstring;
+	this(uint maxLogs = 100){
+		_maxLogs = maxLogs;
 		_startIndex = 0;
-		eventSubscribe(EventMask.Resize | EventMask.Update);
-		textColor = DEFAULT_FG;
-		backgroundColor = DEFAULT_BG;
+		_fg = Color.DEFAULT;
+		_bg = Color.DEFAULT;
 	}
 	~this(){
 		.destroy(_logs);
 	}
 
-	/// adds string to the log, and scrolls down to it.
-	/// newline character is not allowed
+	/// adds string to the log
 	void add(dstring item){
-		//check if needs to overwrite
-		if (_logs.length > _maxLines){
-			_startIndex = (_startIndex + 1) % _maxLines;
-			_logs.set(_startIndex, item);
-		}else
-			_logs.append(item);
-		requestUpdate();
+		if (_logs.length > _maxLogs){
+			_startIndex = (_startIndex + 1) % _maxLogs;
+			_logs[_startIndex] = item;
+		}else{
+			_logs ~= item;
+		}
+		requestUpdate;
 	}
 	/// ditto
 	void add(string item){
@@ -570,30 +424,52 @@ public:
 
 	/// clears the log
 	void clear(){
-		_logs.clear;
-		requestUpdate();
+		_logs.length = 0;
+		_startIndex = 0;
+		requestUpdate;
+	}
+
+	/// text color
+	@property Color textColor(){
+		return _fg;
+	}
+	/// ditto
+	@property Color textColor(Color newColor){
+		_fg = newColor;
+		requestUpdate;
+		return _fg;
+	}
+	/// background color
+	@property Color backColor(){
+		return _bg;
+	}
+	/// ditto
+	@property Color backColor(Color newColor){
+		_bg = newColor;
+		requestUpdate;
+		return _bg;
 	}
 }
 
-/// Just occupies some space. Use this to put space between widgets
+/// Just occupies some space. Use this to put space between widgets.
+/// Allows you to set the color filled by its space
 class SplitterWidget : QWidget{
 private:
 	Color _color;
 protected:
 	override bool updateEvent(){
-		foreach (y; viewportY .. viewportY + viewportHeight){
-			moveTo(viewportX, y);
-			fillLine(' ', DEFAULT_FG, _color);
+		foreach (y; view.y .. view.y + view.height){
+			view.moveTo(view.x, y);
+			view.fillLine(' ', Color.DEFAULT, _color);
 		}
 		return true;
 	}
 public:
 	/// constructor
 	this(){
-		_color = DEFAULT_BG;
-		eventSubscribe(EventMask.Scroll | EventMask.Resize |
-			EventMask.Update);
+		_color = Color.DEFAULT;
 	}
+
 	/// color
 	@property Color color(){
 		return _color;
@@ -601,7 +477,7 @@ public:
 	/// ditto
 	@property Color color(Color newColor){
 		_color = newColor;
-		requestUpdate();
+		requestUpdate;
 		return _color;
 	}
 }
