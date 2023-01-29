@@ -17,10 +17,7 @@ version(demo){
 				term.scrollY = term.scrollY - 1;
 			else if (key.key == KeyboardEvent.Key.DownArrow)
 				term.scrollY = term.scrollY + 1;
-			stderr.writeln(key.toString);
 		};
-
-		stderr.writeln("starting");
 
 		term.run;
 		.destroy(term);

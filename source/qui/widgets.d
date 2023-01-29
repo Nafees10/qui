@@ -39,13 +39,6 @@ protected:
 			foreach (x; view.x .. view.x + view.width)
 				view.write(((x+y) % 10).to!dstring[0]);
 		}
-		debug{
-			stderr.writeln("size, width x height:", width, "x", height, '|');
-
-			stderr.writeln("view X,Y:            ", view.x, ",", view.y, '|');
-
-			stderr.writeln("view width x height: ", view.width, "x", view.height,'|');
-		}
 		if (!_debugInfo)
 			return true;
 		view.moveTo(view.x, view.y);
