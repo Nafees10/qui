@@ -1115,7 +1115,7 @@ alias QVerticalLayout = QLayout!(QLayoutType.Vertical);
 /// A container for widgets
 /// It will create virtual space, which can be scrolled, to fit larger widgets
 /// in smaller spaces.
-/// its minWidth and maxWidth are equal to it's child's minimum sizes
+/// its maxHeight and maxWidth are equal to it's child's minimum sizes
 class QContainer : QParent{
 private:
 	/// scroll offsets
@@ -1212,6 +1212,24 @@ public:
 		_scrollY = newVal;
 		scrollEvent();
 		return _scrollY;
+	}
+
+	override @property uint maxWidth(){
+		if (_widget)
+			return _widget.maxWidth;
+		return 0;
+	}
+	override @property uint maxWidth(uint newVal){
+		return maxWidth;
+	}
+
+	override @property uint maxHeight(){
+		if (_widget)
+			return _widget.maxHeight;
+		return 0;
+	}
+	override @property uint maxHeight(uint newVal){
+		return maxHeight;
 	}
 }
 
