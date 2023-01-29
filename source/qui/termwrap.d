@@ -27,7 +27,7 @@ public struct Event{
 		/// state
 		ubyte state;
 		/// Non character keys (can match against `this.key`)
-		/// 
+		///
 		/// copied from arsd.terminal
 		enum Key : dchar{
 			Escape = 0x1b + 0xF0000,
@@ -83,15 +83,15 @@ public struct Event{
 		}
 		/// Returns: true if the key pressed is a character
 		/// backspace, space, and tab are characters!
-		@property bool isChar(){
+		@property bool isChar() const {
 			return !(key >= Key.min && key <= Key.max) && !isCtrlKey();
 		}
 		/// Returns: true if key is a Ctrl+Letter key
-		@property bool isCtrlKey(){
+		@property bool isCtrlKey() const {
 			return key >= CtrlKeys.min && key <= CtrlKeys.max && key!=8 && key!=9 && key!=10;
 		}
 		/// Returns: a string representation of the key pressed
-		@property string tostring(){
+		@property string toString() const {
 			if (isChar())
 				return "{key:\'"~to!string(key)~"\', state:"~state.to!string~"}";
 			if (isCtrlKey())
@@ -279,7 +279,7 @@ public:
 		return visibility;
 	}
 	/// waits `msecTimeout` msecs for event to occur. Returns as soon as it occurs (or if one had occurred before calling it)
-	/// 
+	///
 	/// Returns: true if event occured
 	bool getEvent(int msecTimeout, ref Event event){
 		StopWatch sw;
