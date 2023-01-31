@@ -419,6 +419,11 @@ public:
 		return _customTimerEvent = func;
 	}
 
+	/// custom update event
+	final @property UpdateEventFunction onUpdateEvent(UpdateEventFunction func){
+		return _customUpdateEvent = func;
+	}
+
 	/// Returns: true if this widget is the current active widget
 	final @property bool isActive() const {
 		return _isActive;
@@ -1211,6 +1216,20 @@ protected:
 		_cursorY = y;
 	}
 
+	override bool mouseEvent(MouseEvent mouse){
+		if (_customMouseEvent)
+			_customMouseEvent(this, mouse);
+		return super.mouseEvent(mouse);
+	}
+
+	override bool keyboardEvent(KeyboardEvent key, bool cycle){
+		cycle = key.state == KeyboardEvent.State.Pressed &&
+			key.key == _activeWidgetCycleKey;
+		if (_customKeyboardEvent)
+			_customKeyboardEvent(this, key, cycle);
+		return super.keyboardEvent(key, cycle);
+	}
+
 	override bool resizeEvent(){
 		_height = _termWrap.height;
 		_width = _termWrap.width;
@@ -1219,14 +1238,16 @@ protected:
 		foreach (i, ref row; view._buffer)
 			row.length = _width;
 
+		if (_customResizeEvent)
+			_customResizeEvent(this);
 		super.resizeEvent;
 		return true;
 	}
 
-	override bool keyboardEvent(KeyboardEvent key, bool cycle){
-		cycle = key.state == KeyboardEvent.State.Pressed &&
-			key.key == _activeWidgetCycleKey;
-		return super.keyboardEvent(key, cycle);
+	override bool timerEvent(uint msecs){
+		if (_customTimerEvent)
+			_customTimerEvent(this, msecs);
+		return super.timerEvent(msecs);
 	}
 
 	override bool updateEvent(){
@@ -1235,7 +1256,6 @@ protected:
 		_requestingUpdate = false;
 		_cursorX = -1;
 		_cursorY = -1;
-		// no, this is not a mistake, dont change this to updateEventCall again
 		super.updateEvent;
 		// flush view._buffer to _termWrap
 		_flushBuffer;
