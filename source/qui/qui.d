@@ -221,12 +221,10 @@ private:
 	uint _height;
 	/// if this widget is the active widget
 	bool _isActive = false;
-	/// whether this widget is requesting update
+	/// if this widget is requesting update
 	bool _requestingUpdate = true;
 	/// the parent widget
 	QParent _parent;
-	/// specifies ratio of height or width
-	uint _sizeRatio = 1;
 
 	/// custom adopt event
 	AdoptEventFunction _customAdoptEvent;
@@ -244,51 +242,6 @@ private:
 	TimerEventFunction _customTimerEvent;
 	/// custom upedateEvent
 	UpdateEventFunction _customUpdateEvent;
-
-	/// Called when it needs to request an update.
-	void _requestUpdate(){
-		if (_requestingUpdate)
-			return;
-		_requestingUpdate = true;
-		if (_parent)
-			_parent.requestUpdate;
-	}
-
-	/// Called when it needs to request a resize
-	void _requestResize(){
-		if (_parent)
-			_parent.requestResize;
-	}
-
-	/// Called to request cursor to be positioned at x,y
-	/// Will do nothing if not active widget
-	void _requestCursorPos(int x, int y){
-		if (!_isActive || !_parent)
-			return;
-		_parent.requestCursorPos(
-				x < 0 ? x : _posX + x - view.x,
-				y < 0 ? y : _posY + y - view.x);
-	}
-
-	/// Called to request _scrollX to be adjusted
-	/// Returns: true if _scrollX was modified
-	bool _requestScrollX(uint x){
-		if (_isActive && _parent &&
-				view.width < _width &&
-				x < _width - view.width)
-			return _parent.requestScrollX(x + _posX);
-		return false;
-	}
-
-	/// Called to request _scrollY to be adjusted
-	/// Returns: true if _scrollY was modified
-	bool _requestScrollY(uint y){
-		if (_isActive && _parent &&
-				view.height < _height &&
-				y < _height - view.height)
-			return _parent.requestScrollY(y + _posY);
-		return false;
-	}
 
 protected:
 	/// minimum width
@@ -317,17 +270,23 @@ protected:
 	/// only works if this is active widget.
 	/// set x or y or both to negative to hide cursor
 	void requestCursorPos(int x, int y){
-		_requestCursorPos(x, y);
+		if (!_isActive || !_parent)
+			return;
+		_parent.requestCursorPos(_posX + x - view.x, _posY + y - view.x);
 	}
 
 	/// called to request to scrollX
-	bool requestScrollX(uint x){
-		return _requestScrollX(x);
+	bool scrollToX(int x){
+		if (!_isActive || !_parent)
+			return false;
+		return _parent.scrollToX(_posX + x - view.x);
 	}
 
 	/// called to request to scrollY
-	bool requestScrollY(uint y){
-		return _requestScrollY(y);
+	bool scrollToY(int y){
+		if (!_isActive || !_parent)
+			return false;
+		return _parent.scrollToY(_posY + y - view.y);
 	}
 
 	/// Called when this widget is adopted by a parent, or disowned.
@@ -367,20 +326,25 @@ protected:
 		return false;
 	}
 
-	/// Called when this widget should re-draw itself
+	/// called when this widget should re-draw itself
 	bool updateEvent(){
 		return false;
 	}
 
 public:
-	/// To request parent to trigger an update event
+	/// Requests parent widget to update it
 	void requestUpdate(){
-		_requestUpdate;
+		if (_requestingUpdate)
+			return;
+		_requestingUpdate = true;
+		if (_parent)
+			_parent.requestUpdate;
 	}
 
-	/// To request parent to trigger a resize event
+	/// Requests parent widget to resize it
 	void requestResize(){
-		_requestResize;
+		if (_parent)
+			_parent.requestResize;
 	}
 
 	/// custom initialize event
@@ -428,18 +392,6 @@ public:
 	/// Returns: true if this widget is the current active widget
 	final @property bool isActive() const {
 		return _isActive;
-	}
-
-	/// ratio of height or width
-	@property uint sizeRatio(){
-		return _sizeRatio;
-	}
-
-	/// ditto
-	@property uint sizeRatio(uint newRatio){
-		_sizeRatio = newRatio;
-		_requestResize;
-		return _sizeRatio;
 	}
 
 	/// width of widget
@@ -714,22 +666,16 @@ protected:
 
 /// Positions widgets in a Vertical or Horizontal layout
 /// Attempts to best mimic size properties of widgets inside it.
-/// its minHeight = sum of its widgets' minHeight
-/// its minWidth = sum of its widgets' minWidth
-/// its maxHeight = sum of its widgets' maxHeight, or 0 if at least one is zero
-/// its maxWidth = sum of its widgets' maxWidth, or 0 if at least one is zero
-/// its sizeRatio = sum of its widgets' sizeRatio
 class QLayout(QLayoutType type) : QParent{
 private:
 	/// Sets sizes for a widget
 	/// Returns: true if "natural" size was used, false if size was constrained
-	bool _widgetSize(QWidget widget, uint sizeTotal, uint ratioTotal){
+	bool _widgetSize(QWidget widget, uint sizeTotal, uint count){
+		assert (count != 0);
 		static if (type == Type.Horizontal){
-			return widgetSizeWidth(widget,
-					sizeTotal * widget.sizeRatio / ratioTotal);
+			return widgetSizeWidth(widget, sizeTotal / count);
 		}else static if (type == Type.Vertical){
-			return widgetSizeHeight(widget,
-					sizeTotal * widget.sizeRatio / ratioTotal);
+			return widgetSizeHeight(widget, sizeTotal / count);
 		}
 	}
 
@@ -741,39 +687,42 @@ protected:
 
 	/// Resets sizes caches
 	void sizeCacheReset(){
-		_sizeRatio = _maxWidth = _maxHeight = _minWidth = _minHeight = uint.max;
+		_maxWidth = _maxHeight = _minWidth = _minHeight = uint.max;
 	}
 
 	/// recalculates all widgets' sizes
 	void widgetsSizeRecalculate(){
-		FIFOStack!QWidget queue = new FIFOStack!QWidget;
-		uint ratioTotal = sizeRatio;
+		QWidget[] queue = widgets.dup;
 		uint sizeTotal = height;
 		static if (type == Type.Horizontal)
 			sizeTotal = width;
-		// everything goes on the queue
-		foreach (widget; widgets){
-			widgetSize(widget, width, height);
-			queue.push(widget);
-		}
-		// now repeat until queue is empty, or every widget size is "natural"
-		uint count;
-		while (count != queue.count){
-			count = cast(uint)queue.count;
-			foreach (i; 0 .. count){
-				QWidget widget = queue.pop;
-				if (_widgetSize(widget, ratioTotal, sizeTotal)){
-					queue.push(widget); // push back widgets if natural size used
-					continue;
-				}
-				ratioTotal -= widget.sizeRatio;
-				static if (type == Type.Horizontal)
-					sizeTotal -= widget.width;
-				else
-					sizeTotal -= widget.height;
+		uint count = cast(uint)queue.length, size = sizeTotal;
+		for (int i = 0; i < queue.length; i ++){
+			QWidget widget = queue[i];
+			bool natural = _widgetSize(widget, size, count);
+			uint sizeUsed;
+			static if (type == Type.Horizontal){
+				widgetSizeHeight(widget, height);
+				sizeUsed = widget.width;
+			}else static if (type == Type.Vertical){
+				widgetSizeWidth(widget, width);
+				sizeUsed = widget.height;
 			}
+			if (!natural){
+				// start over again, exclude this widget
+				if (queue.length == 1)
+					break;
+				queue[i] = queue[$ - 1];
+				queue.length --;
+				sizeTotal -= sizeUsed;
+				count = cast(uint)queue.length;
+				size = sizeTotal;
+				i = -1;
+				continue;
+			}
+			count --;
+			size -= sizeUsed;
 		}
-		.destroy(queue);
 	}
 
 	/// Positions widgets in the widgets array
@@ -971,25 +920,17 @@ public:
 		return true;
 	}
 
-	override @property uint sizeRatio(){
-		if (_sizeRatio != uint.max)
-			return _sizeRatio;
-		_sizeRatio = 0;
-		foreach (widget; widgets)
-			_sizeRatio += widget.sizeRatio;
-		return _sizeRatio;
-	}
-
-	override @property uint sizeRatio(uint val){
-		return _sizeRatio;
-	}
-
 	override @property uint minWidth(){
 		if (_minWidth != uint.max)
 			return _minWidth;
 		_minWidth = 0;
-		foreach (widget; widgets)
-			_minWidth += widget.minWidth;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets)
+				_minWidth += widget.minWidth;
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets)
+				_minWidth = max(widget.minWidth, _minWidth);
+		}
 		return _minWidth;
 	}
 
@@ -1001,8 +942,13 @@ public:
 		if (_minHeight != uint.max)
 			return _minHeight;
 		_minHeight = 0;
-		foreach (widget; widgets)
-			_minHeight += widget.minHeight;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets)
+				_minHeight = max(widget.minHeight, _minHeight);
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets)
+				_minHeight += widget.minHeight;
+		}
 		return _minHeight;
 	}
 
@@ -1014,10 +960,15 @@ public:
 		if (_maxWidth != uint.max)
 			return _maxWidth;
 		_maxWidth = 0;
-		foreach (widget; widgets){
-			if (widget.maxWidth == 0)
-				return _maxWidth = 0;
-			_maxWidth += widget.maxWidth;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets){
+				if (widget.maxWidth == 0)
+					return _maxWidth = 0;
+				_maxWidth += widget.maxWidth;
+			}
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets)
+				_maxWidth = max(widget.maxWidth, _maxWidth);
 		}
 		return _maxWidth;
 	}
@@ -1030,10 +981,15 @@ public:
 		if (_maxHeight != uint.max)
 			return _maxHeight;
 		_maxHeight = 0;
-		foreach (widget; widgets){
-			if (widget.maxHeight == 0)
-				return _maxHeight = 0;
-			_maxHeight += widget.maxHeight;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets)
+				_maxHeight = max(widget.maxHeight, _maxHeight);
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets){
+				if (widget.maxHeight == 0)
+					return _maxHeight = 0;
+				_maxHeight += widget.maxHeight;
+			}
 		}
 		return _maxHeight;
 	}
@@ -1094,7 +1050,7 @@ public:
 
 	override void requestResize(){
 		// just resize right now, its free real estate inside container
-		resizeEvent();
+		resizeEvent;
 	}
 
 	/// widget to contain
