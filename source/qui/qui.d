@@ -435,7 +435,7 @@ public:
 	/// ditto
 	@property uint minWidth(uint value){
 		_minWidth = value;
-		_requestResize;
+		requestResize;
 		return minWidth;
 	}
 
@@ -447,7 +447,7 @@ public:
 	/// ditto
 	@property uint minHeight(uint value){
 		_minHeight = value;
-		_requestResize;
+		requestResize;
 		return minHeight;
 	}
 
@@ -459,7 +459,7 @@ public:
 	/// ditto
 	@property uint maxWidth(uint value){
 		_maxWidth = value;
-		_requestResize;
+		requestResize;
 		return maxWidth;
 	}
 
@@ -471,7 +471,7 @@ public:
 	/// ditto
 	@property uint maxHeight(uint value){
 		_maxHeight = value;
-		_requestResize;
+		requestResize;
 		return maxHeight;
 	}
 }
