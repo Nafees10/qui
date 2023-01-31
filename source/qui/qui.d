@@ -85,7 +85,7 @@ private:
 		sub._reset;
 		// if zero size, or sub completely outside viewport, do nothing
 		if (width == 0 || height == 0 || x + width < _offX || y + height < _offY ||
-				x > this.width || y > this.height)
+				x > this.width + _offX || y > this.height + _offY)
 			return;
 
 		// apply offsets to x and y
