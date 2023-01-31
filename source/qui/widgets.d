@@ -384,7 +384,12 @@ protected:
 		return true;
 	}
 
-	override bool resizeEvent() {
+	override bool resizeEvent(){
+		requestUpdate;
+		return true;
+	}
+
+	override bool scrollEvent(){
 		requestUpdate;
 		return true;
 	}
@@ -449,7 +454,18 @@ public:
 class SplitterWidget : QWidget{
 private:
 	Color _color;
+
 protected:
+	override bool resizeEvent(){
+		requestUpdate;
+		return true;
+	}
+
+	override bool scrollEvent(){
+		requestUpdate;
+		return true;
+	}
+
 	override bool updateEvent(){
 		foreach (y; view.y .. view.y + view.height){
 			view.moveTo(view.x, y);
@@ -457,6 +473,7 @@ protected:
 		}
 		return true;
 	}
+
 public:
 	/// constructor
 	this(){
