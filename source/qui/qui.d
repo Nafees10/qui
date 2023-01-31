@@ -84,7 +84,8 @@ private:
 			uint offX = 0, uint offY = 0){
 		sub._reset;
 		// if zero size, or sub completely outside viewport, do nothing
-		if (width == 0 || height == 0 || x + width < _offX || y + height < _offY)
+		if (width == 0 || height == 0 || x + width < _offX || y + height < _offY ||
+				x > this.width || y > this.height)
 			return;
 
 		// apply offsets to x and y
@@ -114,9 +115,9 @@ private:
 			height = this.height - y;
 
 		// now set buffer
-		sub._buffer = new Cell[][height];
-		foreach (i, ref row; sub._buffer)
-			row = _buffer[i + y][x .. x + width];
+		sub._buffer.length = height;
+		foreach (i; 0 .. height)
+			sub._buffer[i] = _buffer[i + y][x .. x + width];
 	}
 
 public:
@@ -603,7 +604,7 @@ protected:
 	/// sets child widget's width and height
 	/// Returns: true if sizes applied as it is, false if constrained
 	final bool widgetSize(QWidget child, uint width, uint height){
-		return widgetSizeWidth(child, width) && widgetSizeHeight(child, height);
+		return widgetSizeWidth(child, width) & widgetSizeHeight(child, height);
 	}
 
 	/// Called when this widget was made to disown a child
@@ -897,6 +898,7 @@ protected:
 	override bool resizeEvent(){
 		sizeCacheReset;
 		// reposition stuff, and assign them views
+		widgetsSizeRecalculate;
 		widgetsReposition;
 		foreach (widget; widgets)
 			resizeEventCall(widget);
