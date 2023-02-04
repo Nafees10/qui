@@ -255,6 +255,7 @@ protected:
 	/// viewport
 	Viewport view;
 
+	/// TODO: Redesign this so the widget doesnt call this itself
 	/// activate the passed widget if this is the correct widget
 	///
 	/// Returns: if it was activated or not
@@ -924,6 +925,14 @@ public:
 		return true;
 	}
 
+	override @property bool wantsFocus() const {
+		foreach (widget; widgets){
+			if (widget.wantsFocus)
+				return true;
+		}
+		return false;
+	}
+
 	override @property uint minWidth(){
 		if (_minWidth != uint.max)
 			return _minWidth;
@@ -1014,6 +1023,13 @@ private:
 	QWidget _widget;
 
 protected:
+	override void disownEvent(QWidget widget){
+		if (widget != _widget)
+			return;
+		_widget = null;
+		_scrollX = _scrollY = 0;
+	}
+
 	override bool mouseEvent(MouseEvent mouse){
 		return mouseEventCall(_widget, mouse);
 	}
@@ -1221,9 +1237,9 @@ protected:
 		// flush view._buffer to _termWrap
 		_flushBuffer;
 		// check if need to show/hide cursor
-		if (_cursorX < 0 || _cursorY < 0)
+		if (_cursorX < 0 || _cursorY < 0){
 			_termWrap.cursorVisible = false;
-		else{
+		}else{
 			_termWrap.moveCursor(_cursorX, _cursorY);
 			_termWrap.cursorVisible = true;
 		}
@@ -1270,7 +1286,7 @@ public:
 		while (_isRunning){
 			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			Event event;
-			while (_termWrap.getEvent(timeout, event) > 0){
+			while (_isRunning && _termWrap.getEvent(timeout, event) > 0){
 				_readEvent(event);
 				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 				updateEvent;
