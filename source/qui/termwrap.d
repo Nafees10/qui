@@ -7,10 +7,28 @@ import arsd.terminal;
 import std.datetime.stopwatch;
 import std.conv : to;
 
-public alias Color = arsd.terminal.Color;
+package enum Color : ushort{
+	Default = 256,
+	Black = arsd.terminal.Color.black,
+	BlackBright = arsd.terminal.Color.black | 0x08,
+	Red = arsd.terminal.Color.red,
+	RedBright = arsd.terminal.Color.red | 0x08,
+	Green = arsd.terminal.Color.green,
+	GreenBright = arsd.terminal.Color.green | 0x08,
+	Blue = arsd.terminal.Color.blue,
+	BlueBright = arsd.terminal.Color.blue | 0x08,
+	Yellow = arsd.terminal.Color.yellow,
+	YellowBright = arsd.terminal.Color.yellow | 0x08,
+	Magenta = arsd.terminal.Color.magenta,
+	MagentaBright = arsd.terminal.Color.magenta | 0x08,
+	Cyan = arsd.terminal.Color.cyan,
+	CyanBright = arsd.terminal.Color.cyan | 0x08,
+	White = arsd.terminal.Color.white,
+	WhiteBright = arsd.terminal.Color.white | 0x08,
+}
 
 /// Input events
-public struct Event{
+package struct Event{
 	/// Keyboard Event
 	struct Keyboard{
 		private this(KeyboardEvent event){
@@ -231,7 +249,7 @@ public struct Event{
 }
 
 /// Wrapper to arsd.terminal to make it bit easier to manage
-public class TermWrapper{
+package class TermWrapper{
 private:
 	Terminal _term;
 	RealTimeConsoleInput _input;

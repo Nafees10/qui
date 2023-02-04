@@ -129,7 +129,7 @@ public:
 	@property uint height() const {
 		return cast(uint)_buffer.length;
 	}
-	/// x coordinate of viewpoer (offset X)
+	/// x coordinate of viewport (offset X)
 	@property uint x() const {
 		return _offX;
 	}
@@ -152,14 +152,14 @@ public:
 			return false;
 		_seekX = x - _offX;
 		_seekY = y - _offY;
-		_incSeekX(0); // increment by 0, to fix overflow
+		_incSeekX(0); // increment by 0, to fix overflow. TODO is this necessary?
 		return true;
 	}
 
 	/// Writes a character at current position and move ahead
 	///
 	/// Returns: false if outside writing area
-	bool write(dchar c, Color fg = Color.DEFAULT, Color bg = Color.DEFAULT){
+	bool write(dchar c, Color fg = Color.Default, Color bg = Color.Default){
 		if (_seekX < width && _seekY < height)
 			_buffer[_seekY][_seekX] = Cell(c, fg, bg);
 		_incSeekX;
@@ -169,7 +169,7 @@ public:
 	/// Writes a string.
 	///
 	/// Returns: number of characters written
-	uint write(dstring s, Color fg = Color.DEFAULT, Color bg = Color.DEFAULT){
+	uint write(dstring s, Color fg = Color.Default, Color bg = Color.Default){
 		foreach (i, c; s){
 			if (!write(c, fg, bg))
 				return cast(uint)i;
@@ -181,8 +181,8 @@ public:
 	/// with maximum `max` number of chars, if `max>0`
 	///
 	/// Returns: number of characters written, or 0 if outside bounds
-	uint fillLine(dchar c = ' ', Color fg = Color.DEFAULT,
-			Color bg = Color.DEFAULT, uint max = 0){
+	uint fillLine(dchar c = ' ', Color fg = Color.Default,
+			Color bg = Color.Default, uint max = 0){
 		if (_seekX >= width || _seekY >= height)
 			return 0;
 		// find how many cells to fill
@@ -258,7 +258,7 @@ protected:
 	/// activate the passed widget if this is the correct widget
 	///
 	/// Returns: if it was activated or not
-	bool widgetActivate(QWidget target) {
+	bool widgetActivate(QWidget target){
 		if (this != target)
 			return false;
 		this._isActive = true;
@@ -272,7 +272,10 @@ protected:
 	void requestCursorPos(int x, int y){
 		if (!_isActive || !_parent)
 			return;
-		_parent.requestCursorPos(_posX + x - view.x, _posY + y - view.x);
+		if (x < 0 || y < 0)
+			_parent.requestCursorPos(-1, -1);
+		else
+			_parent.requestCursorPos(_posX + x - view.x, _posY + y - view.x);
 	}
 
 	/// called to request to scrollX
@@ -342,6 +345,7 @@ public:
 	}
 
 	/// Requests parent widget to resize it
+	/// **Do not call this in a resizeEvent**
 	void requestResize(){
 		if (_parent)
 			_parent.requestResize;
@@ -474,12 +478,6 @@ public:
 		requestResize;
 		return maxHeight;
 	}
-}
-
-/// Layout type
-enum QLayoutType{
-	Horizontal,
-	Vertical,
 }
 
 /// Base class for parent widgets
@@ -664,13 +662,19 @@ protected:
 	}
 }
 
+/// Layout type
+enum QLayoutType{
+	Horizontal,
+	Vertical,
+}
+
 /// Positions widgets in a Vertical or Horizontal layout
 /// Attempts to best mimic size properties of widgets inside it.
 class QLayout(QLayoutType type) : QParent{
 private:
 	/// Sets sizes for a widget
 	/// Returns: true if "natural" size was used, false if size was constrained
-	bool _widgetSize(QWidget widget, uint sizeTotal, uint count){
+	bool widgetSizeByRatio(QWidget widget, uint sizeTotal, uint count){
 		assert (count != 0);
 		static if (type == Type.Horizontal){
 			return widgetSizeWidth(widget, sizeTotal / count);
@@ -679,16 +683,16 @@ private:
 		}
 	}
 
+	/// Resets sizes caches
+	void _sizeCacheReset(){
+		_maxWidth = _maxHeight = _minWidth = _minHeight = uint.max;
+	}
+
 protected:
 	/// widgets
 	QWidget[] widgets;
 	/// active widget index. `>=_widgets.length` when no widgets
 	uint activeWidgetIndex;
-
-	/// Resets sizes caches
-	void sizeCacheReset(){
-		_maxWidth = _maxHeight = _minWidth = _minHeight = uint.max;
-	}
 
 	/// recalculates all widgets' sizes
 	void widgetsSizeRecalculate(){
@@ -699,7 +703,7 @@ protected:
 		uint count = cast(uint)queue.length, size = sizeTotal;
 		for (int i = 0; i < queue.length; i ++){
 			QWidget widget = queue[i];
-			bool natural = _widgetSize(widget, size, count);
+			bool natural = widgetSizeByRatio(widget, size, count);
 			uint sizeUsed;
 			static if (type == Type.Horizontal){
 				widgetSizeHeight(widget, height);
@@ -792,7 +796,7 @@ protected:
 		activeWidgetIndex = cast(uint)widgets.length;
 	}
 
-	override bool widgetActivate(QWidget target) {
+	override bool widgetActivate(QWidget target){
 		foreach (i, widget; widgets){
 			if (widget.wantsFocus && widget.widgetActivate(target)){
 				widgetActivate(cast(uint)i);
@@ -808,7 +812,7 @@ protected:
 			return;
 		widgets[index .. $ - 1] = widgets[index + 1 .. $];
 		widgets.length --;
-		sizeCacheReset;
+		_sizeCacheReset;
 		requestResize;
 		requestUpdate;
 	}
@@ -818,7 +822,7 @@ protected:
 			activeWidgetIndex = cast(uint)widgets.length;
 			return true;
 		}
-		sizeCacheReset;
+		_sizeCacheReset;
 		requestUpdate;
 		requestResize;
 		return true;
@@ -845,7 +849,7 @@ protected:
 	}
 
 	override bool resizeEvent(){
-		sizeCacheReset;
+		_sizeCacheReset;
 		// reposition stuff, and assign them views
 		widgetsSizeRecalculate;
 		widgetsReposition;
@@ -893,11 +897,11 @@ public:
 	/// constructor
 	this(){
 		// in this widget, uint.max indicates yet to be calculated
-		sizeCacheReset;
+		_sizeCacheReset;
 	}
 
 	override void requestResize(){
-		sizeCacheReset;
+		_sizeCacheReset;
 		super.requestResize;
 	}
 
@@ -1010,7 +1014,6 @@ private:
 	QWidget _widget;
 
 protected:
-
 	override bool mouseEvent(MouseEvent mouse){
 		return mouseEventCall(_widget, mouse);
 	}

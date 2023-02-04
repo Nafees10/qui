@@ -57,7 +57,7 @@ protected:
 public:
 	/// constructor
 	this(bool debugInfo = false,
-			Color textColor = Color.DEFAULT, Color backgroundColor = Color.DEFAULT){
+			Color textColor = Color.Default, Color backgroundColor = Color.Default){
 		_debugInfo = debugInfo;
 	}
 }
@@ -68,7 +68,7 @@ public:
 class TextLabelWidget : QWidget{
 private:
 	/// text and background colors
-	Color _fg = Color.DEFAULT, _bg = Color.DEFAULT;
+	Color _fg = Color.Default, _bg = Color.Default;
 	/// the text to display
 	dstring _caption;
 protected:
@@ -165,7 +165,7 @@ private:
 	/// next deletion happens at `_text[_x - 1]`
 	uint _x;
 	/// Foreground and background colors
-	Color _fg = Color.DEFAULT, _bg = Color.DEFAULT;
+	Color _fg = Color.Default, _bg = Color.Default;
 
 protected:
 	/// moves cursor to left by n characters
@@ -398,8 +398,8 @@ public:
 	this(uint maxLogs = 100){
 		_maxLogs = maxLogs;
 		_startIndex = 0;
-		_fg = Color.DEFAULT;
-		_bg = Color.DEFAULT;
+		_fg = Color.Default;
+		_bg = Color.Default;
 	}
 	~this(){
 		.destroy(_logs);
@@ -469,7 +469,7 @@ protected:
 	override bool updateEvent(){
 		foreach (y; view.y .. view.y + view.height){
 			view.moveTo(view.x, y);
-			view.fillLine(' ', Color.DEFAULT, _color);
+			view.fillLine(' ', Color.Default, _color);
 		}
 		return true;
 	}
@@ -477,7 +477,7 @@ protected:
 public:
 	/// constructor
 	this(){
-		_color = Color.DEFAULT;
+		_color = Color.Default;
 	}
 
 	/// color
