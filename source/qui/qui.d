@@ -1275,7 +1275,7 @@ public:
 				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 				updateEvent;
 			}
-			if (sw.peek.total!"msecs" >= timerMsecs){
+			if (_isRunning && sw.peek.total!"msecs" >= timerMsecs){
 				timerEvent(cast(uint)sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
