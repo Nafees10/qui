@@ -3,22 +3,16 @@
 +/
 module qui.qui;
 
-import utils.misc;
 import utils.ds;
 
 import std.datetime.stopwatch;
 import std.conv : to;
 import std.process;
+import std.algorithm;
+debug import std.stdio;
 
 import qui.termwrap;
-import qui.utils;
 
-/// default foreground color, white
-enum Color DEFAULT_FG = Color.DEFAULT;
-/// default background color, black
-enum Color DEFAULT_BG = Color.DEFAULT;
-/// default background color of overflowing layouts, red
-enum Color DEFAULT_OVERFLOW_BG = Color.red;
 /// default active widget cycling key, tab
 enum dchar WIDGET_CYCLE_KEY = '\t';
 
@@ -31,203 +25,187 @@ alias MouseEvent = Event.Mouse;
 /// Keyboard Event
 alias KeyboardEvent = Event.Keyboard;
 
-/// MouseEvent function. Return true to drop event
-alias MouseEventFuction = bool delegate(QWidget, MouseEvent);
-/// KeyboardEvent function. Return true to drop event
-alias KeyboardEventFunction = bool delegate(QWidget, KeyboardEvent, bool);
-/// ResizeEvent function. Return true to drop event
-alias ResizeEventFunction = bool delegate(QWidget);
-/// ScrollEvent function. Return true to drop event
-alias ScrollEventFunction = bool delegate(QWidget);
-/// ActivateEvent function. Return true to drop event
-alias ActivateEventFunction = bool delegate(QWidget, bool);
-/// TimerEvent function. Return true to drop event
-alias TimerEventFunction = bool delegate(QWidget, uint);
-/// Init function. Return true to drop event
-alias InitFunction = bool delegate(QWidget);
-/// UpdateEvent function. Return true to drop event
-alias UpdateEventFunction = bool delegate(QWidget);
-
-/// mask of events subscribed
-enum EventMask : uint{
-	/// mouse clicks/presses.
-	/// This value matches `MouseEvent.State.Click`
-	MousePress = 1,
-	/// mouse releases
-	/// This value matches `MouseEvent.State.Release`
-	MouseRelease = 1 << 1,
-	/// mouse move/hover.
-	/// This value matches `MouseEvent.State.Hover`
-	MouseHover = 1 << 2,
-	/// key presses.
-	/// This value matches `KeyboardEvent.State.Pressed`
-	KeyboardPress = 1 << 3,
-	/// key releases.
-	/// This value matches `KeyboardEvent.State.Released`
-	KeyboardRelease = 1 << 4,
-	/// widget scrolling.
-	Scroll = 1 << 5,
-	/// widget resize.
-	Resize = 1 << 6,
-	/// widget activated/deactivated.
-	Activate = 1 << 7,
-	/// timer
-	Timer = 1 << 8,
-	/// initialize
-	Initialize = 1 << 9,
-	/// draw itself.
-	Update = 1 << 10,
-	/// All mouse events
-	MouseAll = MousePress | MouseRelease | MouseHover,
-	/// All keyboard events
-	KeyboardAll = KeyboardPress | KeyboardRelease,
-	/// All keyboard and mouse events
-	InputAll = MouseAll | KeyboardAll,
-}
-
-/// A cell on terminal
-struct Cell{
-	/// character
-	dchar c;
-	/// foreground color
-	Color fg;
-	/// background colors
-	Color bg;
-	/// if colors are same with another Cell
-	bool colorsSame(Cell b){
-		return this.fg == b.fg && this.bg == b.fg;
-	}
-}
+/// MouseEvent function.
+alias MouseEventFuction = void delegate(QWidget, MouseEvent);
+/// KeyboardEvent function.
+alias KeyboardEventFunction = void delegate(QWidget, KeyboardEvent, bool);
+/// ResizeEvent function.
+alias ResizeEventFunction = void delegate(QWidget);
+/// ScrollEvent function.
+alias ScrollEventFunction = void delegate(QWidget);
+/// ActivateEvent function.
+alias ActivateEventFunction = void delegate(QWidget, bool);
+/// TimerEvent function.
+alias TimerEventFunction = void delegate(QWidget, uint);
+/// AdoptEvent function.
+alias AdoptEventFunction = void delegate(QWidget, bool);
+/// UpdateEvent function.
+alias UpdateEventFunction = void delegate(QWidget);
 
 /// Display buffer
 struct Viewport{
 private:
-	Cell[] _buffer;
-	/// where cursor is right now
+	struct Cell{
+		/// character
+		dchar c;
+		/// foreground color
+		Color fg;
+		/// background colors
+		Color bg;
+		/// if colors are same with another Cell
+		bool colorsSame(Cell b){
+			return this.fg == b.fg && this.bg == b.fg;
+		}
+	}
+
+	Cell[][] _buffer;
+	/// where cursor is right now (offsets applied)
 	uint _seekX, _seekY;
-	/// size of buffer (from `SIZE - offset`)
-	uint _width, _height;
-	/// actual width of the full buffer
-	uint _actualWidth;
-	// these are subtracted, only when seek is set, not after
-	uint _offsetX, _offsetY;
+	/// these are subtracted, only when seek is set, not after
+	uint _offX, _offY;
 
 	/// reset
 	void _reset(){
-		_buffer = [];
-		_seekX = 0;
-		_seekY = 0;
-		_width = 0;
-		_height = 0;
-		_actualWidth = 0;
-		_offsetX = 0;
-		_offsetY = 0;
+		_buffer = null;
+		_seekX = _seekY = _offX = _offY = 0;
 	}
 
-	/// seek position in _buffer calculated from _seekX & _seekY
-	@property int _seek(){
-		return (_seekX - _offsetX) + ((_seekY - _offsetY) * _actualWidth);
+	/// increments seekX, if overflowing, increments seekY
+	void _incSeekX(uint inc = 1){
+		_seekX += inc;
+		if (width && _seekX >= width){
+			_seekY += _seekX / width;
+			_seekX %= width;
+		}
 	}
-	/// set another Viewport so that it is a rectangular slice
-	/// of this
-	///
-	/// Returns: true if done, false if not
-	void _getSlice(ref Viewport sub, int x, int y, uint width, uint height){
-		sub._reset();
-		sub._actualWidth = _actualWidth;
-		if (width == 0 || height == 0)
+
+	/// set another Viewport so that it is a rectangular slice of this
+	void _getSlice(ref Viewport sub, uint x, uint y, uint width, uint height,
+			uint offX = 0, uint offY = 0){
+		sub._reset;
+		// if zero size, or sub completely outside viewport, do nothing
+		if (width == 0 || height == 0 || x + width < _offX || y + height < _offY ||
+				x > this.width + _offX || y > this.height + _offY)
 			return;
-		x -= _offsetX;
-		y -= _offsetY;
-		if (x > cast(int)_width || y > cast(int)_height ||
-				x + width <= 0 || y + height <= 0)
-			return;
-		if (x < 0){
-			sub._offsetX = -x;
-			width += x;
+
+		// apply offsets to x and y
+		if (x < _offX){
+			sub._offX = _offX - x;
+			width -= sub._offX;
 			x = 0;
+		}else{
+			x -= _offX;
 		}
-		if (y < 0){
-			sub._offsetY = -y;
-			height += y;
+		if (y < _offY){
+			sub._offY = _offY - y;
+			height -= sub._offY;
 			y = 0;
+		}else{
+			y -= _offY;
 		}
-		if (width + x > _width)
-			width = _width - x;
-		if (height + y > _height)
-			height = _height - y;
-		immutable uint buffStart  = x + (y * _actualWidth),
-			buffEnd = buffStart + ((height - 1) * _actualWidth) + width;
-		if (buffEnd > _buffer.length || buffStart >= buffEnd)
-			return;
-		sub._width = width;
-		sub._height = height;
-		sub._buffer = _buffer[buffStart .. buffEnd];
+
+		// apply offX/Y to sub
+		sub._offX += offX;
+		sub._offY += offY;
+
+		// if width or height overflowing, reduce them to fit
+		if (width + x > this.width)
+			width = this.width - x;
+		if (height + y > this.height)
+			height = this.height - y;
+
+		// now set buffer
+		sub._buffer.length = height;
+		foreach (i; 0 .. height)
+			sub._buffer[i] = _buffer[i + y][x .. x + width];
 	}
+
 public:
-	/// if x and y are at a position where writing can happen
+	/// width
+	@property uint width(){
+		return cast(uint)(_buffer.length ? _buffer[0].length : 0);
+	}
+	/// height
+	@property uint height() const {
+		return cast(uint)_buffer.length;
+	}
+	/// x coordinate of viewport (offset X)
+	@property uint x() const {
+		return _offX;
+	}
+	/// y coordinate of viewport (offset Y)
+	@property uint y() const {
+		return _offY;
+	}
+
+	/// Returns: true if x and y are at a position where writing can happen
 	bool isWritable(uint x, uint y){
-		return x >= _offsetX && y >= _offsetY &&
-			x < _width + _offsetX && y < _height + _offsetY;
+		return x >= _offX && y >= _offY &&
+			x < width + _offX && y < height + _offY;
 	}
+
 	/// move to a position. if x > width, moved to x=0 of next row
-	void moveTo(uint x, uint y){
-		_seekX = x;
-		_seekY = y;
-		if (_seekX >= _width){
-			_seekX = 0;
-			_seekY ++;
-		}
+	///
+	/// Returns: true if done, false if outside writing area
+	bool moveTo(uint x, uint y){
+		if (!isWritable(x, y))
+			return false;
+		_seekX = x - _offX;
+		_seekY = y - _offY;
+		_incSeekX(0); // increment by 0, to fix overflow. TODO is this necessary?
+		return true;
 	}
+
 	/// Writes a character at current position and move ahead
 	///
 	/// Returns: false if outside writing area
-	bool write(dchar c, Color fg, Color bg){
-		if (_seekX < _offsetX || _seekY < _offsetY){
-			_seekX ++;
-			if (_seekX >= _width){
-				_seekX = 0;
-				_seekY ++;
-			}
-			return false;
-		}
-		if (_seekX >= _width && _seekY >= _height)
-			return false;
-		if (_buffer.length > _seek)
-			_buffer[_seek] = Cell(c, fg, bg);
-		_seekX ++;
-		if (_seekX >= _width){
-			_seekX = 0;
-			_seekY ++;
-		}
+	bool write(dchar c, Color fg = Color.Default, Color bg = Color.Default){
+		if (_seekX < width && _seekY < height)
+			_buffer[_seekY][_seekX] = Cell(c, fg, bg);
+		_incSeekX;
 		return true;
 	}
+
 	/// Writes a string.
 	///
 	/// Returns: number of characters written
-	uint write(dstring s, Color fg, Color bg){
-		uint r;
-		foreach (c; s){
+	uint write(dstring s, Color fg = Color.Default, Color bg = Color.Default){
+		foreach (i, c; s){
 			if (!write(c, fg, bg))
-				break;
-			r ++;
+				return cast(uint)i;
 		}
-		return r;
+		return cast(uint)s.length;
 	}
+
 	/// Fills line, starting from current coordinates,
 	/// with maximum `max` number of chars, if `max>0`
 	///
-	/// Returns: number of characters written
-	uint fillLine(dchar c, Color fg, Color bg, uint max=0){
-		uint r = 0;
-		const uint currentY = _seekY;
-		bool status = true;
-		while (status && (max == 0 || r < max) && _seekY == currentY){
-			status = write(c, fg, bg);
-			r ++;
-		}
+	/// Returns: number of characters written, or 0 if outside bounds
+	uint fillLine(dchar c = ' ', Color fg = Color.Default,
+			Color bg = Color.Default, uint max = 0){
+		if (_seekX >= width || _seekY >= height)
+			return 0;
+		// find how many cells to fill
+		uint r = width - _seekX;
+		if (max)
+			r = min(max, r);
+		// fill them
+		_buffer[_seekY][_seekX .. _seekX + r] = Cell(c, fg, bg);
+		// increment seek
+		_incSeekX(r);
 		return r;
 	}
+}
+
+/// Returns: size after considering minimum and maximum allowed
+///
+/// if `min==0`, it is ignored. if `max==0`, it is ignored
+private uint getLimitedSize(uint calculated, uint min, uint max){
+	if (min && calculated < min)
+		return min;
+	if (max && calculated > max)
+		return max;
+	return calculated;
 }
 
 /// Base class for all widgets, including layouts and QTerminal
@@ -241,31 +219,15 @@ private:
 	uint _width;
 	/// height of widget
 	uint _height;
-	/// scroll
-	uint _scrollX, _scrollY;
-	/// viewport
-	Viewport _view;
 	/// if this widget is the active widget
 	bool _isActive = false;
-	/// whether this widget is requesting update
+	/// if this widget is requesting update
 	bool _requestingUpdate = true;
-	/// Whether to call resize before next update
-	bool _requestingResize = false;
 	/// the parent widget
-	QWidget _parent = null;
-	/// if it can make parent change scrolling
-	bool _canReqScroll = false;
-	/// if this widget is itself a scrollable container
-	bool _isScrollableContainer = false;
-	/// Events this widget is subscribed to, see `EventMask`
-	uint _eventSub = 0;
-	/// whether this widget should be drawn or not.
-	bool _show = true;
-	/// specifies ratio of height or width
-	uint _sizeRatio = 1;
+	QParent _parent;
 
-	/// custom onInit event
-	InitFunction _customInitEvent;
+	/// custom adopt event
+	AdoptEventFunction _customAdoptEvent;
 	/// custom mouse event
 	MouseEventFuction _customMouseEvent;
 	/// custom keyboard event
@@ -281,122 +243,6 @@ private:
 	/// custom upedateEvent
 	UpdateEventFunction _customUpdateEvent;
 
-	/// Called when it needs to request an update.
-	void _requestUpdate(){
-		if (_requestingUpdate || !(_eventSub & EventMask.Update))
-			return;
-		_requestingUpdate = true;
-		if (_parent)
-			_parent.requestUpdate();
-	}
-	/// Called to request this widget to resize at next update
-	void _requestResize(){
-		if (_requestingResize)
-			return;
-		_requestingResize = true;
-		if (_parent)
-			_parent.requestResize();
-	}
-	/// Called to request cursor to be positioned at x,y
-	/// Will do nothing if not active widget
-	void _requestCursorPos(int x, int y){
-		if (_isActive && _parent)
-			_parent.requestCursorPos(
-					x < 0 ? x : _posX + x - _view._offsetX,
-					y < 0 ? y : _posY + y - _view._offsetY);
-	}
-	/// Called to request _scrollX to be adjusted
-	/// Returns: true if _scrollX was modified
-	bool _requestScrollX(uint x){
-		if (_canReqScroll && _parent && _view._width < _width &&
-				x < _width - _view._width)
-			return _parent.requestScrollX(x + _posX);
-		return false;
-	}
-	/// Called to request _scrollY to be adjusted
-	/// Returns: true if _scrollY was modified
-	bool _requestScrollY(uint y){
-		if (_canReqScroll && _parent && _view._height < _height &&
-				y < _height - _view._height)
-			return _parent.requestScrollY(y + _posY);
-		return false;
-	}
-
-	/// called by parent for initialize event
-	bool _initializeCall(){
-		if (!(_eventSub & EventMask.Initialize))
-			return false;
-		if (_customInitEvent && _customInitEvent(this))
-			return true;
-		return this.initialize();
-	}
-	/// called by parent for mouseEvent
-	bool _mouseEventCall(MouseEvent mouse){
-		if (!(_eventSub & mouse.state))
-			return false;
-		// mouse input comes relative to visible area
-		mouse.x = (mouse.x - cast(int)this._posX) + _view._offsetX;
-		mouse.y = (mouse.y - cast(int)this._posY) + _view._offsetY;
-		if (_customMouseEvent && _customMouseEvent(this, mouse))
-			return true;
-		return this.mouseEvent(mouse);
-	}
-	/// called by parent for keyboardEvent
-	bool _keyboardEventCall(KeyboardEvent key, bool cycle){
-		if (!(_eventSub & key.state))
-			return false;
-		if (_customKeyboardEvent && _customKeyboardEvent(this, key, cycle))
-			return true;
-		return this.keyboardEvent(key, cycle);
-	}
-	/// called by parent for resizeEvent
-	bool _resizeEventCall(){
-		_requestingResize = false;
-		_requestUpdate();
-		if (!(_eventSub & EventMask.Resize))
-			return false;
-		if (_customResizeEvent && _customResizeEvent(this))
-			return true;
-		return this.resizeEvent();
-	}
-	/// called by parent for scrollEvent
-	bool _scrollEventCall(){
-		_requestUpdate();
-		if (!(_eventSub & EventMask.Scroll))
-			return false;
-		if (_customScrollEvent && _customScrollEvent(this))
-			return true;
-		return this.scrollEvent();
-	}
-	/// called by parent for activateEvent
-	bool _activateEventCall(bool isActive){
-		if (!(_eventSub & EventMask.Activate))
-			return false;
-		if (_isActive == isActive)
-			return false;
-		_isActive = isActive;
-		if (_customActivateEvent && _customActivateEvent(this, isActive))
-			return true;
-		return this.activateEvent(isActive);
-	}
-	/// called by parent for timerEvent
-	bool _timerEventCall(uint msecs){
-		if (!(_eventSub & EventMask.Timer))
-			return false;
-		if (_customTimerEvent && _customTimerEvent(this, msecs))
-			return true;
-		return timerEvent(msecs);
-	}
-	/// called by parent for updateEvent
-	bool _updateEventCall(){
-		if (!_requestingUpdate || !(_eventSub & EventMask.Update))
-			return false;
-		_requestingUpdate = false;
-		_view.moveTo(_view._offsetX,_view._offsetY);
-		if (_customUpdateEvent && _customUpdateEvent(this))
-			return true;
-		return this.updateEvent();
-	}
 protected:
 	/// minimum width
 	uint _minWidth;
@@ -406,1062 +252,1019 @@ protected:
 	uint _minHeight;
 	/// maximum height
 	uint _maxHeight;
+	/// viewport
+	Viewport view;
 
-	/// viewport coordinates. (drawable area for widget)
-	final @property uint viewportX(){
-		return _view._offsetX;
-	}
-	/// ditto
-	final @property uint viewportY(){
-		return _view._offsetY;
-	}
-	/// viewport size. (drawable area for widget)
-	final @property uint viewportWidth(){
-		return _view._width;
-	}
-	/// ditto
-	final @property uint viewportHeight(){
-		return _view._height;
-	}
-
-	/// If a coordinate is within writing area,
-	/// and writing area actually exists
-	final bool isWritable(uint x, uint y){
-		return _view.isWritable(x,y);
-	}
-
-	/// move seek for next write to terminal.
-	/// can only write in between:
-	/// `(_viewX .. _viewX + _viewWidth,
-	/// _viewY .. _viewX + _viewHeight)`
-	final void moveTo(uint newX, uint newY){
-		_view.moveTo(newX, newY);
-	}
-	/// writes a character on terminal
-	///
-	/// Returns: true if done, false if outside writing area
-	final bool write(dchar c, Color fg, Color bg){
-		return _view.write(c, fg, bg);
-	}
-	/// writes a string to terminal.
-	/// if it does not fit in one line, it is wrapped
-	///
-	/// Returns: number of characters written
-	final uint write(dstring s, Color fg, Color bg){
-		return _view.write(s, fg, bg);
-	}
-	/// fill current line with a character.
-	/// `max` is ignored if `max==0`
-	///
-	/// Returns: number of cells written
-	final uint fillLine(dchar c, Color fg, Color bg, uint max = 0){
-		return _view.fillLine(c, fg, bg, max);
-	}
-
+	/// TODO: Redesign this so the widget doesnt call this itself
 	/// activate the passed widget if this is the correct widget
 	///
 	/// Returns: if it was activated or not
-	bool searchAndActivateWidget(QWidget target) {
-		if (this == target) {
-			this._isActive = true;
-			this._activateEventCall(true);
-			return true;
-		}
-		return false;
+	bool widgetActivate(QWidget target){
+		if (this != target)
+			return false;
+		this._isActive = true;
+		activateEvent(true);
+		return true;
 	}
-
-	/// called by itself, to update events subscribed to
-	final void eventSubscribe(uint newSub){
-		_eventSub = newSub;
-		if (_parent)
-			_parent.eventSubscribe();
-	}
-	/// called by children when they want to subscribe to events
-	void eventSubscribe(){}
 
 	/// to set cursor position on terminal.
 	/// only works if this is active widget.
 	/// set x or y or both to negative to hide cursor
 	void requestCursorPos(int x, int y){
-		_requestCursorPos(x, y);
+		if (!_isActive || !_parent)
+			return;
+		if (x < 0 || y < 0)
+			_parent.requestCursorPos(-1, -1);
+		else
+			_parent.requestCursorPos(_posX + x - view.x, _posY + y - view.x);
 	}
 
 	/// called to request to scrollX
-	bool requestScrollX(uint x){
-		return _requestScrollX(x);
-	}
-	/// called to request to scrollY
-	bool requestScrollY(uint y){
-		return _requestScrollY(y);
+	bool scrollToX(int x){
+		if (!_isActive || !_parent)
+			return false;
+		return _parent.scrollToX(_posX + x - view.x);
 	}
 
-	/// Called after UI has been run
-	bool initialize(){
+	/// called to request to scrollY
+	bool scrollToY(int y){
+		if (!_isActive || !_parent)
+			return false;
+		return _parent.scrollToY(_posY + y - view.y);
+	}
+
+	/// Called when this widget is adopted by a parent, or disowned.
+	/// The `adopted` flag is true when adopted, false when disowned
+	bool adoptEvent(bool adopted){
 		return false;
 	}
+
 	/// Called when mouse is clicked with cursor on this widget.
 	bool mouseEvent(MouseEvent mouse){
 		return false;
 	}
+
 	/// Called when key is pressed and this widget is active.
-	///
-	/// `cycle` indicates if widget cycling should happen, if this
-	/// widget has child widgets
+	/// `cycle` indicates if widget cycling should happen
 	bool keyboardEvent(KeyboardEvent key, bool cycle){
 		return false;
 	}
+
 	/// Called when widget size is changed,
 	bool resizeEvent(){
 		return false;
 	}
+
 	/// Called when the widget is rescrolled, ~but size not changed.~
 	bool scrollEvent(){
 		return false;
 	}
+
 	/// called right after this widget is activated, or de-activated
 	bool activateEvent(bool isActive){
 		return false;
 	}
-	/// called often.
-	///
-	/// `msecs` is the msecs since last timerEvent, not accurate
+
+	/// called `msecs` milliseconds after the previous timerEvent was called
 	bool timerEvent(uint msecs){
 		return false;
 	}
-	/// Called when this widget should re-draw itself
+
+	/// called when this widget should re-draw itself
 	bool updateEvent(){
 		return false;
 	}
+
 public:
-	/// To request parent to trigger an update event
+	/// Requests parent widget to update it
 	void requestUpdate(){
-		_requestUpdate();
+		if (_requestingUpdate)
+			return;
+		_requestingUpdate = true;
+		if (_parent)
+			_parent.requestUpdate;
 	}
-	/// To request parent to trigger a resize event
+
+	/// Requests parent widget to resize it
+	/// **Do not call this in a resizeEvent**
 	void requestResize(){
-		_requestResize();
+		if (_parent)
+			_parent.requestResize;
 	}
+
 	/// custom initialize event
-	final @property InitFunction onInitEvent(InitFunction func){
-		return _customInitEvent = func;
+	final @property AdoptEventFunction onAdoptEvent(AdoptEventFunction func){
+		return _customAdoptEvent = func;
 	}
+
 	/// custom mouse event
 	final @property MouseEventFuction onMouseEvent(MouseEventFuction func){
 		return _customMouseEvent = func;
 	}
+
 	/// custom keyboard event
 	final @property KeyboardEventFunction onKeyboardEvent(
 			KeyboardEventFunction func){
 		return _customKeyboardEvent = func;
 	}
+
 	/// custom resize event
 	final @property ResizeEventFunction onResizeEvent(ResizeEventFunction func){
 		return _customResizeEvent = func;
 	}
+
 	/// custom scroll event
 	final @property ScrollEventFunction onScrollEvent(ScrollEventFunction func){
 		return _customScrollEvent = func;
 	}
+
 	/// custom activate event
 	final @property ActivateEventFunction onActivateEvent(
 			ActivateEventFunction func){
 		return _customActivateEvent = func;
 	}
+
 	/// custom timer event
 	final @property TimerEventFunction onTimerEvent(TimerEventFunction func){
 		return _customTimerEvent = func;
 	}
+
+	/// custom update event
+	final @property UpdateEventFunction onUpdateEvent(UpdateEventFunction func){
+		return _customUpdateEvent = func;
+	}
+
 	/// Returns: true if this widget is the current active widget
-	final @property bool isActive(){
+	final @property bool isActive() const {
 		return _isActive;
 	}
-	/// Returns: true if this widget is a container that supports
-	/// scrolling
-	final @property bool isScrollableContainer(){
-		return _isScrollableContainer;
-	}
-	/// Returns: EventMask of subscribed events
-	final @property uint eventSub(){
-		return _eventSub;
-	}
-	/// ratio of height or width
-	final @property uint sizeRatio(){
-		return _sizeRatio;
-	}
-	/// ditto
-	final @property uint sizeRatio(uint newRatio){
-		_sizeRatio = newRatio;
-		_requestResize();
-		return _sizeRatio;
-	}
-	/// if widget is visible.
-	final @property bool show(){
-		return _show;
-	}
-	/// ditto
-	final @property bool show(bool visibility){
-		_show = visibility;
-		_requestResize();
-		return _show;
-	}
-	/// horizontal scroll.
-	final @property uint scrollX(){
-		return _scrollX;
-	}
-	/// ditto
-	final @property uint scrollX(uint newVal){
-		_requestScrollX(newVal);
-		return _scrollX;
-	}
-	/// vertical scroll.
-	final @property uint scrollY(){
-		return _scrollY;
-	}
-	/// ditto
-	final @property uint scrollY(uint newVal){
-		_requestScrollY(newVal);
-		return _scrollY;
-	}
+
 	/// width of widget
-	final @property uint width(){
+	final @property uint width() const {
 		return _width;
 	}
-	/// ditto
-	@property uint width(uint value){
-		_minWidth = value;
-		_maxWidth = value;
-		_requestResize();
-		return value;
-	}
+
 	/// height of widget
-	final @property uint height(){
+	final @property uint height() const {
 		return _height;
 	}
-	/// ditto
-	@property uint height(uint value){
-		_minHeight = value;
-		_maxHeight = value;
-		_requestResize();
-		return value;
+
+	/// if this widget's height has constraints
+	final @property bool heightConstrained(){
+		return (minHeight || maxHeight) &&
+			(!(minHeight && maxHeight) || maxHeight >= minHeight);
 	}
+
+	/// if this widget's width has constraints
+	final @property bool widthConstrained(){
+		return (minWidth || maxWidth) &&
+			(!(minWidth && maxWidth) || maxWidth >= minWidth);
+	}
+
+	/// if this widget's size is constrained
+	final @property bool sizeConstrained(){
+		return heightConstrained || widthConstrained;
+	}
+
+	/// if this widget wants focus.
+	/// This should return true if the widget wants keyboard input
+	@property bool wantsFocus() const {
+		return false;
+	}
+
 	/// minimum width
 	@property uint minWidth(){
 		return _minWidth;
 	}
+
 	/// ditto
 	@property uint minWidth(uint value){
-		_requestResize();
-		return _minWidth = value;
+		_minWidth = value;
+		requestResize;
+		return minWidth;
 	}
+
 	/// minimum height
 	@property uint minHeight(){
 		return _minHeight;
 	}
+
 	/// ditto
 	@property uint minHeight(uint value){
-		_requestResize();
-		return _minHeight = value;
+		_minHeight = value;
+		requestResize;
+		return minHeight;
 	}
+
 	/// maximum width
 	@property uint maxWidth(){
 		return _maxWidth;
 	}
+
 	/// ditto
 	@property uint maxWidth(uint value){
-		_requestResize();
-		return _maxWidth = value;
+		_maxWidth = value;
+		requestResize;
+		return maxWidth;
 	}
+
 	/// maximum height
 	@property uint maxHeight(){
 		return _maxHeight;
 	}
+
 	/// ditto
 	@property uint maxHeight(uint value){
-		_requestResize();
-		return _maxHeight = value;
+		_maxHeight = value;
+		requestResize;
+		return maxHeight;
 	}
 }
 
-/// Used to place widgets in an order (i.e vertical or horizontal)
-class QLayout : QWidget{
-private:
-	/// widgets
-	QWidget[] _widgets;
-	/// layout type, horizontal or vertical
-	QLayout.Type _type;
-	/// index of active widget. -1 if none.
-	int _activeWidgetIndex = -1;
-	/// if it is overflowing
-	bool _isOverflowing = false;
-	/// Color to fill with in unoccupied space
-	Color _fillColor;
-	/// Color to fill with when overflowing
-	Color _overflowColor = DEFAULT_OVERFLOW_BG;
-
-	/// gets height/width of a widget using:
-	/// it's sizeRatio and min/max-height/width
-	uint _calculateWidgetSize(QWidget widget, uint ratioTotal,
-			uint totalSpace, ref bool free){
-		immutable uint calculatedSize =
-			cast(uint)(widget.sizeRatio * totalSpace / ratioTotal);
-		if (_type == QLayout.Type.Horizontal){
-			free = widget.minWidth == 0 && widget.maxWidth == 0;
-			return getLimitedSize(calculatedSize, widget.minWidth, widget.maxWidth);
-		}
-		free = widget.minHeight == 0 && widget.maxHeight == 0;
-		return getLimitedSize(calculatedSize, widget.minHeight, widget.maxHeight);
-	}
-
-	/// recalculates the size of every widget inside layout
-	void _recalculateWidgetsSize(){
-		FIFOStack!QWidget widgetStack = new FIFOStack!QWidget;
-		uint totalRatio = 0;
-		uint totalSpace = _type == QLayout.Type.Horizontal ? _width : _height;
-		bool free = false;
-		foreach (widget; _widgets){
-			if (!widget.show)
-				continue;
-			totalRatio += widget.sizeRatio;
-			widget._height = getLimitedSize(_height, widget.minHeight,
-					widget.maxHeight);
-
-			widget._width = getLimitedSize(_width, widget.minWidth,
-					widget.maxWidth);
-			widgetStack.push(widget);
-		}
-		// do widgets with size limits
-		/// totalRatio, and space used of widgets with limits
-		uint limitWRatio, limitWSize;
-		for (int i = 0; i < widgetStack.count; i ++){
-			QWidget widget = widgetStack.pop;
-			immutable uint space = _calculateWidgetSize(widget, totalRatio,
-					totalSpace, free);
-			if (free){
-				widgetStack.push(widget);
-				continue;
-			}
-			if (_type == QLayout.Type.Horizontal)
-				widget._width = space;
-			else
-				widget._height = space;
-			limitWRatio += widget.sizeRatio;
-			limitWSize += space;
-		}
-		totalSpace -= limitWSize;
-		totalRatio -= limitWRatio;
-		while (widgetStack.count){
-			QWidget widget = widgetStack.pop;
-			immutable uint space = _calculateWidgetSize(widget,
-				totalRatio, totalSpace, free);
-			if (_type == QLayout.Type.Horizontal)
-				widget._width = space;
-			else
-				widget._height = space;
-			totalRatio -= widget.sizeRatio;
-			totalSpace -= space;
-		}
-		.destroy(widgetStack);
-	}
-
-	/// find the next widget to activate
-	/// Returns: index, or -1 if no one wanna be active
-	int _nextActiveWidget(){
-		for (int i = _activeWidgetIndex + 1; i < _widgets.length; i ++){
-			if ((_widgets[i].eventSub & EventMask.KeyboardAll) && _widgets[i].show)
-				return i;
-		}
-		return -1;
-	}
+/// Base class for parent widgets
+abstract class QParent : QWidget{
 protected:
-	override void eventSubscribe(){
-		_eventSub = 0;
-		foreach (widget; _widgets)
-			_eventSub |= widget.eventSub;
-
-		// if children can become active, then need activate too
-		if (_eventSub & EventMask.KeyboardAll)
-			_eventSub |= EventMask.Activate;
-
-		_eventSub |= EventMask.Scroll;
-
-		if (_parent)
-			_parent.eventSubscribe();
+	/// positions child widget on X axis
+	final void widgetPositionX(QWidget child, uint x){
+		if (!child || child._parent != this)
+			return;
+		child._posX = x;
 	}
 
-	/// Recalculates size and position for all visible widgets
-	override bool resizeEvent(){
-		// resize everything
-		_recalculateWidgetsSize();
-		// position everything, and grow if can
-		uint space, maxW, maxH;
-		foreach (widget; _widgets){
-			if (!widget.show)
-				continue;
-			widget._posX = widget._posY = 0;
-			maxH = maxH < widget.height ? widget.height : maxH;
-			maxW = maxW < widget.width ? widget.width : maxW;
-			if (_type == Type.Horizontal){
-				widget._posX = space;
-				space += widget.width;
-			}else{
-				widget._posY = space;
-				space += widget.height;
-			}
-		}
-		if (maxW > width || maxH > height){
-			// if parent is scrollable container and there no size limits
-			// then grow to required size
-			// TODO grow till maxWidth or maxHeight reached
-			if (minHeight + maxHeight + minWidth + maxWidth == 0 && _parent &&
-					_parent.isScrollableContainer){
-				_isOverflowing = false;
-				_height = maxH;
-				_width = maxW;
-			}else{
-				_isOverflowing = true;
-			}
-		}
-		if (_isOverflowing){
-			foreach (widget; _widgets)
-				widget._view._reset();
-		}else{
-			foreach (i, widget; _widgets){
-				_view._getSlice(widget._view, widget._posX, widget._posY,
-						widget.width, widget.height);
-				widget._resizeEventCall();
-			}
-		}
-		return true;
+	/// positions child widget on y axis
+	final void widgetPositionY(QWidget child, uint y){
+		if (!child || child._parent != this)
+			return;
+		child._posY = y;
 	}
 
-	/// Resize event
-	override bool scrollEvent(){
-		if (_isOverflowing){
-			foreach (widget; _widgets)
-				widget._view._reset();
+	/// positions child widget on X and Y coordinates
+	final void widgetPosition(QWidget child, uint x, uint y){
+		if (!child || child._parent != this)
+			return;
+		child._posX = x;
+		child._posY = y;
+	}
+
+	/// Assigns widget a viewport based on its position and size
+	/// if width is 0, `widget.width` is used
+	/// if height is 0, `widget.height` is used
+	final void widgetViewportAssign(QWidget child,
+			uint width = 0, uint height = 0,
+			uint scrollX = 0, uint scrollY = 0){
+		if (!child || child._parent != this)
+			return;
+		if (!width)
+			width = child.width;
+		if (!height)
+			height = child.height;
+		view._getSlice(child.view, child._posX, child._posY,
+				width, height, scrollX, scrollY);
+	}
+
+	/// sets child widget's width
+	/// Returns: true if width applied as it is, false if constrained
+	final bool widgetSizeWidth(QWidget child, uint width){
+		if (!child || child._parent != this)
 			return false;
-		}
-		foreach (i, widget; _widgets){
-			_view._getSlice(widget._view, widget._posX, widget._posY,
-					widget.width, widget.height);
-			widget._scrollEventCall();
-		}
-		return true;
-	}
-
-	/// Redirects the mouseEvent to the appropriate widget
-	override public bool mouseEvent(MouseEvent mouse){
-		if (_isOverflowing)
-			return false;
-		int index;
-		if (_type == Type.Horizontal){
-			foreach (i, w; _widgets){
-				if (w.show && w._posX <= mouse.x && w._posX + w.width > mouse.x){
-					index = cast(int)i;
-					break;
-				}
-			}
-		}else{
-			foreach (i, w; _widgets){
-				if (w.show && w._posY <= mouse.y && w._posY + w.height > mouse.y){
-					index = cast(int)i;
-					break;
-				}
-			}
-		}
-		if (index > -1){
-			if (mouse.state != MouseEvent.State.Hover &&
-					index != _activeWidgetIndex &&
-					_widgets[index].eventSub & EventMask.KeyboardAll){
-				if (_activeWidgetIndex > -1)
-					_widgets[_activeWidgetIndex]._activateEventCall(false);
-				_widgets[index]._activateEventCall(true);
-				_activeWidgetIndex = index;
-			}
-			return _widgets[index]._mouseEventCall(mouse);
-		}
-		return false;
-	}
-
-	/// Redirects the keyboardEvent to appropriate widget
-	override public bool keyboardEvent(KeyboardEvent key, bool cycle){
-		if (_isOverflowing)
-			return false;
-		if (_activeWidgetIndex > -1 &&
-				_widgets[_activeWidgetIndex]._keyboardEventCall(key, cycle))
+		child._width = width;
+		if (!child.widthConstrained)
 			return true;
+		if (child.minWidth && child._width < child.minWidth)
+			child._width = child.minWidth;
+		if (child.maxWidth && child._width > child.maxWidth)
+			child._width = child.maxWidth;
+		return width == child._width;
+	}
 
-		if (!cycle)
+	/// sets child widget's height
+	/// Returns: true if height applied as it is, false if constrained
+	final bool widgetSizeHeight(QWidget child, uint height){
+		if (!child || child._parent != this)
 			return false;
-		immutable int next = _nextActiveWidget();
-
-		if (_activeWidgetIndex > -1 && next != _activeWidgetIndex)
-			_widgets[_activeWidgetIndex]._activateEventCall(false);
-
-		if (next == -1)
-			return false;
-		_activeWidgetIndex = next;
-		_widgets[_activeWidgetIndex]._activateEventCall(true);
-		return true;
+		child._height = height;
+		if (!child.heightConstrained)
+			return true;
+		if (child.minHeight && child._height < child.minHeight)
+			child._height = child.minHeight;
+		if (child.maxHeight && child._height > child.maxHeight)
+			child._height = child.maxHeight;
+		return height == child._height;
 	}
 
-	/// initialise
-	override bool initialize(){
-		foreach (widget; _widgets){
-			widget._view._reset();
-			widget._initializeCall();
-		}
-		return true;
+	/// sets child widget's width and height
+	/// Returns: true if sizes applied as it is, false if constrained
+	final bool widgetSize(QWidget child, uint width, uint height){
+		return widgetSizeWidth(child, width) & widgetSizeHeight(child, height);
 	}
 
-	/// timer
-	override bool timerEvent(uint msecs){
-		foreach (widget; _widgets)
-			widget._timerEventCall(msecs);
-		return true;
-	}
+	/// Called when this widget was made to disown a child
+	void disownEvent(QWidget widget){}
 
-	/// activate event
-	override bool activateEvent(bool isActive){
-		if (isActive){
-			_activeWidgetIndex = -1;
-			_activeWidgetIndex = _nextActiveWidget();
-		}
-		if (_activeWidgetIndex > -1)
-			_widgets[_activeWidgetIndex]._activateEventCall(isActive);
-		return true;
-	}
-
-	/// called by parent widget to update
-	override bool updateEvent(){
-		if (_isOverflowing){
-			foreach (y; viewportY .. viewportY + viewportHeight){
-				moveTo(viewportX, y);
-				fillLine(' ', DEFAULT_FG, _overflowColor);
-			}
-			return false;
-		}
-		if (_type == Type.Horizontal){
-			foreach(i, widget; _widgets){
-				if (widget.show && widget._requestingUpdate)
-					widget._updateEventCall();
-				foreach (y; widget.height .. viewportY + viewportHeight){
-					moveTo(widget._posX, y);
-					fillLine(' ', DEFAULT_FG, _fillColor,
-						widget.width);
-				}
-			}
-		}else{
-			foreach(i, widget; _widgets){
-				if (widget.show && widget._requestingUpdate)
-					widget._updateEventCall();
-				if (widget.width == _width)
-					continue;
-				foreach (y; widget._posY .. widget._posY + widget.height){
-					moveTo(widget._posX + widget.width, y);
-					fillLine(' ', DEFAULT_FG, _fillColor);
-				}
-			}
-		}
-		return true;
-	}
-
-	/// activate the passed widget if it's in the current layout
-	/// Returns: true if it was activated or not
-	override bool searchAndActivateWidget(QWidget target){
-		immutable int lastActiveWidgetIndex = _activeWidgetIndex;
-
-		// search and activate recursively
-		_activeWidgetIndex = -1;
-		foreach (index, widget; _widgets) {
-			if ((widget.eventSub & EventMask.KeyboardAll) &&
-					widget.show &&
-					widget.searchAndActivateWidget(target)){
-				_activeWidgetIndex = cast(int)index;
-				break;
-			}
-		}
-
-		// and then manipulate the current layout
-		if (lastActiveWidgetIndex != _activeWidgetIndex &&
-				lastActiveWidgetIndex > -1)
-			_widgets[lastActiveWidgetIndex]._activateEventCall(false);
-		return _activeWidgetIndex != -1;
-	}
-
-public:
-	/// Layout type
-	enum Type{
-		Vertical,
-		Horizontal,
-	}
-	/// constructor
-	this(QLayout.Type type){
-		_type = type;
-		this._fillColor = DEFAULT_BG;
-	}
-	/// destructor, kills children
-	~this(){
-		foreach (child; _widgets)
-			.destroy(child);
-	}
-	/// Color for unoccupied space
-	@property Color fillColor(){
-		return _fillColor;
-	}
-	/// ditto
-	@property Color fillColor(Color newColor){
-		return _fillColor = newColor;
-	}
-	/// Color to fill with when out of space
-	@property Color overflowColor(){
-		return _overflowColor;
-	}
-	/// ditto
-	@property Color overflowColor(Color newColor){
-		return _overflowColor = newColor;
-	}
-	/// adds a widget
-	///
-	/// `allowScrollControl` specifies if the widget will be able
-	/// to make scrolling requests
-	void addWidget(QWidget widget, bool allowScrollControl = false){
+	/// Adopt another widget (i.e become its parent)
+	/// If the widget already has a parent, the current parent will disown it
+	/// i.e: current parent will receive a `disownEvent`
+	final void adopt(QWidget widget){
+		if (!widget)
+			return;
+		if (widget._parent)
+			widget._parent.disown(widget);
 		widget._parent = this;
-		widget._canReqScroll = allowScrollControl;
-		_widgets ~= widget;
-		eventSubscribe();
+		widget.view._reset;
+		adoptEventCall(widget, true);
 	}
-	/// ditto
-	void addWidget(QWidget[] widgets){
-		foreach (i, widget; widgets){
-			widget._parent = this;
-		}
-		_widgets ~= widgets;
-		eventSubscribe();
+
+	/// Disown a widget. Doing so will trigger it's own disownEvent
+	/// Returns: true if done, false if not (probably due to it not being child)
+	final bool disown(QWidget widget){
+		if (!widget || widget._parent != this)
+			return false;
+		disownEvent(widget);
+		widget.view._reset;
+		widget._parent = null;
+		adoptEventCall(widget, false);
+		return true;
+	}
+
+	/// Calls adoptEvent on child
+	final bool adoptEventCall(QWidget child, bool adopted){
+		if (!child || child._parent != this)
+			return false;
+		if (child._customAdoptEvent)
+			child._customAdoptEvent(child, adopted);
+		return child.adoptEvent(adopted);
+	}
+
+	/// Calls mouseEvent on child
+	final bool mouseEventCall(QWidget child, MouseEvent mouse){
+		if (!child || child._parent != this)
+			return false;
+		mouse.x = (mouse.x - cast(int)child._posX) + child.view.x;
+		mouse.y = (mouse.y - cast(int)child._posY) + child.view.y;
+		if (child._customMouseEvent)
+			child._customMouseEvent(child, mouse);
+		return child.mouseEvent(mouse);
+	}
+
+	/// Calls keyboardEvent on child
+	final bool keyboardEventCall(QWidget child, KeyboardEvent key, bool cycle){
+		if (!child || child._parent != this)
+			return false;
+		if (child._customKeyboardEvent)
+			child._customKeyboardEvent(child, key, cycle);
+		return child.keyboardEvent(key, cycle);
+	}
+
+	/// Calls resizeEvent on child
+	final bool resizeEventCall(QWidget child){
+		if (!child || child._parent != this)
+			return false;
+		if (child._customResizeEvent)
+			child._customResizeEvent(child);
+		return child.resizeEvent;
+	}
+
+	/// Calls scrollEvent on child
+	final bool scrollEventCall(QWidget child){
+		if (!child || child._parent != this)
+			return false;
+		if (child._customScrollEvent)
+			child._customScrollEvent(child);
+		return child.scrollEvent;
+	}
+
+	/// Calls activateEvent on child
+	final bool activateEventCall(QWidget child, bool isActive){
+		if (!child || child._parent != this || isActive == child._isActive)
+			return false;
+		child._isActive = isActive;
+		if (child._customActivateEvent)
+			child._customActivateEvent(child, isActive);
+		return child.activateEvent(isActive);
+	}
+
+	/// Calls timerEvent on child
+	final bool timerEventCall(QWidget child, uint msecs){
+		if (!child || child._parent != this)
+			return false;
+		if (child._customTimerEvent)
+			child._customTimerEvent(child, msecs);
+		return child.timerEvent(msecs);
+	}
+
+	/// Calls updateEvent on child
+	final bool updateEventCall(QWidget child){
+		if (!child || child._parent != this || !child._requestingUpdate)
+			return false;
+		child._requestingUpdate = false;
+		if (child._customUpdateEvent)
+			child._customUpdateEvent(child);
+		return child.updateEvent;
 	}
 }
 
-/// A Scrollable Container
-class ScrollContainer : QWidget{
+/// Layout type
+enum QLayoutType{
+	Horizontal,
+	Vertical,
+}
+
+/// Positions widgets in a Vertical or Horizontal layout
+/// Attempts to best mimic size properties of widgets inside it.
+class QLayout(QLayoutType type) : QParent{
 private:
-	/// offset in _widget before adding scrolling to it
-	uint _offX, _offY;
+	/// Sets sizes for a widget
+	/// Returns: true if "natural" size was used, false if size was constrained
+	bool widgetSizeByRatio(QWidget widget, uint sizeTotal, uint count){
+		assert (count != 0);
+		static if (type == Type.Horizontal){
+			return widgetSizeWidth(widget, sizeTotal / count);
+		}else static if (type == Type.Vertical){
+			return widgetSizeHeight(widget, sizeTotal / count);
+		}
+	}
+
+	/// Resets sizes caches
+	void _sizeCacheReset(){
+		_maxWidth = _maxHeight = _minWidth = _minHeight = uint.max;
+	}
+
 protected:
-	/// widget
-	QWidget _widget;
-	/// if scrollbar is to be shown
-	bool _scrollbarV, _scrollbarH;
-	/// if page down/up button should scroll
-	bool _pgDnUp = false;
-	/// if mouse wheel should scroll
-	bool _mouseWheel = false;
-	/// height and width available to widget
-	uint _drawAreaHeight, _drawAreaWidth;
-	/// Scrollbar colors
-	Color _sbarBg = DEFAULT_BG, _sbarFg = DEFAULT_FG;
+	/// widgets
+	QWidget[] widgets;
+	/// active widget index. `>=_widgets.length` when no widgets
+	uint activeWidgetIndex;
 
-	override void eventSubscribe(){
-		if (_widget)
-			_eventSub |= _widget.eventSub;
-		_eventSub |= EventMask.Resize | EventMask.Scroll |
-			(EventMask.KeyboardPress * _pgDnUp) |
-			(EventMask.MouseAll * _mouseWheel) |
-			(EventMask.Update * (_scrollbarH || _scrollbarV));
-		if (_parent)
-			_parent.eventSubscribe();
-	}
-
-	/// re-assings display buffer based on _subScrollX/Y,
-	/// and calls scrollEvent on child if `callScrollEvents`
-	final void rescroll(bool callScrollEvent = true){
-		if (!_widget)
-			return;
-		_widget._view._reset();
-		if (_width == 0 || _height == 0)
-			return;
-		uint w = _drawAreaWidth, h = _drawAreaHeight;
-		if (w > _widget.width)
-			w = _widget.width;
-		if (h > _widget.height)
-			h = _widget.height;
-		_view._getSlice(_widget._view, 0, 0, w, h);
-		_widget._view._offsetX = _offX + _widget.scrollX;
-		_widget._view._offsetY = _offY + _widget.scrollY;
-		if (callScrollEvent)
-			_widget._scrollEventCall();
-	}
-
-	override bool requestScrollX(uint x){
-		if (!_widget)
-			return false;
-		if (_widget.width <= _drawAreaWidth)
-			x = 0;
-		else if (x > _widget.width - _drawAreaWidth)
-			x = _widget.width - _drawAreaWidth;
-
-		if (_widget.scrollX == x)
-			return false;
-		_widget._scrollX = x;
-		rescroll();
-		return true;
-	}
-	override bool requestScrollY(uint y){
-		if (!_widget)
-			return false;
-		if (_widget.height <= _drawAreaHeight)
-			y = 0;
-		else if (y > _widget.height - _drawAreaHeight)
-			y = _widget.height - _drawAreaHeight;
-
-		if (_widget.scrollY == y)
-			return false;
-		_widget._scrollY = y;
-		rescroll();
-		return true;
-	}
-
-	override bool resizeEvent(){
-		_offX = _view._offsetX;
-		_offY = _view._offsetY;
-		_drawAreaHeight = _height - (1 * (_height > 0 && _scrollbarV));
-		_drawAreaWidth = _width - (1 * (_width > 0 && _scrollbarV));
-		if (!_widget)
-			return false;
-		if (_scrollbarH || _scrollbarV)
-			requestUpdate();
-		// try to size widget to fit
-		if (_height > 0 && _width > 0){
-			_widget._width = getLimitedSize(_drawAreaWidth,
-				_widget.minWidth, _widget.maxWidth);
-			_widget._height = getLimitedSize(_drawAreaHeight,
-				_widget.minHeight, _widget.maxHeight);
-		}
-		rescroll(false);
-		_widget._resizeEventCall();
-
-		return true;
-	}
-
-	override bool scrollEvent(){
-		_offX = _view._offsetX;
-		_offY = _view._offsetY;
-		if (_scrollbarH || _scrollbarV)
-			requestUpdate();
-		rescroll();
-
-		return true;
-	}
-
-	override bool keyboardEvent(KeyboardEvent key, bool cycle){
-		if (!_widget)
-			return false;
-		if (_widget.isActive && _widget._keyboardEventCall(key, cycle))
-			return true;
-
-		if (!cycle && _pgDnUp && key.state == KeyboardEvent.State.Pressed){
-			if (key.key == Key.PageUp){
-				return requestScrollY(
-						_drawAreaHeight > _widget.scrollY ? 0 :
-						_widget.scrollY - _drawAreaHeight);
+	/// recalculates all widgets' sizes
+	void widgetsSizeRecalculate(){
+		QWidget[] queue = widgets.dup;
+		uint sizeTotal = height;
+		static if (type == Type.Horizontal)
+			sizeTotal = width;
+		uint count = cast(uint)queue.length, size = sizeTotal;
+		for (int i = 0; i < queue.length; i ++){
+			QWidget widget = queue[i];
+			bool natural = widgetSizeByRatio(widget, size, count);
+			uint sizeUsed;
+			static if (type == Type.Horizontal){
+				widgetSizeHeight(widget, height);
+				sizeUsed = widget.width;
+			}else static if (type == Type.Vertical){
+				widgetSizeWidth(widget, width);
+				sizeUsed = widget.height;
 			}
-			if (key.key == Key.PageDown){
-				return requestScrollY(
-						_drawAreaHeight + _widget.scrollY > _widget.height ?
-						_widget.height - _drawAreaHeight :
-						_widget.scrollY + _drawAreaHeight);
+			if (!natural){
+				// start over again, exclude this widget
+				if (queue.length == 1)
+					break;
+				queue[i] = queue[$ - 1];
+				queue.length --;
+				sizeTotal -= sizeUsed;
+				count = cast(uint)queue.length;
+				size = sizeTotal;
+				i = -1;
+				continue;
+			}
+			count --;
+			size -= sizeUsed;
+		}
+	}
+
+	/// Positions widgets in the widgets array
+	void widgetsReposition(){
+		uint pos = 0;
+		foreach (widget; widgets){
+			static if (type == Type.Horizontal){
+				widgetPosition(widget, pos, 0);
+				pos += widget.width;
+			}else static if (type == Type.Vertical){
+				widgetPosition(widget, 0, pos);
+				pos += widget.height;
+			}
+			widgetViewportAssign(widget);
+		}
+	}
+
+	/// Gets widget at x, y coorinates
+	/// Returns: widget index in widgets, or >= widgets.length if none
+	uint widgetAt(uint x, uint y){
+		uint ret = uint.max;
+		foreach (i, widget; widgets[1 .. $]){
+			static if (type == Type.Horizontal){
+				if (widget._posX > x)
+					ret = cast(uint)i;
+			}else static if (type == Type.Vertical){
+				if (widget._posY > y)
+					ret = cast(uint)i;
 			}
 		}
-		_widget._activateEventCall(false);
+		if (ret < widgets.length){
+			static if (type == Type.Horizontal){
+				if (y < widgets[ret].height)
+					return ret;
+			}else static if (type == Type.Vertical){
+				if (x < widgets[ret].width)
+					return ret;
+			}
+		}
+		return cast(uint)widgets.length;
+	}
+
+	/// Gets next candidate for focus
+	/// Returns: index of widget, or >= widgets.length if none
+	uint activeWidgetNext(){
+		foreach (i; 1 .. widgets.length + (activeWidgetIndex >= widgets.length)){
+			immutable uint index = cast(uint)(i + activeWidgetIndex) % widgets.length;
+			QWidget widget = widgets[index];
+			if (widget.wantsFocus)
+				return index;
+		}
+		return uint.max;
+	}
+
+	/// Activates a widget, by index. taking care of calling activate events
+	void widgetActivate(uint index){
+		if (activeWidgetIndex == index)
+			return;
+		if (activeWidgetIndex < widgets.length){
+			activateEventCall(widgets[activeWidgetIndex], false);
+		}
+		if (index < widgets.length && widgets[index].wantsFocus){
+			activeWidgetIndex = index;
+			activateEventCall(widgets[activeWidgetIndex], true);
+			return;
+		}
+		activeWidgetIndex = cast(uint)widgets.length;
+	}
+
+	override bool widgetActivate(QWidget target){
+		foreach (i, widget; widgets){
+			if (widget.wantsFocus && widget.widgetActivate(target)){
+				widgetActivate(cast(uint)i);
+				return true;
+			}
+		}
 		return false;
+	}
+
+	override void disownEvent(QWidget widget){
+		int index = cast(int)widgets.countUntil(widget);
+		if (index < 0)
+			return;
+		widgets[index .. $ - 1] = widgets[index + 1 .. $];
+		widgets.length --;
+		_sizeCacheReset;
+		requestResize;
+		requestUpdate;
+	}
+
+	override bool adoptEvent(bool adopted){
+		if (!adopted){
+			activeWidgetIndex = cast(uint)widgets.length;
+			return true;
+		}
+		_sizeCacheReset;
+		requestUpdate;
+		requestResize;
+		return true;
 	}
 
 	override bool mouseEvent(MouseEvent mouse){
-		if (!_widget)
+		uint index = widgetAt(mouse.x, mouse.y);
+		if (index >= widgets.length)
 			return false;
-		if (_widget._mouseEventCall(mouse)){
-			_widget._activateEventCall(true);
+		widgetActivate(index);
+		return mouseEventCall(widgets[index], mouse);
+	}
+
+	override bool keyboardEvent(KeyboardEvent key, bool cycle){
+		if (!widgets.length)
+			return false;
+		if (activeWidgetIndex < widgets.length &&
+				keyboardEventCall(widgets[activeWidgetIndex], key, cycle))
+			return true;
+		if (!cycle)
+			return false;
+		widgetActivate(activeWidgetNext);
+		return activeWidgetIndex < widgets.length;
+	}
+
+	override bool resizeEvent(){
+		_sizeCacheReset;
+		// reposition stuff, and assign them views
+		widgetsSizeRecalculate;
+		widgetsReposition;
+		foreach (widget; widgets)
+			resizeEventCall(widget);
+		return true;
+	}
+
+	override bool scrollEvent(){
+		widgetsReposition;
+		foreach (widget; widgets)
+			scrollEventCall(widget);
+		return true;
+	}
+
+	override bool activateEvent(bool isActive){
+		if (!widgets.length)
+			return false;
+		if (!isActive){
+			if (activeWidgetIndex < widgets.length)
+				activateEventCall(widgets[activeWidgetIndex], false);
 			return true;
 		}
-		_widget._activateEventCall(false);
-		if (_mouseWheel && _drawAreaHeight < _widget.height){
-			if (mouse.button == mouse.Button.ScrollUp){
-				if (_widget.scrollY)
-					return requestScrollY(_widget.scrollY - 1);
-			}
-			if (mouse.button == mouse.Button.ScrollDown){
-				return requestScrollY(_widget.scrollY + 1);
-			}
+		if (activeWidgetIndex >= widgets.length)
+			activeWidgetIndex = activeWidgetNext;
+		widgetActivate(activeWidgetIndex);
+		return true;
+	}
+
+	override bool timerEvent(uint msecs){
+		foreach (widget; widgets)
+			timerEventCall(widget, msecs);
+		return true;
+	}
+
+	override bool updateEvent(){
+		foreach(widget; widgets)
+			updateEventCall(widget);
+		return true;
+	}
+
+public:
+	/// Layout types
+	alias Type = QLayoutType;
+	/// constructor
+	this(){
+		// in this widget, uint.max indicates yet to be calculated
+		_sizeCacheReset;
+	}
+
+	override void requestResize(){
+		_sizeCacheReset;
+		super.requestResize;
+	}
+
+	/// Adds a widget at end
+	/// If the widget already has a parent, they will disown it
+	void widgetAdd(QWidget widget){
+		if (!widget)
+			return;
+		adopt(widget);
+		widgets ~= widget;
+		requestResize;
+	}
+
+	/// Removes a widget
+	/// Returns: true if done, false if failed (probably due to it not existing)
+	bool widgetRemove(QWidget widget){
+		if (widgets.countUntil(widget) < 0 || !disown(widget))
+			return false;
+		requestResize;
+		return true;
+	}
+
+	override @property bool wantsFocus() const {
+		foreach (widget; widgets){
+			if (widget.wantsFocus)
+				return true;
 		}
 		return false;
 	}
 
-	override bool updateEvent(){
-		if (!_widget)
-			return false;
-		if (_widget.show)
-			_widget._updateEventCall();
-		// TODO: fill unoccupied space, if any
-		drawScrollbars();
-
-		return true;
+	override @property uint minWidth(){
+		if (_minWidth != uint.max)
+			return _minWidth;
+		_minWidth = 0;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets)
+				_minWidth += widget.minWidth;
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets)
+				_minWidth = max(widget.minWidth, _minWidth);
+		}
+		return _minWidth;
 	}
 
-	/// draws scrollbars, very basic stuff
-	void drawScrollbars(){
-		if (!_widget || _width == 0 || _height == 0)
+	override @property uint minWidth(uint val){
+		return minWidth;
+	}
+
+	override @property uint minHeight(){
+		if (_minHeight != uint.max)
+			return _minHeight;
+		_minHeight = 0;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets)
+				_minHeight = max(widget.minHeight, _minHeight);
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets)
+				_minHeight += widget.minHeight;
+		}
+		return _minHeight;
+	}
+
+	override @property uint minHeight(uint val){
+		return minHeight;
+	}
+
+	override @property uint maxWidth(){
+		if (_maxWidth != uint.max)
+			return _maxWidth;
+		_maxWidth = 0;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets){
+				if (widget.maxWidth == 0)
+					return _maxWidth = 0;
+				_maxWidth += widget.maxWidth;
+			}
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets)
+				_maxWidth = max(widget.maxWidth, _maxWidth);
+		}
+		return _maxWidth;
+	}
+
+	override @property uint maxWidth(uint val){
+		return maxWidth;
+	}
+
+	override @property uint maxHeight(){
+		if (_maxHeight != uint.max)
+			return _maxHeight;
+		_maxHeight = 0;
+		static if (type == Type.Horizontal){
+			foreach (widget; widgets)
+				_maxHeight = max(widget.maxHeight, _maxHeight);
+		}else static if (type == Type.Vertical){
+			foreach (widget; widgets){
+				if (widget.maxHeight == 0)
+					return _maxHeight = 0;
+				_maxHeight += widget.maxHeight;
+			}
+		}
+		return _maxHeight;
+	}
+}
+
+alias QHorizontalLayout = QLayout!(QLayoutType.Horizontal);
+alias QVerticalLayout = QLayout!(QLayoutType.Vertical);
+
+/// A container for widgets
+/// It will create virtual space, which can be scrolled, to fit larger widgets
+/// in smaller spaces.
+/// its maxHeight and maxWidth are equal to it's child's minimum sizes
+class QContainer : QParent{
+private:
+	/// scroll offsets
+	uint _scrollX, _scrollY;
+	/// the widget being contained
+	QWidget _widget;
+
+protected:
+	override void disownEvent(QWidget widget){
+		if (widget != _widget)
 			return;
-		static const dchar verticalLine = '│', horizontalLine = '─';
-		static const dchar block = '█';
-		if (_scrollbarH && _scrollbarV){
-			moveTo(_width - 1, _height - 1);
-			write('┘', _sbarFg, _sbarBg);
-		}
-		if (_scrollbarH){
-			moveTo(0, _drawAreaHeight);
-			fillLine(horizontalLine, _sbarFg, _sbarBg,
-				_drawAreaWidth);
-			const int maxScroll = _widget.width - _drawAreaWidth;
-			if (maxScroll > 0){
-				const uint barPos = (_widget.scrollX * _drawAreaWidth) / maxScroll;
-				moveTo(barPos, _drawAreaHeight);
-				write(block, _sbarFg, _sbarBg);
-			}
-		}
-		if (_scrollbarV){
-			foreach (y; 0 .. _drawAreaHeight){
-				moveTo(_drawAreaWidth, y);
-				write(verticalLine, _sbarFg, _sbarBg);
-			}
-			const int maxScroll = _widget.height - _drawAreaHeight;
-			if (maxScroll > 0){
-				const uint barPos = (_widget.scrollY * _drawAreaHeight) / maxScroll;
-				moveTo(_drawAreaWidth, barPos);
-				write(block, _sbarFg, _sbarBg);
-			}
-		}
+		_widget = null;
+		_scrollX = _scrollY = 0;
+	}
+
+	override bool mouseEvent(MouseEvent mouse){
+		return mouseEventCall(_widget, mouse);
+	}
+
+	override bool keyboardEvent(KeyboardEvent key, bool cycle){
+		return keyboardEventCall(_widget, key, cycle);
+	}
+
+	override bool resizeEvent(){
+		widgetSize(_widget, width, height);
+		widgetViewportAssign(_widget, _widget.width, _widget.height,
+				_scrollX, _scrollY); // re-assign viewport
+		return resizeEventCall(_widget);
+	}
+
+	override bool scrollEvent(){
+		widgetViewportAssign(_widget, _widget.width, _widget.height,
+				_scrollX, _scrollY); // re-assign viewport
+		return scrollEventCall(_widget);
+	}
+
+	override bool activateEvent(bool isActive){
+		return activateEventCall(_widget, isActive);
+	}
+
+	override bool timerEvent(uint msecs){
+		return timerEventCall(_widget, msecs);
+	}
+
+	override bool updateEvent(){
+		return updateEventCall(_widget);
 	}
 
 public:
 	/// constructor
-	this(){
-		this._isScrollableContainer = true;
-		this._scrollbarV = true;
-		this._scrollbarH = true;
-	}
-	~this(){
-		if (_widget)
-			.destroy(_widget);
-	}
-
-	/// Scrollbar foreground color
-	@property Color scrollbarForeground(){
-		return _sbarFg;
-	}
-	/// ditto
-	@property Color scrollbarForeground(Color newVal){
-		_requestUpdate();
-		return _sbarFg = newVal;
-	}
-	/// Scrollbar background color
-	@property Color scrollbarBackground(){
-		return _sbarBg;
-	}
-	/// ditto
-	@property Color scrollbarBackground(Color newVal){
-		_requestUpdate();
-		return _sbarBg = newVal;
-	}
-
-	/// Sets the child widget.
-	///
-	/// Returns: false if already has a child
-	bool setWidget(QWidget child){
-		if (_widget)
-			return false;
-		_widget = child;
-		_widget._parent = this;
-		_widget._canReqScroll = true;
-		_widget._posX = 0;
-		_widget._posY = 0;
-		eventSubscribe();
-		return true;
-	}
+	this(){}
 
 	override void requestResize(){
-		// just do a the resize within itself
-		_resizeEventCall();
+		// just resize right now, its free real estate inside container
+		resizeEvent;
 	}
 
-	/// Whether to scroll on page up/down keys
-	@property bool scrollOnPageUpDown(){
-		return _pgDnUp;
+	/// widget to contain
+	@property QWidget widget(){
+		return _widget;
 	}
 	/// ditto
-	@property bool scrollOnPageUpDown(bool newVal){
-		_pgDnUp = newVal;
-		eventSubscribe();
-		return _pgDnUp;
-	}
-
-	/// Whether to scroll on mouse scroll wheel
-	@property bool scrollOnMouseWheel(){
-		return _mouseWheel;
-	}
-	/// ditto
-	@property bool scrollOnMouseWheel(bool newVal){
-		_mouseWheel = newVal;
-		eventSubscribe();
-		return _mouseWheel;
-	}
-
-	/// Whether to show vertical scrollbar.
-	///
-	/// Modifying this will request update
-	@property bool scrollbarV(){
-		return _scrollbarV;
-	}
-	/// ditto
-	@property bool scrollbarV(bool newVal){
-		if (newVal != _scrollbarV){
-			_scrollbarV = newVal;
-			rescroll();
+	@property QWidget widget(QWidget newVal){
+		if (_widget)
+			disown(_widget);
+		if (newVal){
+			_widget = newVal;
+			adopt(_widget);
+			widgetPosition(_widget, 0, 0);
 		}
-		return _scrollbarV;
+		_scrollX = _scrollY = 0;
+		requestResize;
+		return _widget;
 	}
-	/// Whether to show horizontal scrollbar.
-	///
-	/// Modifying this will request update
-	@property bool scrollbarH(){
-		return _scrollbarH;
+
+	/// scrollX
+	@property uint scrollX(){
+		return _scrollX;
 	}
 	/// ditto
-	@property bool scrollbarH(bool newVal){
-		if (newVal != _scrollbarH){
-			_scrollbarH = newVal;
-			rescroll();
-		}
-		return _scrollbarH;
+	@property uint scrollX(uint newVal){
+		if (!_widget || _widget.width <= width)
+			newVal = 0;
+		else if (newVal + width > _widget.width)
+			newVal = _widget.width - width;
+		_scrollX = newVal;
+		scrollEvent;
+		return _scrollX;
+	}
+
+	/// scrollX
+	@property uint scrollY(){
+		return _scrollY;
+	}
+	/// ditto
+	@property uint scrollY(uint newVal){
+		if (!_widget || _widget.height <= height)
+			newVal = 0;
+		if (newVal + height > _widget.height)
+			newVal = _widget.height - height;
+		_scrollY = newVal;
+		scrollEvent;
+		return _scrollY;
+	}
+
+	override @property uint maxWidth(){
+		if (_widget)
+			return _widget.maxWidth;
+		return 0;
+	}
+	override @property uint maxWidth(uint newVal){
+		return maxWidth;
+	}
+
+	override @property uint maxHeight(){
+		if (_widget)
+			return _widget.maxHeight;
+		return 0;
+	}
+	override @property uint maxHeight(uint newVal){
+		return maxHeight;
 	}
 }
 
 /// Terminal
-class QTerminal : QLayout{
+class QTerminal : QContainer{
 private:
 	/// To actually access the terminal
 	TermWrapper _termWrap;
-	/// set to false to stop UI loop in run()
 	bool _isRunning;
 	/// the key used for cycling active widget
 	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
-	/// whether to stop UI loop on Interrupt
-	bool _stopOnInterrupt = true;
 	/// cursor position
 	int _cursorX = -1, _cursorY = -1;
 
 	/// Reads InputEvent and calls appropriate functions
 	void _readEvent(Event event){
 		if (event.type == Event.Type.HangupInterrupt){
-			if (_stopOnInterrupt)
+			if (stopOnInterrupt){
 				_isRunning = false;
-			else{ // otherwise read it as a Ctrl+C
+			}else{ // otherwise read it as a Ctrl+C
 				KeyboardEvent keyEvent;
 				keyEvent.key = KeyboardEvent.CtrlKeys.CtrlC;
-				this._keyboardEventCall(keyEvent, false);
+				keyboardEventCall(this, keyEvent, false);
 			}
 		}else if (event.type == Event.Type.Keyboard){
-			KeyboardEvent kPress = event.keyboard;
-			this._keyboardEventCall(kPress, false);
+			keyboardEvent(event.keyboard, false);
 		}else if (event.type == Event.Type.Mouse){
-			this._mouseEventCall(event.mouse);
+			mouseEvent(event.mouse);
 		}else if (event.type == Event.Type.Resize){
-			this._resizeEventCall();
+			resizeEvent;
 		}
 	}
 
-	/// writes _view to _termWrap
+	/// writes view to _termWrap
 	void _flushBuffer(){
-		if (_view._buffer.length == 0)
+		if (!view.height || !view.width)
 			return;
-		Cell prev = _view._buffer[0];
+		auto prev = view._buffer[0][0]; // TODO, abstract accessing VP buffer
 		_termWrap.color(prev.fg, prev.bg);
-		uint x, y;
-		foreach (cell; _view._buffer){
-			if (!prev.colorsSame(cell))
-				_termWrap.color(cell.fg, cell.bg);
-			prev = cell;
-			_termWrap.put(x, y, cell.c);
-			x ++;
-			if (x == _width){
-				x = 0;
-				y ++;
+		foreach (y, row; view._buffer){
+			foreach (x, cell; row){
+				if (!prev.colorsSame(cell)){
+					_termWrap.color(cell.fg, cell.bg);
+					prev = cell;
+				}
+				_termWrap.put(cast(uint)x, cast(uint)y, cell.c);
 			}
 		}
 	}
 
 protected:
 
-	override void eventSubscribe(){
-		// ignore what children want, this needs all events
-		// so custom event handlers can be set up
-		_eventSub = uint.max;
-	}
-
 	override void requestCursorPos(int x, int y){
 		_cursorX = x;
 		_cursorY = y;
 	}
 
-	override bool resizeEvent(){
-		_height = _termWrap.height;
-		_width = _termWrap.width;
-		_view._buffer.length = _width * _height;
-		_view._width = _width;
-		_view._actualWidth = _width;
-		_view._height = _height;
-		super.resizeEvent();
-		return true;
+	override bool mouseEvent(MouseEvent mouse){
+		if (_customMouseEvent)
+			_customMouseEvent(this, mouse);
+		return super.mouseEvent(mouse);
 	}
 
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
 		cycle = key.state == KeyboardEvent.State.Pressed &&
 			key.key == _activeWidgetCycleKey;
+		if (_customKeyboardEvent)
+			_customKeyboardEvent(this, key, cycle);
 		return super.keyboardEvent(key, cycle);
 	}
 
+	override bool resizeEvent(){
+		_height = _termWrap.height;
+		_width = _termWrap.width;
+		// TODO abstract this away, this should be done in Viewport
+		view._buffer.length = _height;
+		foreach (i, ref row; view._buffer)
+			row.length = _width;
+
+		if (_customResizeEvent)
+			_customResizeEvent(this);
+		super.resizeEvent;
+		return true;
+	}
+
+	override bool timerEvent(uint msecs){
+		if (_customTimerEvent)
+			_customTimerEvent(this, msecs);
+		return super.timerEvent(msecs);
+	}
+
 	override bool updateEvent(){
-		// resize if needed
-		if (_requestingResize)
-			this._resizeEventCall();
+		if (!_requestingUpdate)
+			return false;
+		_requestingUpdate = false;
 		_cursorX = -1;
 		_cursorY = -1;
-		// no, this is not a mistake, dont change this to updateEventCall again
-		super.updateEvent();
-		// flush _view._buffer to _termWrap
-		_flushBuffer();
+		super.updateEvent;
+		// flush view._buffer to _termWrap
+		_flushBuffer;
 		// check if need to show/hide cursor
-		if (_cursorX < 0 || _cursorY < 0)
+		if (_cursorX < 0 || _cursorY < 0){
 			_termWrap.cursorVisible = false;
-		else{
+		}else{
 			_termWrap.moveCursor(_cursorX, _cursorY);
 			_termWrap.cursorVisible = true;
 		}
-		_termWrap.flush();
+		_termWrap.flush;
 		return true;
 	}
 
 public:
+	/// whether to stop UI loop on Interrupt (Ctrl+C)
+	bool stopOnInterrupt = true;
 	/// time to wait between timer events (milliseconds)
 	ushort timerMsecs;
+
+	final override void requestUpdate(){
+		_requestingUpdate = true;
+	}
+
 	/// constructor
-	this(QLayout.Type displayType = QLayout.Type.Vertical,
-			ushort timerDuration = 500){
+	this(ushort timerDuration = 500){
 		// HACK: fix for issue #18 (resizing on alacritty borked)
 		if (environment["TERM"] == "alacritty")
 			environment["TERM"] = "xterm";
-		super(displayType);
 		timerMsecs = timerDuration;
 
-		_termWrap = new TermWrapper();
+		_termWrap = new TermWrapper;
 		// so it can make other widgets active on mouse events
 		this._isActive = true;
 	}
@@ -1470,56 +1273,30 @@ public:
 	}
 
 	/// stops UI loop. **not instant**
-	/// if it is in-between event functions, it will complete
-	/// those first
 	void terminate(){
 		_isRunning = false;
 	}
 
-	/// whether to stop UI loop on HangupInterrupt (Ctrl+C)
-	@property bool terminateOnHangup(){
-		return _stopOnInterrupt;
-	}
-	/// ditto
-	@property bool terminateOnHangup(bool newVal){
-		return _stopOnInterrupt = newVal;
-	}
-
 	/// starts the UI loop
 	void run(){
-		_initializeCall();
-		_resizeEventCall();
-		_updateEventCall();
+		resizeEvent;
+		updateEvent;
 		_isRunning = true;
 		StopWatch sw = StopWatch(AutoStart.yes);
 		while (_isRunning){
-			int timeout = cast(int)
-				(timerMsecs - sw.peek.total!"msecs");
+			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			Event event;
-			while (_termWrap.getEvent(timeout, event) > 0){
+			while (_isRunning && _termWrap.getEvent(timeout, event) > 0){
 				_readEvent(event);
-				timeout = cast(int)
-					(timerMsecs - sw.peek.total!"msecs");
-				_updateEventCall();
+				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
+				updateEvent;
 			}
-			if (sw.peek.total!"msecs" >= timerMsecs){
-				_timerEventCall(cast(uint)sw.peek.total!"msecs");
+			if (_isRunning && sw.peek.total!"msecs" >= timerMsecs){
+				timerEvent(cast(uint)sw.peek.total!"msecs");
 				sw.reset;
 				sw.start;
-				_updateEventCall();
+				updateEvent;
 			}
 		}
-	}
-
-	/// search the passed widget recursively and activate it
-	///
-	/// Returns: true if the widget was made active, false if not
-	bool activateWidget(QWidget target) {
-		return this.searchAndActivateWidget(target);
-	}
-
-	/// Changes the key used to cycle between active widgets.
-	void setActiveWidgetCycleKey(dchar key){
-		_activeWidgetCycleKey = key;
 	}
 }

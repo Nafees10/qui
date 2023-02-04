@@ -7,10 +7,28 @@ import arsd.terminal;
 import std.datetime.stopwatch;
 import std.conv : to;
 
-public alias Color = arsd.terminal.Color;
+package enum Color : ushort{
+	Default = 256,
+	Black = arsd.terminal.Color.black,
+	BlackBright = arsd.terminal.Color.black | 0x08,
+	Red = arsd.terminal.Color.red,
+	RedBright = arsd.terminal.Color.red | 0x08,
+	Green = arsd.terminal.Color.green,
+	GreenBright = arsd.terminal.Color.green | 0x08,
+	Blue = arsd.terminal.Color.blue,
+	BlueBright = arsd.terminal.Color.blue | 0x08,
+	Yellow = arsd.terminal.Color.yellow,
+	YellowBright = arsd.terminal.Color.yellow | 0x08,
+	Magenta = arsd.terminal.Color.magenta,
+	MagentaBright = arsd.terminal.Color.magenta | 0x08,
+	Cyan = arsd.terminal.Color.cyan,
+	CyanBright = arsd.terminal.Color.cyan | 0x08,
+	White = arsd.terminal.Color.white,
+	WhiteBright = arsd.terminal.Color.white | 0x08,
+}
 
 /// Input events
-public struct Event{
+package struct Event{
 	/// Keyboard Event
 	struct Keyboard{
 		private this(KeyboardEvent event){
@@ -27,7 +45,7 @@ public struct Event{
 		/// state
 		ubyte state;
 		/// Non character keys (can match against `this.key`)
-		/// 
+		///
 		/// copied from arsd.terminal
 		enum Key : dchar{
 			Escape = 0x1b + 0xF0000,
@@ -83,15 +101,15 @@ public struct Event{
 		}
 		/// Returns: true if the key pressed is a character
 		/// backspace, space, and tab are characters!
-		@property bool isChar(){
+		@property bool isChar() const {
 			return !(key >= Key.min && key <= Key.max) && !isCtrlKey();
 		}
 		/// Returns: true if key is a Ctrl+Letter key
-		@property bool isCtrlKey(){
+		@property bool isCtrlKey() const {
 			return key >= CtrlKeys.min && key <= CtrlKeys.max && key!=8 && key!=9 && key!=10;
 		}
 		/// Returns: a string representation of the key pressed
-		@property string tostring(){
+		@property string toString() const {
 			if (isChar())
 				return "{key:\'"~to!string(key)~"\', state:"~state.to!string~"}";
 			if (isCtrlKey())
@@ -231,7 +249,7 @@ public struct Event{
 }
 
 /// Wrapper to arsd.terminal to make it bit easier to manage
-public class TermWrapper{
+package class TermWrapper{
 private:
 	Terminal _term;
 	RealTimeConsoleInput _input;
@@ -279,7 +297,7 @@ public:
 		return visibility;
 	}
 	/// waits `msecTimeout` msecs for event to occur. Returns as soon as it occurs (or if one had occurred before calling it)
-	/// 
+	///
 	/// Returns: true if event occured
 	bool getEvent(int msecTimeout, ref Event event){
 		StopWatch sw;
