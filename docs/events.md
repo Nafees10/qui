@@ -7,6 +7,8 @@ This is especially useful for keyboard events. Where returning false will give
 up focus, and the parent will look for another widget to send further keyboard
 input to.
 
+Also for mouse events. Return false behaviour may be used to help in scrolling.
+
 ## `bool adoptEvent(bool)`
 Called when this widget is adopted by a parent, or disowned. The boolean flag
 will be true when it is adopted, false when disowned.
