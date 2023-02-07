@@ -675,7 +675,7 @@ class QLayout(QLayoutType type) : QParent{
 private:
 	/// Sets sizes for a widget
 	/// Returns: true if "natural" size was used, false if size was constrained
-	bool widgetSizeByRatio(QWidget widget, uint sizeTotal, uint count){
+	bool _widgetSizeByRatio(QWidget widget, uint sizeTotal, uint count){
 		assert (count != 0);
 		static if (type == Type.Horizontal){
 			return widgetSizeWidth(widget, sizeTotal / count);
@@ -704,7 +704,7 @@ protected:
 		uint count = cast(uint)queue.length, size = sizeTotal;
 		for (int i = 0; i < queue.length; i ++){
 			QWidget widget = queue[i];
-			bool natural = widgetSizeByRatio(widget, size, count);
+			bool natural = _widgetSizeByRatio(widget, size, count);
 			uint sizeUsed;
 			static if (type == Type.Horizontal){
 				widgetSizeHeight(widget, height);
