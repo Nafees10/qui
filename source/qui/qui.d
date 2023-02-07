@@ -939,10 +939,12 @@ public:
 		_minWidth = 0;
 		static if (type == Type.Horizontal){
 			foreach (widget; widgets)
-				_minWidth += widget.minWidth;
+				_minWidth += widget.widthConstrained * widget.minWidth;
 		}else static if (type == Type.Vertical){
-			foreach (widget; widgets)
-				_minWidth = max(widget.minWidth, _minWidth);
+			foreach (widget; widgets){
+				if (widget.widthConstrained)
+					_minWidth = max(widget.minWidth, _minWidth);
+			}
 		}
 		return _minWidth;
 	}
@@ -956,11 +958,13 @@ public:
 			return _minHeight;
 		_minHeight = 0;
 		static if (type == Type.Horizontal){
-			foreach (widget; widgets)
-				_minHeight = max(widget.minHeight, _minHeight);
+			foreach (widget; widgets){
+				if (widget.heightConstrained)
+					_minHeight = max(widget.minHeight, _minHeight);
+			}
 		}else static if (type == Type.Vertical){
 			foreach (widget; widgets)
-				_minHeight += widget.minHeight;
+				_minHeight += widget.heightConstrained * widget.minHeight;
 		}
 		return _minHeight;
 	}
@@ -975,13 +979,15 @@ public:
 		_maxWidth = 0;
 		static if (type == Type.Horizontal){
 			foreach (widget; widgets){
-				if (widget.maxWidth == 0)
+				if (widget.widthConstrained || widget.maxWidth == 0)
 					return _maxWidth = 0;
 				_maxWidth += widget.maxWidth;
 			}
 		}else static if (type == Type.Vertical){
-			foreach (widget; widgets)
-				_maxWidth = max(widget.maxWidth, _maxWidth);
+			foreach (widget; widgets){
+				if (widget.widthConstrained)
+					_maxWidth = max(widget.maxWidth, _maxWidth);
+			}
 		}
 		return _maxWidth;
 	}
@@ -995,11 +1001,13 @@ public:
 			return _maxHeight;
 		_maxHeight = 0;
 		static if (type == Type.Horizontal){
-			foreach (widget; widgets)
-				_maxHeight = max(widget.maxHeight, _maxHeight);
+			foreach (widget; widgets){
+				if (widget.heightConstrained)
+					_maxHeight = max(widget.maxHeight, _maxHeight);
+			}
 		}else static if (type == Type.Vertical){
 			foreach (widget; widgets){
-				if (widget.maxHeight == 0)
+				if (!widget.heightConstrained || widget.maxHeight == 0)
 					return _maxHeight = 0;
 				_maxHeight += widget.maxHeight;
 			}
