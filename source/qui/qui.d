@@ -1259,18 +1259,19 @@ public:
 	/// whether to stop UI loop on Interrupt (Ctrl+C)
 	bool stopOnInterrupt = true;
 	/// time to wait between timer events (milliseconds)
-	ushort timerMsecs;
+	ushort timerMsecs = 500;
+	/// minimum time to wait before updating, between events
+	ushort updateMsecs = 50; // 20 updates per second
 
-	final override void requestUpdate(){
+	override void requestUpdate(){
 		_requestingUpdate = true;
 	}
 
 	/// constructor
-	this(ushort timerDuration = 500){
+	this(){
 		// HACK: fix for issue #18 (resizing on alacritty borked)
 		if (environment["TERM"] == "alacritty")
 			environment["TERM"] = "xterm";
-		timerMsecs = timerDuration;
 
 		_termWrap = new TermWrapper;
 		// so it can make other widgets active on mouse events
@@ -1281,29 +1282,32 @@ public:
 	}
 
 	/// stops UI loop. **not instant**
-	void terminate(){
+	void stop(){
 		_isRunning = false;
 	}
 
 	/// starts the UI loop
 	void run(){
 		resizeEvent;
-		updateEvent;
 		_isRunning = true;
 		StopWatch sw = StopWatch(AutoStart.yes);
+		int timerUpdate, timerTimer;
 		while (_isRunning){
-			int timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
 			Event event;
-			while (_isRunning && _termWrap.getEvent(timeout, event) > 0){
+			if (_termWrap.getEvent(
+						cast(int)min(timerTimer, timerUpdate), event))
 				_readEvent(event);
-				timeout = cast(int)(timerMsecs - sw.peek.total!"msecs");
+			int passed = cast(int)sw.peek.total!"msecs";
+			sw.reset;
+			timerUpdate -= passed;
+			timerTimer -= passed;
+			if (timerUpdate <= 0){
 				updateEvent;
+				timerUpdate = updateMsecs;
 			}
-			if (_isRunning && sw.peek.total!"msecs" >= timerMsecs){
-				timerEvent(cast(uint)sw.peek.total!"msecs");
-				sw.reset;
-				sw.start;
-				updateEvent;
+			if (timerTimer <= 0){
+				timerEvent(timerMsecs);
+				timerTimer = timerMsecs;
 			}
 		}
 	}
