@@ -79,6 +79,13 @@ private:
 		}
 	}
 
+	/// Resizes
+	void _resize(uint w, uint h){
+		_buffer.length = h;
+		foreach (ref row; _buffer)
+			row.length = w;
+	}
+
 	/// set another Viewport so that it is a rectangular slice of this
 	void _getSlice(ref Viewport sub, uint x, uint y, uint width, uint height,
 			uint offX = 0, uint offY = 0){
@@ -281,14 +288,14 @@ protected:
 
 	/// called to request to scrollX
 	bool scrollToX(int x){
-		if (!_isActive || !_parent)
+		if (!_isActive || !_parent || x < 0 || x > _width)
 			return false;
 		return _parent.scrollToX(_posX + x - view.x);
 	}
 
 	/// called to request to scrollY
 	bool scrollToY(int y){
-		if (!_isActive || !_parent)
+		if (!_isActive || !_parent || y < 0 || y > _height)
 			return false;
 		return _parent.scrollToY(_posY + y - view.y);
 	}
@@ -1023,6 +1030,8 @@ alias QVerticalLayout = QLayout!(QLayoutType.Vertical);
 /// It will create virtual space, which can be scrolled, to fit larger widgets
 /// in smaller spaces.
 /// its maxHeight and maxWidth are equal to it's child's minimum sizes
+///
+/// TODO: implement input handling for scrolling
 class QContainer : QParent{
 private:
 	/// scroll offsets
@@ -1031,6 +1040,20 @@ private:
 	QWidget _widget;
 
 protected:
+	override bool scrollToX(int x){
+		if (width <= view.width || x < 0)
+			return false;
+		scrollX = min(x, width - view.width);
+		return true;
+	}
+
+	override bool scrollToY(int y){
+		if (height <= view.height || y < 0)
+			return false;
+		scrollY = min(y, height - view.height);
+		return true;
+	}
+
 	override void disownEvent(QWidget widget){
 		if (widget != _widget)
 			return;
@@ -1218,10 +1241,7 @@ protected:
 	override bool resizeEvent(){
 		_height = _termWrap.height;
 		_width = _termWrap.width;
-		// TODO abstract this away, this should be done in Viewport
-		view._buffer.length = _height;
-		foreach (i, ref row; view._buffer)
-			row.length = _width;
+		view._resize(_width, _height);
 
 		if (_customResizeEvent)
 			_customResizeEvent(this);
