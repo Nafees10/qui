@@ -1038,8 +1038,69 @@ private:
 	uint _scrollX, _scrollY;
 	/// the widget being contained
 	QWidget _widget;
+	/// milliseconds since scrollbars became visible
+	uint _scrollbarMsecs;
+	/// milliseconds for which scrollbars become visible
+	uint _scrollbarVisibleForMsecs = 1000;
+	/// scrollbar colors
+	Color _scrollbarFg = Color.Default, _scrollbarBg = Color.Default;
 
 protected:
+	/// Returns: [bar size, size before bar] for drawing scrollbar
+	/// bar size will be 0 to indicate do-not-draw
+	static uint[2] scrollbarSize(uint totalSize, uint visible, uint scrolled){
+		if (visible >= totalSize || totalSize < 3)
+			return [0, 0];
+		uint bar = max(1, visible / totalSize);
+		if (scrolled == 0)
+			return [bar, 0];
+		if (scrolled >= totalSize - visible)
+			return [bar, totalSize - bar];
+		uint offset = scrolled / visible;
+		if (offset + bar > totalSize){
+			// waht?
+			offset = totalSize - bar;
+		}
+		return [bar, offset];
+	}
+
+	/// Returns: true if scrollbar is visible at the moment
+	@property bool scrollbarVisible(){
+		return _scrollbarMsecs < _scrollbarVisibleForMsecs;
+	}
+
+	/// draws vertical scrollbar
+	void scrollbarVertDraw(){
+		uint[2] barOffset = scrollbarSize(height, view.height, _scrollY);
+		barOffset[0] += barOffset[1];
+		if (barOffset[0] == 0)
+			return;
+		foreach (i; 0 .. height){
+			dchar ch = '█';
+			if (i < barOffset[1] || i >= barOffset[0] + barOffset[1])
+				ch = ' ';
+			if (!view.moveTo(width - 1, i))
+				return;
+			view.write(ch, _scrollbarFg, _scrollbarBg);
+		}
+	}
+
+	/// draws horizontal scrollbar
+	void scrollbarHorzDraw(){
+		uint[2] barOffset = scrollbarSize(width, view.width, _scrollX);
+		barOffset[0] += barOffset[1];
+		if (barOffset[0] == 0)
+			return;
+		foreach (i; 0 .. height){
+			dchar ch = '█';
+			if (i < barOffset[1] || i >= barOffset[0] + barOffset[1])
+				ch = ' ';
+			if (!view.moveTo(i, height - 1))
+				return;
+			view.write(ch, _scrollbarFg, _scrollbarBg);
+		}
+	}
+
 	override bool scrollToX(int x){
 		if (width <= view.width || x < 0)
 			return false;
@@ -1091,10 +1152,21 @@ protected:
 	}
 
 	override bool updateEvent(){
-		return updateEventCall(_widget);
+		bool ret = updateEventCall(_widget);
+		if (!scrollbarVisible)
+			return ret;
+		scrollbarVertDraw;
+		scrollbarHorzDraw;
+		if (view.moveTo(width - 1, height - 1))
+			view.write('┘', _scrollbarFg, _scrollbarBg);
+		return true;
 	}
 
 public:
+	/// whether to scroll on Page Up/Down keys
+	bool pgScroll = true;
+	/// whether to scroll on Mouse Wheel
+	bool msScroll = true;
 	/// constructor
 	this(){}
 
@@ -1131,8 +1203,12 @@ public:
 			newVal = 0;
 		else if (newVal + width > _widget.width)
 			newVal = _widget.width - width;
+		if (newVal == _scrollX)
+			return _scrollX;
 		_scrollX = newVal;
+		_scrollbarMsecs = 0;
 		scrollEvent;
+		requestUpdate;
 		return _scrollX;
 	}
 
@@ -1146,8 +1222,12 @@ public:
 			newVal = 0;
 		if (newVal + height > _widget.height)
 			newVal = _widget.height - height;
+		if (newVal == _scrollY)
+			return _scrollY;
 		_scrollY = newVal;
+		_scrollbarMsecs = 0;
 		scrollEvent;
+		requestUpdate;
 		return _scrollY;
 	}
 
