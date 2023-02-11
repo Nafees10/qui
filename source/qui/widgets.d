@@ -187,7 +187,6 @@ protected:
 	void cursorBackspace(){
 		if (_x == 0)
 			return;
-		stderr.writefln!"_x: %d, len: %d, '%s'"(_x, _text.length, _text);stderr.flush;
 		if (_x < _text.length){
 			foreach (i; _x .. _text.length)
 				_text[i - 1] = _text[i];
