@@ -1046,6 +1046,11 @@ private:
 	Color _scrollbarFg = Color.Default, _scrollbarBg = Color.Default;
 
 protected:
+	/// whether to scroll on Page Up/Down keys
+	bool _pgScroll = true;
+	/// whether to scroll on Mouse Wheel
+	bool _msScroll = true;
+
 	/// Returns: [cells before bar, cells in bar] for drawing scrollbar
 	static uint[2] scrollbarSize(uint totalSize, uint visible, uint scrolled){
 		if (totalSize == 0 || visible == 0)
@@ -1081,7 +1086,7 @@ protected:
 		foreach (i; 0 .. width){
 			dchar ch = ' ';
 			if (i >= barSize[0] && i < barSize[1])
-				ch = '█';
+				ch = '■';
 			if (!view.moveTo(i, height - 1))
 				break;
 			view.write(ch, _scrollbarFg, _scrollbarBg);
@@ -1118,6 +1123,9 @@ protected:
 	}
 
 	override bool resizeEvent(){
+		// try to fix scrolling
+		scrollX = scrollX;
+		scrollY = scrollY;
 		widgetSize(_widget, width, height);
 		widgetViewportAssign(_widget, _widget.width, _widget.height,
 				_scrollX, _scrollY); // re-assign viewport
@@ -1138,8 +1146,7 @@ protected:
 		if (scrollbarVisible){
 			_scrollbarMsecs += msecs;
 			if (!scrollbarVisible)
-				scrollEventCall(_widget); // to get it to draw over scrollbar
-			stderr.writeln("over ", scrollbarVisible);
+				scrollEventCall(_widget); // HACK: to get it to draw over scrollbar
 		}
 		return timerEventCall(_widget, msecs);
 	}
@@ -1156,10 +1163,6 @@ protected:
 	}
 
 public:
-	/// whether to scroll on Page Up/Down keys
-	bool pgScroll = true;
-	/// whether to scroll on Mouse Wheel
-	bool msScroll = true;
 	/// constructor
 	this(){}
 
