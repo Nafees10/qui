@@ -187,9 +187,13 @@ protected:
 	void cursorBackspace(){
 		if (_x == 0)
 			return;
-		if (_x < _text.length)
-			_text[_x - 1 .. $ - 1] = _text[_x .. $];
-		_text.length --;
+		stderr.writefln!"_x: %d, len: %d, '%s'"(_x, _text.length, _text);stderr.flush;
+		if (_x < _text.length){
+			foreach (i; _x .. _text.length)
+				_text[i - 1] = _text[i];
+		}
+		if (_text.length)
+			_text = _text[0 .. $ - 1];
 		_x --;
 	}
 
@@ -207,6 +211,7 @@ protected:
 			_text ~= key;
 		else
 			_text = _text[0 .. _x] ~ key ~ _text[_x .. $];
+		cursorMoveRight;
 	}
 
 	/// Ensures cursor position is valid, if not, fixes it
@@ -233,9 +238,12 @@ protected:
 	}
 
 	override bool mouseEvent(MouseEvent mouse){
-		if (mouse.button == MouseEvent.Button.Left &&
-				mouse.state == MouseEvent.State.Click)
-			_x = mouse.x;
+		if (mouse.button != MouseEvent.Button.Left ||
+				mouse.state != MouseEvent.State.Click)
+			return false;
+		_x = mouse.x;
+		if (_x > _text.length)
+			_x = cast(uint)_text.length;
 		requestUpdate;
 		return true;
 	}
@@ -243,17 +251,24 @@ protected:
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
 		if (cycle || key.key == '\n')
 			return false;
-		switch (key.key){
-			case '\b':
-				cursorBackspace; break;
-			case Key.Delete:
-				cursorDelete; break;
-			case Key.LeftArrow:
-				cursorMoveLeft; break;
-			case Key.RightArrow:
-				cursorMoveRight; break;
-			default:
-				cursorInsert(key.key); break;
+		if (!key.isChar){
+			switch (key.key){
+				case Key.Delete:
+					cursorDelete; break;
+				case Key.LeftArrow:
+					cursorMoveLeft; break;
+				case Key.RightArrow:
+					cursorMoveRight; break;
+				default:
+					break;
+			}
+		}else{
+			switch (key.key){
+				case '\b':
+					cursorBackspace; break;
+				default:
+					cursorInsert(key.key);
+			}
 		}
 		requestUpdate;
 		return true;
@@ -261,10 +276,9 @@ protected:
 
 	override bool updateEvent(){
 		view.moveTo(view.x, view.y);
-		if (view.x > _text.length)
-			view.fillLine(' ', _fg, _bg);
-		else
+		if (view.x < _text.length)
 			view.write(cast(dstring)_text[view.x .. $], _fg, _bg);
+		view.fillLine(' ', _fg, _bg);
 		return true;
 	}
 public:
@@ -283,6 +297,10 @@ public:
 		_text = cast(dchar[])newText.dup;
 		requestUpdate;
 		return cast(dstring)newText;
+	}
+
+	override @property bool wantsFocus() const {
+		return true;
 	}
 
 	/// text color
@@ -309,12 +327,6 @@ public:
 
 	override @property uint minWidth(){
 		return cast(uint)_text.length;
-	}
-	override @property uint maxWidth(){
-		return cast(uint)_text.length;
-	}
-	override @property uint minHeight(){
-		return 1;
 	}
 	override @property uint maxHeight(){
 		return 1;
