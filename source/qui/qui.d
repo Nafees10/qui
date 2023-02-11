@@ -1046,57 +1046,44 @@ private:
 	Color _scrollbarFg = Color.Default, _scrollbarBg = Color.Default;
 
 protected:
-	/// Returns: [bar size, size before bar] for drawing scrollbar
-	/// bar size will be 0 to indicate do-not-draw
+	/// Returns: [cells before bar, cells in bar] for drawing scrollbar
 	static uint[2] scrollbarSize(uint totalSize, uint visible, uint scrolled){
-		if (visible >= totalSize || totalSize < 3)
+		if (totalSize == 0 || visible == 0)
 			return [0, 0];
-		uint bar = max(1, visible / totalSize);
-		if (scrolled == 0)
-			return [bar, 0];
-		if (scrolled >= totalSize - visible)
-			return [bar, totalSize - bar];
-		uint offset = scrolled / visible;
-		if (offset + bar > totalSize){
-			// waht?
-			offset = totalSize - bar;
-		}
-		return [bar, offset];
+		return [scrolled * visible / totalSize,
+					 visible * visible / totalSize];
 	}
 
 	/// Returns: true if scrollbar is visible at the moment
 	@property bool scrollbarVisible(){
-		return _scrollbarMsecs < _scrollbarVisibleForMsecs;
+		return _widget && _scrollbarMsecs < _scrollbarVisibleForMsecs &&
+			(_widget.height > height || _widget.width > width);
 	}
 
 	/// draws vertical scrollbar
 	void scrollbarVertDraw(){
-		uint[2] barOffset = scrollbarSize(height, view.height, _scrollY);
-		barOffset[0] += barOffset[1];
-		if (barOffset[0] == 0)
-			return;
+		uint[2] barSize = scrollbarSize(_widget.height, height, _scrollY);
+		barSize[1] += barSize[0];
 		foreach (i; 0 .. height){
-			dchar ch = '█';
-			if (i < barOffset[1] || i >= barOffset[0] + barOffset[1])
-				ch = ' ';
+			dchar ch = ' ';
+			if (i >= barSize[0] && i < barSize[1])
+				ch = '█';
 			if (!view.moveTo(width - 1, i))
-				return;
+				break;
 			view.write(ch, _scrollbarFg, _scrollbarBg);
 		}
 	}
 
 	/// draws horizontal scrollbar
 	void scrollbarHorzDraw(){
-		uint[2] barOffset = scrollbarSize(width, view.width, _scrollX);
-		barOffset[0] += barOffset[1];
-		if (barOffset[0] == 0)
-			return;
-		foreach (i; 0 .. height){
-			dchar ch = '█';
-			if (i < barOffset[1] || i >= barOffset[0] + barOffset[1])
-				ch = ' ';
+		uint[2] barSize = scrollbarSize(_widget.width, width, _scrollX);
+		barSize[1] += barSize[0];
+		foreach (i; 0 .. width){
+			dchar ch = ' ';
+			if (i >= barSize[0] && i < barSize[1])
+				ch = '█';
 			if (!view.moveTo(i, height - 1))
-				return;
+				break;
 			view.write(ch, _scrollbarFg, _scrollbarBg);
 		}
 	}
@@ -1148,6 +1135,12 @@ protected:
 	}
 
 	override bool timerEvent(uint msecs){
+		if (scrollbarVisible){
+			_scrollbarMsecs += msecs;
+			if (!scrollbarVisible)
+				scrollEventCall(_widget); // to get it to draw over scrollbar
+			stderr.writeln("over ", scrollbarVisible);
+		}
 		return timerEventCall(_widget, msecs);
 	}
 
