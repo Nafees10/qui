@@ -1115,11 +1115,35 @@ protected:
 	}
 
 	override bool mouseEvent(MouseEvent mouse){
-		return mouseEventCall(_widget, mouse);
+		if (mouseEventCall(_widget, mouse))
+			return true;
+		if (!_msScroll)
+			return false;
+		if (mouse.button == MouseEvent.Button.ScrollUp && _scrollY > 0){
+			scrollY = scrollY - 1;
+			return true;
+		}
+		if (mouse.button == MouseEvent.Button.ScrollDown && _scrollY < scrollYMax){
+			scrollY = scrollY + 1;
+			return true;
+		}
+		return false;
 	}
 
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
-		return keyboardEventCall(_widget, key, cycle);
+		if (keyboardEventCall(_widget, key, cycle))
+			return true;
+		if (!_pgScroll || cycle)
+			return false;
+		if (key.key == Key.PageUp && _scrollY > 0){
+			scrollY = scrollY - min(scrollY, height);
+			return true;
+		}
+		if (key.key == Key.PageDown && _scrollY < scrollYMax){
+			scrollY = scrollY + height;
+			return true;
+		}
+		return false;
 	}
 
 	override bool resizeEvent(){
@@ -1189,16 +1213,19 @@ public:
 		return _widget;
 	}
 
+	/// upper bound for scrollX (inclusive)
+	@property scrollXMax(){
+		if (!_widget || width >= _widget.width)
+			return 0;
+		return _widget.width - width;
+	}
 	/// scrollX
 	@property uint scrollX(){
 		return _scrollX;
 	}
 	/// ditto
 	@property uint scrollX(uint newVal){
-		if (!_widget || _widget.width <= width)
-			newVal = 0;
-		else if (newVal + width > _widget.width)
-			newVal = _widget.width - width;
+		newVal = min(newVal, scrollXMax);
 		if (newVal == _scrollX)
 			return _scrollX;
 		_scrollX = newVal;
@@ -1208,16 +1235,19 @@ public:
 		return _scrollX;
 	}
 
+	/// upper bound for scrollY (inclusive)
+	@property uint scrollYMax(){
+		if (!_widget || height >= _widget.height)
+			return 0;
+		return _widget.height - height;
+	}
 	/// scrollX
 	@property uint scrollY(){
 		return _scrollY;
 	}
 	/// ditto
 	@property uint scrollY(uint newVal){
-		if (!_widget || _widget.height <= height)
-			newVal = 0;
-		if (newVal + height > _widget.height)
-			newVal = _widget.height - height;
+		newVal = min(newVal, scrollYMax);
 		if (newVal == _scrollY)
 			return _scrollY;
 		_scrollY = newVal;
