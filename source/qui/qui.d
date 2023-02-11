@@ -262,12 +262,12 @@ protected:
 	/// viewport
 	Viewport view;
 
-	/// TODO: Redesign this so the widget doesnt call this itself
 	/// activate the passed widget if this is the correct widget
 	///
 	/// Returns: if it was activated or not
 	bool widgetActivate(QWidget target){
-		if (this != target)
+		// make sure it's for this widget, and parent sent the call
+		if (this != target || !_parent || !_parent.widgetIsActive(this))
 			return false;
 		this._isActive = true;
 		activateEvent(true);
@@ -286,18 +286,18 @@ protected:
 			_parent.requestCursorPos(_posX + x - view.x, _posY + y - view.x);
 	}
 
-	/// called to request to scrollX
+	/// called to request to scrollX. Will do nothing if already visible
 	bool scrollToX(int x){
-		if (!_isActive || !_parent || x < 0 || x > _width)
+		if (!_parent || x < 0 || x > _width)
 			return false;
-		return _parent.scrollToX(_posX + x - view.x);
+		return _parent.scrollToX(_posX + x);
 	}
 
-	/// called to request to scrollY
+	/// called to request to scrollY. Will do nothing if already visible
 	bool scrollToY(int y){
-		if (!_isActive || !_parent || y < 0 || y > _height)
+		if (!_parent || y < 0 || y > _height)
 			return false;
-		return _parent.scrollToY(_posY + y - view.y);
+		return _parent.scrollToY(_posY + y);
 	}
 
 	/// Called when this widget is adopted by a parent, or disowned.
@@ -589,6 +589,7 @@ protected:
 		disownEvent(widget);
 		widget.view._reset;
 		widget._parent = null;
+		widget._isActive = false;
 		adoptEventCall(widget, false);
 		return true;
 	}
@@ -668,6 +669,10 @@ protected:
 			child._customUpdateEvent(child);
 		return child.updateEvent;
 	}
+
+public:
+	/// Returns: true if the widget is the current active widget
+	abstract bool widgetIsActive(QWidget);
 }
 
 /// Layout type
@@ -826,10 +831,8 @@ protected:
 	}
 
 	override bool adoptEvent(bool adopted){
-		if (!adopted){
-			activeWidgetIndex = cast(uint)widgets.length;
+		if (!adopted)
 			return true;
-		}
 		_sizeCacheReset;
 		requestUpdate;
 		requestResize;
@@ -911,6 +914,11 @@ public:
 	override void requestResize(){
 		_sizeCacheReset;
 		super.requestResize;
+	}
+
+	override bool widgetIsActive(QWidget widget){
+		return widget !is null && activeWidgetIndex < widgets.length &&
+			widget == widgets[activeWidgetIndex];
 	}
 
 	/// Adds a widget at end
@@ -1094,16 +1102,20 @@ protected:
 	}
 
 	override bool scrollToX(int x){
-		if (width <= view.width || x < 0)
+		if (!_widget || _widget.width <= view.width || x < 0)
 			return false;
-		scrollX = min(x, width - view.width);
+		if (x <= scrollX || x > scrollX + width)
+			scrollX = min(x, scrollXMax);
+		super.scrollToX(x);
 		return true;
 	}
 
 	override bool scrollToY(int y){
-		if (height <= view.height || y < 0)
+		if (!_widget || _widget.height <= view.height || y < 0)
 			return false;
-		scrollY = min(y, height - view.height);
+		if (y < scrollY || y > scrollY + height)
+			scrollY = min(y, scrollYMax);
+		super.scrollToY(y);
 		return true;
 	}
 
@@ -1182,7 +1194,7 @@ protected:
 		scrollbarVertDraw;
 		scrollbarHorzDraw;
 		if (view.moveTo(width - 1, height - 1))
-			view.write('┘', _scrollbarFg, _scrollbarBg);
+			view.write(' ', _scrollbarFg, _scrollbarBg);
 		return true;
 	}
 
@@ -1211,6 +1223,10 @@ public:
 		_scrollX = _scrollY = 0;
 		requestResize;
 		return _widget;
+	}
+
+	override bool widgetIsActive(QWidget widget){
+		return widget !is null && _widget == widget;
 	}
 
 	/// upper bound for scrollX (inclusive)
