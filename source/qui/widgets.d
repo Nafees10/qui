@@ -19,17 +19,17 @@ protected:
 	override bool adoptEvent(bool adopted){
 		if (!adopted)
 			return false;
-		requestResize;
+		resize;
 		return true;
 	}
 
 	override bool scrollEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
 	override bool resizeEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
@@ -76,17 +76,17 @@ protected:
 	override bool adoptEvent(bool adopted){
 		if (!adopted)
 			return false;
-		requestResize;
+		resize;
 		return true;
 	}
 
 	override bool scrollEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
 	override bool resizeEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
@@ -116,7 +116,7 @@ public:
 		_caption = newCaption;
 		_maxWidth = cast(uint)caption.length;
 		_minWidth = _maxWidth;
-		requestUpdate;
+		update;
 		return _caption;
 	}
 
@@ -127,7 +127,7 @@ public:
 	/// ditto
 	@property Color textColor(Color newColor){
 		_fg = newColor;
-		requestUpdate;
+		update;
 		return _fg;
 	}
 
@@ -138,7 +138,7 @@ public:
 	/// ditto
 	@property Color backColor(Color newColor){
 		_bg = newColor;
-		requestUpdate;
+		update;
 		return _bg;
 	}
 
@@ -219,20 +219,28 @@ protected:
 			_x = cast(uint)text.length;
 	}
 
+	override bool activateEvent(bool isActive){
+		if (!isActive)
+			return false;
+		cursorPos(_x, 0);
+		update;
+		return true;
+	}
+
 	override bool adoptEvent(bool adopted){
 		if (!adopted)
 			return false;
-		requestResize;
+		resize;
 		return true;
 	}
 
 	override bool resizeEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
 	override bool scrollEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
@@ -241,9 +249,8 @@ protected:
 				mouse.state != MouseEvent.State.Click)
 			return false;
 		_x = mouse.x;
-		if (_x > _text.length)
-			_x = cast(uint)_text.length;
-		requestUpdate;
+		cursorCorrect;
+		update;
 		return true;
 	}
 
@@ -269,7 +276,7 @@ protected:
 					cursorInsert(key.key);
 			}
 		}
-		requestUpdate;
+		update;
 		return true;
 	}
 
@@ -278,6 +285,7 @@ protected:
 		if (view.x < _text.length)
 			view.write(cast(dstring)_text[view.x .. $], _fg, _bg);
 		view.fillLine(' ', _fg, _bg);
+		cursorPos(_x, 0);
 		return true;
 	}
 public:
@@ -294,7 +302,7 @@ public:
 	/// ditto
 	@property dstring text(dstring newText){
 		_text = cast(dchar[])newText.dup;
-		requestUpdate;
+		update;
 		return cast(dstring)newText;
 	}
 
@@ -309,7 +317,7 @@ public:
 	/// ditto
 	@property Color textColor(Color newColor){
 		_fg = newColor;
-		requestUpdate;
+		update;
 		return _fg;
 	}
 
@@ -320,7 +328,7 @@ public:
 	/// ditto
 	@property Color backColor(Color newColor){
 		_bg = newColor;
-		requestUpdate;
+		update;
 		return _bg;
 	}
 
@@ -396,12 +404,12 @@ protected:
 	}
 
 	override bool resizeEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
 	override bool scrollEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 public:
@@ -424,7 +432,7 @@ public:
 		}else{
 			_logs ~= item;
 		}
-		requestUpdate;
+		update;
 	}
 	/// ditto
 	void add(string item){
@@ -435,7 +443,7 @@ public:
 	void clear(){
 		_logs.length = 0;
 		_startIndex = 0;
-		requestUpdate;
+		update;
 	}
 
 	/// text color
@@ -445,7 +453,7 @@ public:
 	/// ditto
 	@property Color textColor(Color newColor){
 		_fg = newColor;
-		requestUpdate;
+		update;
 		return _fg;
 	}
 	/// background color
@@ -455,7 +463,7 @@ public:
 	/// ditto
 	@property Color backColor(Color newColor){
 		_bg = newColor;
-		requestUpdate;
+		update;
 		return _bg;
 	}
 }
@@ -468,12 +476,12 @@ private:
 
 protected:
 	override bool resizeEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
 	override bool scrollEvent(){
-		requestUpdate;
+		update;
 		return true;
 	}
 
@@ -498,7 +506,7 @@ public:
 	/// ditto
 	@property Color color(Color newColor){
 		_color = newColor;
-		requestUpdate;
+		update;
 		return _color;
 	}
 }
