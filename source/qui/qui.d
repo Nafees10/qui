@@ -226,8 +226,6 @@ private:
 	uint _width;
 	/// height of widget
 	uint _height;
-	/// if this widget is the active widget
-	bool _isActive = false;
 	/// if this widget is requesting update
 	bool _requestingUpdate = true;
 	/// the parent widget
@@ -269,35 +267,53 @@ protected:
 		// make sure it's for this widget, and parent sent the call
 		if (this != target || !_parent || !_parent.widgetIsActive(this))
 			return false;
-		this._isActive = true;
 		activateEvent(true);
 		return true;
 	}
 
-	/// to set cursor position on terminal.
-	/// only works if this is active widget.
-	/// set x or y or both to negative to hide cursor
-	void requestCursorPos(int x, int y){
-		if (!_isActive || !_parent)
-			return;
+	/// request parent to set cursor to a position
+	/// Returns: true if done, false if not
+	final bool cursorPos(int x, int y){
+		if (!_parent)
+			return false;
 		if (x < 0 || y < 0)
-			_parent.requestCursorPos(-1, -1);
-		else
-			_parent.requestCursorPos(_posX + x - view.x, _posY + y - view.x);
+			return _parent.requestCursorPos(this, -1, -1);
+		return _parent.requestCursorPos(this,
+				_posX + x - view.x, _posY + y - view.x);
 	}
 
-	/// called to request to scrollX. Will do nothing if already visible
-	bool scrollToX(int x){
+	/// request parent to adjust horizontal scroll so cell at column x is visible
+	/// Returns: true if done, false if not
+	final bool scrollToX(int x){
 		if (!_parent || x < 0 || x > _width)
 			return false;
-		return _parent.scrollToX(_posX + x);
+		return _parent.requestScrollToX(this, _posX + x);
 	}
 
-	/// called to request to scrollY. Will do nothing if already visible
-	bool scrollToY(int y){
+	/// request parent to adjust vertical scroll so cell at row y is visible
+	/// Returns: true if done, false if not
+	final bool scrollToY(int y){
 		if (!_parent || y < 0 || y > _height)
 			return false;
-		return _parent.scrollToY(_posY + y);
+		return _parent.requestScrollToY(this, _posY + y);
+	}
+
+	/// trigger update event
+	/// Returns: true if parent acknowledged, false if not
+	final bool update(){
+		if (!_parent)
+			return false;
+		if (_requestingUpdate)
+			return true;
+		return _requestingUpdate = _parent.requestUpdate(this);
+	}
+
+	/// Requests parent widget to resize it **Do not call this in a resizeEvent**
+	/// Returns: true if parent acknowledged, false if not
+	final bool resize(){
+		if (!_parent)
+			return false;
+		return _parent.requestResize(this);
 	}
 
 	/// Called when this widget is adopted by a parent, or disowned.
@@ -343,22 +359,6 @@ protected:
 	}
 
 public:
-	/// Requests parent widget to update it
-	void requestUpdate(){
-		if (_requestingUpdate)
-			return;
-		_requestingUpdate = true;
-		if (_parent)
-			_parent.requestUpdate;
-	}
-
-	/// Requests parent widget to resize it
-	/// **Do not call this in a resizeEvent**
-	void requestResize(){
-		if (_parent)
-			_parent.requestResize;
-	}
-
 	/// custom initialize event
 	final @property AdoptEventFunction onAdoptEvent(AdoptEventFunction func){
 		return _customAdoptEvent = func;
@@ -401,11 +401,6 @@ public:
 		return _customUpdateEvent = func;
 	}
 
-	/// Returns: true if this widget is the current active widget
-	final @property bool isActive() const {
-		return _isActive;
-	}
-
 	/// width of widget
 	final @property uint width() const {
 		return _width;
@@ -439,16 +434,39 @@ public:
 		return false;
 	}
 
+	/// Sets min/max width constraints.
+	/// Returns: true if done, false if invalid and not done
+	bool widthConstraint(uint min = 0, uint max = 0){
+		if (min && max && max < min)
+			return false;
+		_minWidth = min;
+		_maxWidth = max;
+		resize;
+		return true;
+	}
+
+	/// Sets min/max height constraints
+	/// Returns: true if done, false if invalid and not done
+	bool heightConstraint(uint min = 0, uint max = 0){
+		if (min && max && max < min)
+			return false;
+		_minHeight = min;
+		_maxHeight = max;
+		resize;
+		return true;
+	}
+
+	/// Sets min/max width/height constraints.
+	/// Returns: true if done, false if invalid and not done
+	final bool sizeConstraint(uint minWidth = 0, uint maxWidth = 0,
+			uint minHeight = 0, uint maxHeight = 0){
+		return widthConstraint(minWidth, maxWidth) |
+				heightConstraint(minHeight, maxHeight);
+	}
+
 	/// minimum width
 	@property uint minWidth(){
 		return _minWidth;
-	}
-
-	/// ditto
-	@property uint minWidth(uint value){
-		_minWidth = value;
-		requestResize;
-		return minWidth;
 	}
 
 	/// minimum height
@@ -456,41 +474,63 @@ public:
 		return _minHeight;
 	}
 
-	/// ditto
-	@property uint minHeight(uint value){
-		_minHeight = value;
-		requestResize;
-		return minHeight;
-	}
-
 	/// maximum width
 	@property uint maxWidth(){
 		return _maxWidth;
-	}
-
-	/// ditto
-	@property uint maxWidth(uint value){
-		_maxWidth = value;
-		requestResize;
-		return maxWidth;
 	}
 
 	/// maximum height
 	@property uint maxHeight(){
 		return _maxHeight;
 	}
-
-	/// ditto
-	@property uint maxHeight(uint value){
-		_maxHeight = value;
-		requestResize;
-		return maxHeight;
-	}
 }
 
 /// Base class for parent widgets
 abstract class QParent : QWidget{
 protected:
+	/// Called when this widget was made to disown a child
+	void disownEvent(QWidget widget){}
+
+	/// when widget is requesting to place cursor at x,y
+	/// x or y will be negative to indicate hiding cursor
+	/// Returns: true if done, false if not
+	bool requestCursorPos(QWidget widget, int x, int y){
+		// only let active widget do this
+		if (!widgetIsActive(widget))
+			return false;
+		return cursorPos(x, y);
+	}
+
+	/// when widget is requesting to adjust horizontal scroll so the column at
+	/// x is visible.
+	/// Returns: true if done, false if not
+	bool requestScrollToX(QWidget widget, int x){
+		if (!widgetIsActive(null) && !widgetIsActive(widget))
+			return false;
+		return scrollToX(x);
+	}
+
+	/// when widget is requesting to adjust vertical scroll so the row at
+	/// y is visible.
+	/// Returns: true if done, false if not
+	bool requestScrollToY(QWidget widget, int y){
+		if (!widgetIsActive(null) && !widgetIsActive(widget))
+			return false;
+		return scrollToY(y);
+	}
+
+	/// when widget is requesting update event
+	/// Returns: true if request accepted, false if not
+	bool requestUpdate(QWidget widget){
+		return update;
+	}
+
+	/// when widget is requesting to be resized
+	/// Returns: true if accepted, false if not
+	bool requestResize(QWidget widget){
+		return resize;
+	}
+
 	/// positions child widget on X axis
 	final void widgetPositionX(QWidget child, uint x){
 		if (!child || child._parent != this)
@@ -565,9 +605,6 @@ protected:
 		return widgetSizeWidth(child, width) & widgetSizeHeight(child, height);
 	}
 
-	/// Called when this widget was made to disown a child
-	void disownEvent(QWidget widget){}
-
 	/// Adopt another widget (i.e become its parent)
 	/// If the widget already has a parent, the current parent will disown it
 	/// i.e: current parent will receive a `disownEvent`
@@ -589,7 +626,6 @@ protected:
 		disownEvent(widget);
 		widget.view._reset;
 		widget._parent = null;
-		widget._isActive = false;
 		adoptEventCall(widget, false);
 		return true;
 	}
@@ -643,9 +679,8 @@ protected:
 
 	/// Calls activateEvent on child
 	final bool activateEventCall(QWidget child, bool isActive){
-		if (!child || child._parent != this || isActive == child._isActive)
+		if (!child || child._parent != this)
 			return false;
-		child._isActive = isActive;
 		if (child._customActivateEvent)
 			child._customActivateEvent(child, isActive);
 		return child.activateEvent(isActive);
@@ -672,6 +707,7 @@ protected:
 
 public:
 	/// Returns: true if the widget is the current active widget
+	/// if no widget is active, then it should return true for `null` input
 	abstract bool widgetIsActive(QWidget);
 }
 
@@ -785,10 +821,11 @@ protected:
 	/// Gets next candidate for focus
 	/// Returns: index of widget, or >= widgets.length if none
 	uint activeWidgetNext(){
-		foreach (i; 1 .. widgets.length + (activeWidgetIndex >= widgets.length)){
-			immutable uint index = cast(uint)(i + activeWidgetIndex) % widgets.length;
-			QWidget widget = widgets[index];
-			if (widget.wantsFocus)
+		uint index = activeWidgetIndex + 1;
+		if (index >= widgets.length)
+			index = 0;
+		for (; index < widgets.length; index ++){
+			if (widgets[index].wantsFocus)
 				return index;
 		}
 		return uint.max;
@@ -826,16 +863,16 @@ protected:
 		widgets[index .. $ - 1] = widgets[index + 1 .. $];
 		widgets.length --;
 		_sizeCacheReset;
-		requestResize;
-		requestUpdate;
+		resize;
+		update;
 	}
 
 	override bool adoptEvent(bool adopted){
 		if (!adopted)
 			return true;
 		_sizeCacheReset;
-		requestUpdate;
-		requestResize;
+		resize;
+		update;
 		return true;
 	}
 
@@ -911,14 +948,9 @@ public:
 		_sizeCacheReset;
 	}
 
-	override void requestResize(){
-		_sizeCacheReset;
-		super.requestResize;
-	}
-
 	override bool widgetIsActive(QWidget widget){
-		return widget !is null && activeWidgetIndex < widgets.length &&
-			widget == widgets[activeWidgetIndex];
+		return (widget is null && activeWidgetIndex >= widgets.length) ||
+			(widgets[activeWidgetIndex] == widget);
 	}
 
 	/// Adds a widget at end
@@ -928,7 +960,7 @@ public:
 			return;
 		adopt(widget);
 		widgets ~= widget;
-		requestResize;
+		resize;
 	}
 
 	/// Removes a widget
@@ -936,7 +968,7 @@ public:
 	bool widgetRemove(QWidget widget){
 		if (widgets.countUntil(widget) < 0 || !disown(widget))
 			return false;
-		requestResize;
+		resize;
 		return true;
 	}
 
@@ -945,6 +977,14 @@ public:
 			if (widget.wantsFocus)
 				return true;
 		}
+		return false;
+	}
+
+	override bool widthConstraint(uint = 0, uint = 0){
+		return false;
+	}
+
+	override bool heightConstraint(uint = 0, uint = 0){
 		return false;
 	}
 
@@ -964,10 +1004,6 @@ public:
 		return _minWidth;
 	}
 
-	override @property uint minWidth(uint val){
-		return minWidth;
-	}
-
 	override @property uint minHeight(){
 		if (_minHeight != uint.max)
 			return _minHeight;
@@ -982,10 +1018,6 @@ public:
 				_minHeight += widget.heightConstrained * widget.minHeight;
 		}
 		return _minHeight;
-	}
-
-	override @property uint minHeight(uint val){
-		return minHeight;
 	}
 
 	override @property uint maxWidth(){
@@ -1005,10 +1037,6 @@ public:
 			}
 		}
 		return _maxWidth;
-	}
-
-	override @property uint maxWidth(uint val){
-		return maxWidth;
 	}
 
 	override @property uint maxHeight(){
@@ -1038,8 +1066,6 @@ alias QVerticalLayout = QLayout!(QLayoutType.Vertical);
 /// It will create virtual space, which can be scrolled, to fit larger widgets
 /// in smaller spaces.
 /// its maxHeight and maxWidth are equal to it's child's minimum sizes
-///
-/// TODO: implement input handling for scrolling
 class QContainer : QParent{
 private:
 	/// scroll offsets
@@ -1101,8 +1127,21 @@ protected:
 		}
 	}
 
-	override bool scrollToX(int x){
-		if (!_widget || _widget.width <= view.width || x < 0)
+	override bool widgetActivate(QWidget target){
+		if (!_widget)
+			return false;
+		return _widget.widgetActivate(target);
+	}
+
+	override bool requestResize(QWidget widget){
+		if (!_widget || widget != _widget)
+			return false;
+		resizeEvent;
+		return true;
+	}
+
+	override bool requestScrollToX(QWidget widget, int x){
+		if (!_widget || widget != _widget || _widget.width <= view.width || x < 0)
 			return false;
 		if (x <= scrollX || x > scrollX + width)
 			scrollX = min(x, scrollXMax);
@@ -1110,8 +1149,8 @@ protected:
 		return true;
 	}
 
-	override bool scrollToY(int y){
-		if (!_widget || _widget.height <= view.height || y < 0)
+	override bool requestScrollToY(QWidget widget, int y){
+		if (!_widget || widget != _widget || _widget.height <= view.height || y < 0)
 			return false;
 		if (y < scrollY || y > scrollY + height)
 			scrollY = min(y, scrollYMax);
@@ -1202,11 +1241,6 @@ public:
 	/// constructor
 	this(){}
 
-	override void requestResize(){
-		// just resize right now, its free real estate inside container
-		resizeEvent;
-	}
-
 	/// widget to contain
 	@property QWidget widget(){
 		return _widget;
@@ -1221,12 +1255,17 @@ public:
 			widgetPosition(_widget, 0, 0);
 		}
 		_scrollX = _scrollY = 0;
-		requestResize;
+		resize;
 		return _widget;
 	}
 
 	override bool widgetIsActive(QWidget widget){
-		return widget !is null && _widget == widget;
+		return _widget == widget;
+	}
+
+	override @property bool wantsFocus() const {
+		return _widget &&
+			(_widget.wantsFocus || _widget.height > height || _widget.width > width);
 	}
 
 	/// upper bound for scrollX (inclusive)
@@ -1247,7 +1286,7 @@ public:
 		_scrollX = newVal;
 		_scrollbarMsecs = 0;
 		scrollEvent;
-		requestUpdate;
+		update;
 		return _scrollX;
 	}
 
@@ -1269,8 +1308,16 @@ public:
 		_scrollY = newVal;
 		_scrollbarMsecs = 0;
 		scrollEvent;
-		requestUpdate;
+		update;
 		return _scrollY;
+	}
+
+	override bool widthConstraint(uint min = 0, uint max = 0){
+		return super.widthConstraint(min, 0); // dont allow max to be non-zero
+	}
+
+	override bool heightConstraint(uint min = 0, uint max = 0){
+		return super.heightConstraint(min, 0); // dont allow max to be non-zero
 	}
 
 	override @property uint maxWidth(){
@@ -1278,17 +1325,11 @@ public:
 			return _widget.maxWidth;
 		return 0;
 	}
-	override @property uint maxWidth(uint newVal){
-		return maxWidth;
-	}
 
 	override @property uint maxHeight(){
 		if (_widget)
 			return _widget.maxHeight;
 		return 0;
-	}
-	override @property uint maxHeight(uint newVal){
-		return maxHeight;
 	}
 }
 
@@ -1340,10 +1381,35 @@ private:
 	}
 
 protected:
+	/// positions cursor
+	void cursorPosition(){
+		if (_cursorX < 0 || _cursorY < 0){
+			_termWrap.cursorVisible = false;
+		}else{
+			_termWrap.moveCursor(_cursorX, _cursorY);
+			_termWrap.cursorVisible = true;
+		}
+	}
 
-	override void requestCursorPos(int x, int y){
+	/// Resets cursor position
+	void cursorReset(){
+		_cursorX = -1;
+		_cursorY = -1;
+	}
+
+	override bool requestCursorPos(QWidget widget, int x, int y){
+		if (!_widget || widget != _widget)
+			return false;
 		_cursorX = x;
 		_cursorY = y;
+		return true;
+	}
+
+	override bool requestUpdate(QWidget widget){
+		if (!_widget || widget != _widget)
+			return false;
+		_requestingUpdate = true;
+		return true;
 	}
 
 	override bool mouseEvent(MouseEvent mouse){
@@ -1357,7 +1423,19 @@ protected:
 			key.key == _activeWidgetCycleKey;
 		if (_customKeyboardEvent)
 			_customKeyboardEvent(this, key, cycle);
-		return super.keyboardEvent(key, cycle);
+		if (keyboardEventCall(_widget, key, cycle))
+			return true;
+		if (!_pgScroll)
+			return false;
+		if (key.key == Key.PageUp && _scrollY > 0){
+			scrollY = scrollY - min(scrollY, height);
+			return true;
+		}
+		if (key.key == Key.PageDown && _scrollY < scrollYMax){
+			scrollY = scrollY + height;
+			return true;
+		}
+		return false;
 	}
 
 	override bool resizeEvent(){
@@ -1380,19 +1458,13 @@ protected:
 	override bool updateEvent(){
 		if (!_requestingUpdate)
 			return false;
+		cursorReset;
 		_requestingUpdate = false;
-		_cursorX = -1;
-		_cursorY = -1;
 		super.updateEvent;
 		// flush view._buffer to _termWrap
 		_flushBuffer;
-		// check if need to show/hide cursor
-		if (_cursorX < 0 || _cursorY < 0){
-			_termWrap.cursorVisible = false;
-		}else{
-			_termWrap.moveCursor(_cursorX, _cursorY);
-			_termWrap.cursorVisible = true;
-		}
+		cursorPosition;
+		stderr.writefln!"cursor: %d,%d"(_cursorX, _cursorY);
 		_termWrap.flush;
 		return true;
 	}
@@ -1405,10 +1477,6 @@ public:
 	/// minimum time to wait before updating, between events
 	ushort updateMsecs = 50; // 20 updates per second
 
-	override void requestUpdate(){
-		_requestingUpdate = true;
-	}
-
 	/// constructor
 	this(){
 		// HACK: fix for issue #18 (resizing on alacritty borked)
@@ -1416,8 +1484,6 @@ public:
 			environment["TERM"] = "xterm";
 
 		_termWrap = new TermWrapper;
-		// so it can make other widgets active on mouse events
-		this._isActive = true;
 	}
 	~this(){
 		.destroy(_termWrap);
@@ -1428,7 +1494,7 @@ public:
 		_isRunning = false;
 	}
 
-	/// starts the UI loop
+	/// runs the UI loop
 	void run(){
 		resizeEvent;
 		_isRunning = true;
