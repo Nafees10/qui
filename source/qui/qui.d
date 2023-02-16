@@ -230,6 +230,8 @@ private:
 	bool _requestingUpdate = true;
 	/// the parent widget
 	QParent _parent;
+	/// cursor X/Y
+	int _cursorX = -1, _cursorY = -1;
 
 	/// custom adopt event
 	AdoptEventFunction _customAdoptEvent;
@@ -264,22 +266,17 @@ protected:
 	///
 	/// Returns: if it was activated or not
 	bool widgetActivate(QWidget target){
-		// make sure it's for this widget, and parent sent the call
-		if (this != target || !_parent || !_parent.widgetIsActive(this))
-			return false;
-		activateEvent(true);
-		return true;
+		return this == target && _parent && _parent.widgetIsActive(this);
 	}
 
-	/// request parent to set cursor to a position
-	/// Returns: true if done, false if not
-	final bool cursorPos(int x, int y){
-		if (!_parent)
-			return false;
-		if (x < 0 || y < 0)
-			return _parent.requestCursorPos(this, -1, -1);
-		return _parent.requestCursorPos(this,
-				_posX + x - view.x, _posY + y - view.x);
+	/// Sets cursor position. Only takes affect during update
+	final void cursorPos(int x, int y){
+		if (x < 0 || y < 0){
+			_cursorX = _cursorY = -1;
+			return;
+		}
+		_cursorX = _posX + x - view.x;
+		_cursorY = _posY + y - view.y;
 	}
 
 	/// request parent to adjust horizontal scroll so cell at column x is visible
@@ -487,19 +484,10 @@ public:
 
 /// Base class for parent widgets
 abstract class QParent : QWidget{
+private:
 protected:
 	/// Called when this widget was made to disown a child
 	void disownEvent(QWidget widget){}
-
-	/// when widget is requesting to place cursor at x,y
-	/// x or y will be negative to indicate hiding cursor
-	/// Returns: true if done, false if not
-	bool requestCursorPos(QWidget widget, int x, int y){
-		// only let active widget do this
-		if (!widgetIsActive(widget))
-			return false;
-		return cursorPos(x, y);
-	}
 
 	/// when widget is requesting to adjust horizontal scroll so the column at
 	/// x is visible.
@@ -683,7 +671,12 @@ protected:
 			return false;
 		if (child._customActivateEvent)
 			child._customActivateEvent(child, isActive);
-		return child.activateEvent(isActive);
+		bool ret = child.activateEvent(isActive);
+		if (widgetIsActive(child)){
+			cursorPos(child._cursorX, child._cursorY);
+			update;
+		}
+		return ret;
 	}
 
 	/// Calls timerEvent on child
@@ -697,12 +690,18 @@ protected:
 
 	/// Calls updateEvent on child
 	final bool updateEventCall(QWidget child){
-		if (!child || child._parent != this || !child._requestingUpdate)
+		if (!child || child._parent != this)
 			return false;
-		child._requestingUpdate = false;
-		if (child._customUpdateEvent)
-			child._customUpdateEvent(child);
-		return child.updateEvent;
+		bool ret = false;
+		if (child._requestingUpdate){
+			child._requestingUpdate = false;
+			if (child._customUpdateEvent)
+				child._customUpdateEvent(child);
+			ret = child.updateEvent;
+		}
+		if (widgetIsActive(child))
+			cursorPos(child._cursorX, child._cursorY);
+		return ret;
 	}
 
 public:
@@ -815,7 +814,7 @@ protected:
 					return ret;
 			}
 		}
-		return cast(uint)widgets.length;
+		return uint.max;
 	}
 
 	/// Gets next candidate for focus
@@ -835,15 +834,14 @@ protected:
 	void widgetActivate(uint index){
 		if (activeWidgetIndex == index)
 			return;
-		if (activeWidgetIndex < widgets.length){
+		if (activeWidgetIndex < widgets.length)
 			activateEventCall(widgets[activeWidgetIndex], false);
-		}
 		if (index < widgets.length && widgets[index].wantsFocus){
 			activeWidgetIndex = index;
 			activateEventCall(widgets[activeWidgetIndex], true);
 			return;
 		}
-		activeWidgetIndex = cast(uint)widgets.length;
+		activeWidgetIndex = uint.max;
 	}
 
 	override bool widgetActivate(QWidget target){
@@ -1341,8 +1339,6 @@ private:
 	bool _isRunning;
 	/// the key used for cycling active widget
 	dchar _activeWidgetCycleKey = WIDGET_CYCLE_KEY;
-	/// cursor position
-	int _cursorX = -1, _cursorY = -1;
 
 	/// Reads InputEvent and calls appropriate functions
 	void _readEvent(Event event){
@@ -1393,16 +1389,7 @@ protected:
 
 	/// Resets cursor position
 	void cursorReset(){
-		_cursorX = -1;
-		_cursorY = -1;
-	}
-
-	override bool requestCursorPos(QWidget widget, int x, int y){
-		if (!_widget || widget != _widget)
-			return false;
-		_cursorX = x;
-		_cursorY = y;
-		return true;
+		_cursorX = _cursorY = -1;
 	}
 
 	override bool requestUpdate(QWidget widget){
@@ -1464,7 +1451,6 @@ protected:
 		// flush view._buffer to _termWrap
 		_flushBuffer;
 		cursorPosition;
-		stderr.writefln!"cursor: %d,%d"(_cursorX, _cursorY);
 		_termWrap.flush;
 		return true;
 	}
@@ -1479,7 +1465,8 @@ public:
 
 	/// constructor
 	this(){
-		// HACK: fix for issue #18 (resizing on alacritty borked)
+		// HACK: "fix" for issue #18 (resizing on alacritty borked)
+		// TODO: maybe move this to termwrap?
 		if (environment["TERM"] == "alacritty")
 			environment["TERM"] = "xterm";
 
