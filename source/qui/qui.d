@@ -674,7 +674,8 @@ protected:
 		bool ret = child.activateEvent(isActive);
 		if (widgetIsActive(child)){
 			cursorPos(child._cursorX, child._cursorY);
-			update;
+			update; // HACK: to fix cursor position in case no widget actually want
+							// to update
 		}
 		return ret;
 	}
@@ -1136,6 +1137,12 @@ protected:
 			return false;
 		resizeEvent;
 		return true;
+	}
+
+	override bool requestUpdate(QWidget widget){
+		if (!_widget || widget != _widget)
+			return false;
+		return update;
 	}
 
 	override bool requestScrollToX(QWidget widget, int x){
