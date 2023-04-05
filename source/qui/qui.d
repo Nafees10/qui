@@ -42,6 +42,18 @@ alias AdoptEventFunction = void delegate(QWidget, bool);
 /// UpdateEvent function.
 alias UpdateEventFunction = void delegate(QWidget);
 
+/// Event types
+enum EventType{
+	Mouse,
+	Keyboard,
+	Resize,
+	Scroll,
+	Activate,
+	Timer,
+	Adopt,
+	Update
+}
+
 /// Display buffer
 struct Viewport{
 private:
@@ -202,17 +214,6 @@ public:
 		_incSeekX(r);
 		return r;
 	}
-}
-
-/// Returns: size after considering minimum and maximum allowed
-///
-/// if `min==0`, it is ignored. if `max==0`, it is ignored
-private uint getLimitedSize(uint calculated, uint min, uint max){
-	if (min && calculated < min)
-		return min;
-	if (max && calculated > max)
-		return max;
-	return calculated;
 }
 
 /// Base class for all widgets, including layouts and QTerminal
