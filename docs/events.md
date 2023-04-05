@@ -65,20 +65,15 @@ These can be assigned like:
 ```D
 QWidget.onInitEvent = delegate(QWidget callerWidget){
 	// do stuff
-	return false; // return true to prevent widget receiving event
 }
 QWidget.onTimerEvent = delegate(QWidget callerWidget, uint msecs){
 	// do stuff
-	return false;
 }
 QWidget.onMouseEvent = delegate(QWidget callerWidget, MouseEvent mouse){
 	// do stuff
-	return false;
 }
 ```
 All events can be assigned custom event handlers in this manner.
 
 These functions are called before the event handler of that widget is called.
-And if the custom handler returns true, the event is dropped and the event
-handler for widget is **not** called.
 
