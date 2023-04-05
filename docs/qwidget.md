@@ -13,31 +13,36 @@ only through their respective getters:
 
 The following can be used to send requests to the parent widget this widget
 resides in, only if this widget is the active widget:
-* `scrollToX(uint)` - Request parent to scroll to an X coordinate
-* `scrollToY(uint)` - Request parent to scroll to an Y coordinate
-* `requestCursorPos(x, y)` - Request parent to draw cursor at x, y.
+* `bool scrollToX(uint)` - Request parent to scroll to an X coordinate
+* `bool scrollToY(uint)` - Request parent to scroll to an Y coordinate
+* `void cursorPos(x, y)` - Request parent to draw cursor at x, y.
 	Sending negative values for either x or y will hide the cursor.
+
+The following work even if this widget is not the active widget:
+* `bool update()` - requests parent to update this widget. Without calling
+	this, the `updateEvent` will never occur.
+* `bool resize()` - requests parent to resize widgets. This should be called
+	when the widget wishes to be resized. **Do not call in a resizeEvent**
 
 The `view` property, of type `Viewport`, can be used to draw on the area
 designated to the widget. See `docs/viewport.md`.
 
+Event handling functions are also protected. See `docs/events.md`
+
 ## Public
 
 Functions:
-* `requestUpdate()` - requests parent to update this widget. Without calling
-	this, the `updateEvent` will never occur.
-* `requestResize()` - requests parent to resize widgets. This should be called
-	when the widget wishes to be resized.
+* `bool heightConstraint(uint min, uint max)` - For setting min/maxHeight
+* `bool widthConstraint(uint min, uint max)` - For setting min/maxWidth
+* `bool sizeConstraint(minWidth, maxWidth, minHeight, maxHeight)`
 
 Properties:
-* `bool isActive` _final_ - If this is currently the focused widget.
-	i.e: all keyboard input will be directed towards it.
 * `uint width` _final_ - Width of this widget.
 * `uint height` _final_ - Height of this widget.
-* `uint minWidth` - Minimum width. Setter triggers a resize event.
-* `uint maxWdith` - Maximum width. Setter triggers a resize event.
-* `uint minHeight` - Minimum height. Setter triggers a resize event.
-* `uint maxHeight` - Maximum height. Setter triggers a resize event.
+* `uint minWidth` - Minimum width.
+* `uint maxWdith` - Maximum width.
+* `uint minHeight` - Minimum height.
+* `uint maxHeight` - Maximum height.
 * `bool heightConstrained` _final_ - Whether the min/max height constraints
 	apply. This is determined by if either min/max is non-zero, and if both are
 	non-zero, then `min <= max`
