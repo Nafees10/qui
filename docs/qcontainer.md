@@ -11,6 +11,8 @@ The following public properties are available:
 * `QWidget widget` _setter/getter_ - the child widget
 * `uint scrollX` _setter/getter_ - how many rows scrolled out of view
 * `uint scrollY` _setter/getter_ - how many columns scrolled out of view
+* `uint scrollbarVisibleForMsecs` _setter/getter_ - how many milliseconds the
+	scrollbar is visible for, after scrolling
 
 ## Events
 
