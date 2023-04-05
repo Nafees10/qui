@@ -42,18 +42,6 @@ alias AdoptEventFunction = void delegate(QWidget, bool);
 /// UpdateEvent function.
 alias UpdateEventFunction = void delegate(QWidget);
 
-/// Event types
-enum EventType{
-	Mouse,
-	Keyboard,
-	Resize,
-	Scroll,
-	Activate,
-	Timer,
-	Adopt,
-	Update
-}
-
 /// Display buffer
 struct Viewport{
 private:
@@ -1272,6 +1260,16 @@ public:
 	override @property bool wantsFocus() const {
 		return _widget &&
 			(_widget.wantsFocus || _widget.height > height || _widget.width > width);
+	}
+
+	/// Returns: number of milliseconds the scrollbar is visible for, after
+	/// scrolling
+	@property uint scrollbarVisibleForMsecs() const {
+		return _scrollbarVisibleForMsecs;
+	}
+	/// ditto
+	@property uint scrollbarVisibleForMsecs(uint newVal){
+		return _scrollbarVisibleForMsecs = newVal;
 	}
 
 	/// upper bound for scrollX (inclusive)
