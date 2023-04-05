@@ -723,13 +723,14 @@ private:
 
 	/// Resets sizes caches
 	void _sizeCacheReset(){
+		// uint.max indicates yet to be calculated
 		_maxWidth = _maxHeight = _minWidth = _minHeight = uint.max;
 	}
 
 protected:
 	/// widgets
 	QWidget[] widgets;
-	/// active widget index. `>=_widgets.length` when no widgets
+	/// active widget index. `>=widgets.length` when no widgets
 	uint activeWidgetIndex;
 
 	/// recalculates all widgets' sizes
@@ -848,7 +849,7 @@ protected:
 		int index = cast(int)widgets.countUntil(widget);
 		if (index < 0)
 			return;
-		widgets[index .. $ - 1] = widgets[index + 1 .. $];
+		widgets[index .. $ - 1] = widgets[index + 1 .. $]; // TODO: test this
 		widgets.length --;
 		_sizeCacheReset;
 		resize;
@@ -895,7 +896,8 @@ protected:
 	}
 
 	override bool scrollEvent(){
-		widgetsReposition;
+		foreach (widget; widgets)
+			widgetViewportAssign(widget);
 		foreach (widget; widgets)
 			scrollEventCall(widget);
 		return true;
@@ -932,7 +934,6 @@ public:
 	alias Type = QLayoutType;
 	/// constructor
 	this(){
-		// in this widget, uint.max indicates yet to be calculated
 		_sizeCacheReset;
 	}
 
