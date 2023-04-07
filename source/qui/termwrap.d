@@ -33,17 +33,20 @@ package struct Event{
 	struct Keyboard{
 		private this(KeyboardEvent event){
 			key = event.which;
-			state = event.pressed ? State.Pressed : State.Released;
+			mod = event.modifierStateFiltered;
+			// check for 1-26 ctrl keys
+			if (key != 0 && key <= 26 && (key < 8 || key > 10)){
+				// ctrl was pressed with letter
+				mod |= Modifier.Control;
+				key += 'a' - 1;
+			}
 		}
+
 		//// what key was pressed
 		dchar key;
-		/// possible states
-		enum State : ubyte{
-			Pressed = 1 << 3,  // key pressed
-			Released = 1 << 4 // key released
-		}
-		/// state
-		ubyte state;
+		/// what modifiers were pressed (`&` with Modifier enum)
+		uint mod;
+
 		/// Non character keys (can match against `this.key`)
 		///
 		/// copied from arsd.terminal
@@ -72,73 +75,54 @@ package struct Event{
 			PageUp = 0x21 + 0xF0000,
 			PageDown = 0x22 + 0xF0000,
 		}
-		/// Ctrl+Letter keys
-		enum CtrlKeys : dchar{
-			CtrlA = 1,
-			CtrlB = 2,
-			CtrlC = 3,
-			CtrlD = 4,
-			CtrlE = 5,
-			CtrlF = 6,
-			CtrlG = 7,
-			//CtrlJ = 10,
-			CtrlK = 11,
-			CtrlL = 12,
-			CtrlM = 13,
-			CtrlN = 14,
-			CtrlO = 15,
-			CtrlP = 16,
-			CtrlQ = 17,
-			CtrlR = 18,
-			CtrlS = 19,
-			CtrlT = 20,
-			CtrlU = 21,
-			CtrlV = 22,
-			CtrlW = 23,
-			CtrlX = 24,
-			CtrlY = 25,
-			CtrlZ = 26,
+
+		/// Modifier Keys
+		enum Modifier : uint{
+			Shift = 4,
+			Alt = 2,
+			Control = 16,
+			Meta = 8,
 		}
+
 		/// Returns: true if the key pressed is a character
 		/// backspace, space, and tab are characters!
 		@property bool isChar() const {
-			return !(key >= Key.min && key <= Key.max) && !isCtrlKey();
-		}
-		/// Returns: true if key is a Ctrl+Letter key
-		@property bool isCtrlKey() const {
-			return key >= CtrlKeys.min && key <= CtrlKeys.max && key!=8 && key!=9 && key!=10;
+			return !(key >= Key.min && key <= Key.max);
 		}
 		/// Returns: a string representation of the key pressed
 		@property string toString() const {
 			if (isChar())
-				return "{key:\'"~to!string(key)~"\', state:"~state.to!string~"}";
-			if (isCtrlKey())
-				return "{key:\'"~to!string(cast(CtrlKeys)key)~"\', state:"~state.to!string~"}";
-			return "{key:\'"~to!string(cast(Key)key)~"\', state:"~state.to!string~"}";
+				return "{key:\'" ~ to!string(key) ~ "\', mod:" ~ mod.to!string ~ "}";
+			return
+				"{key:\'" ~ to!string(cast(Key)key) ~ "\', mod:" ~ mod.to!string ~"}";
 		}
 	}
+
 	/// Mouse Event
 	struct Mouse{
 		/// Buttons
 		enum Button : ubyte{
-			Left 		=	0x00, /// Left mouse btn clicked
-			Right 		=	0x10, /// Right mouse btn clicked
-			Middle 		= 	0x20, /// Middle mouse btn clicked
-			ScrollUp 	=	0x30, /// Scroll up clicked
-			ScrollDown 	= 	0x40, /// Scroll Down clicked
-			None 		=	0x50, /// .
+			Left				=	0x00, /// Left mouse btn clicked
+			Right 			=	0x10, /// Right mouse btn clicked
+			Middle			= 0x20, /// Middle mouse btn clicked
+			ScrollUp	 	=	0x30, /// Scroll up clicked
+			ScrollDown 	= 0x40, /// Scroll Down clicked
+			None				=	0x50, /// .
 		}
+
 		/// State
 		enum State : ubyte{
 			Click	=	1, /// Clicked
 			Release	=	1 << 1, /// Released
 			Hover	=	1 << 2, /// Hovered
 		}
+
 		/// x and y position of cursor
 		int x, y;
 		/// button and type (press/release/hover)
 		/// access this using `this.button` and `this.state`
 		ubyte type;
+
 		/// what button was clicked
 		@property Button button(){
 			return cast(Button)(type & 0xF0);
@@ -148,6 +132,7 @@ package struct Event{
 			type = this.state | newVal;
 			return newVal;
 		}
+
 		/// State (Clicked/Released/...)
 		@property State state(){
 			return cast(State)(type & 0x0F);
@@ -157,12 +142,14 @@ package struct Event{
 			type = this.button | newVal;
 			return newVal;
 		}
+
 		/// constructor
 		this (Button btn, int xPos, int yPos){
 			x = xPos;
 			y = yPos;
 			btn = button;
 		}
+
 		/// constructor, from arsd.terminal.MouseEvent
 		private this(MouseEvent mouseE){
 			if (mouseE.buttons & MouseEvent.Button.Left)
@@ -177,7 +164,8 @@ package struct Event{
 				this.button = this.Button.ScrollDown;
 			else
 				this.button = this.Button.None;
-			if (mouseE.eventType == mouseE.Type.Clicked || mouseE.eventType == mouseE.Type.Pressed)
+			if (mouseE.eventType == mouseE.Type.Clicked ||
+					mouseE.eventType == mouseE.Type.Pressed)
 				this.state = State.Click;
 			else if (mouseE.eventType == mouseE.Type.Released)
 				this.state = State.Release;
@@ -186,16 +174,20 @@ package struct Event{
 			this.x = mouseE.x;
 			this.y = mouseE.y;
 		}
+
 		/// Returns: string representation of this
 		@property string tostring(){
-			return "{button:"~button.to!string~", state:"~state.to!string~", x:"~x.to!string~", y:"~y.to!string~"}";
+			return "{button:" ~ button.to!string ~ ", state:" ~ state.to!string ~
+				", x:" ~ x.to!string ~ ", y:" ~ y.to!string ~ "}";
 		}
 	}
+
 	/// Resize event
 	struct Resize{
 		/// the new width and height after resize
 		int width, height;
 	}
+
 	/// types of events
 	enum Type{
 		Keyboard, /// Keyboard event
@@ -203,27 +195,33 @@ package struct Event{
 		Resize, /// Resize event
 		HangupInterrupt, /// terminal closed or interrupt (Ctrl+C)
 	}
+
 	/// stores the type of event
 	private Type _type;
+
 	/// union to store events
 	union{
 		Keyboard _key; /// stores keyboard event
 		Mouse _mouse; /// stores mouse event
 		Resize _resize; /// stores resize event
 	}
+
 	/// Returns: type of event
 	@property Type type(){
 		return _type;
 	}
-	/// Returns: keyboard event. Make sure you check this.type so the wrong event isn't read
+	/// Returns: keyboard event. Make sure you check this.type so the wrong event
+	/// isn't read
 	@property Keyboard keyboard(){
 		return _key;
 	}
-	/// Returns: mouse event. Make sure you check this.type so the wrong event isn't read
+	/// Returns: mouse event. Make sure you check this.type so the wrong event
+	/// isn't read
 	@property Mouse mouse(){
 		return _mouse;
 	}
-	/// Returns: resize event. Make sure you check this.type so the wrong event isn't read
+	/// Returns: resize event. Make sure you check this.type so the wrong event
+	/// isn't read
 	@property Resize resize(){
 		return _resize;
 	}
@@ -242,6 +240,7 @@ package struct Event{
 		this._type = Type.Resize;
 		this._resize = rsize;
 	}
+
 	/// constructor, by default, its a hangupInterrupt
 	this(Type eType){
 		this._type = eType;
@@ -257,12 +256,14 @@ public:
 	/// constructor
 	this(){
 		_term = Terminal(ConsoleOutputType.cellular);
-		_input = RealTimeConsoleInput(&_term,ConsoleInputFlags.allInputEvents | ConsoleInputFlags.raw);
+		_input = RealTimeConsoleInput(&_term, ConsoleInputFlags.allInputEvents |
+				ConsoleInputFlags.raw);
 	}
 	~this(){
 		_term.clear;
 		_term.reset;
 	}
+
 	/// Returns: width of termial
 	@property int width(){
 		return _term.width;
@@ -271,23 +272,28 @@ public:
 	@property int height(){
 		return _term.height;
 	}
+
 	/// flush to terminal
 	void flush(){
 		_term.flush();
 	}
+
 	/// writes a character `ch` at a position `(x, y)`
 	void put(int x, int y, dchar ch){
 		_term.moveTo(x, y);
 		_term.write(ch);
 	}
+
 	/// sets colors
 	void color(Color fg, Color bg){
 		_term.color(fg, bg);
 	}
+
 	/// moves cursor to position
 	void moveCursor(int x, int y){
 		_term.moveTo(x, y);
 	}
+
 	/// Set true to show cursor, false to hide cursor
 	@property bool cursorVisible(bool visibility){
 		if (visibility)
@@ -296,22 +302,27 @@ public:
 			_term.hideCursor;
 		return visibility;
 	}
-	/// waits `msecTimeout` msecs for event to occur. Returns as soon as it occurs (or if one had occurred before calling it)
+
+	/// waits `msecTimeout` msecs for event to occur. Returns as soon as it
+	/// occurs (or if one had occurred before calling it)
 	///
 	/// Returns: true if event occured
 	bool getEvent(int msecTimeout, ref Event event){
 		StopWatch sw;
 		sw.start;
 		while (msecTimeout - cast(int)sw.peek.total!"msecs" > 0){
-			if (_input.timedCheckForInput(msecTimeout - cast(int)sw.peek.total!"msecs")){
+			if (_input.timedCheckForInput(msecTimeout -
+						cast(int)sw.peek.total!"msecs")){
 				InputEvent e = _input.nextEvent;
-				if (e.type == InputEvent.Type.HangupEvent || e.type == InputEvent.Type.UserInterruptionEvent){
+				if (e.type == InputEvent.Type.HangupEvent ||
+						e.type == InputEvent.Type.UserInterruptionEvent){
 					event = Event(Event.Type.HangupInterrupt);
 					return true;
 				}
-				if (e.type == InputEvent.Type.KeyboardEvent /*&& e.get!(InputEvent.Type.KeyboardEvent).pressed*/){
+				if (e.type == InputEvent.Type.KeyboardEvent){
 					event = Event(Event.Keyboard(e.get!(InputEvent.Type.KeyboardEvent)));
-					// fix for issue #16 ("Escape key registered as a character event as well")
+					// fix for issue #16
+					// ("Escape key registered as a character event as well")
 					if (event._key.key == 27)
 						continue;
 					return true;
