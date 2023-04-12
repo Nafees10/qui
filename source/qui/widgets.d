@@ -471,7 +471,7 @@ public:
 
 /// Just occupies some space. Use this to put space between widgets.
 /// Allows you to set the color filled by its space
-class SplitterWidget : QWidget{
+class SpacerWidget : QWidget{
 private:
 	Color _color;
 
