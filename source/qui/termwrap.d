@@ -41,6 +41,15 @@ package struct Event{
 				key += 'a' - 1;
 			}
 		}
+		this (dchar key, uint mod = 0){
+			this.key = key;
+			this.mod = mod;
+		}
+
+		this (Key key, uint mod = 0){
+			this.key = key;
+			this.mod = mod;
+		}
 
 		//// what key was pressed
 		dchar key;
@@ -91,10 +100,19 @@ package struct Event{
 		}
 		/// Returns: a string representation of the key pressed
 		@property string toString() const {
+			string modStr;
+			if (mod & Modifier.Control)
+				modStr ~= "Control";
+			if (mod & Modifier.Alt)
+				modStr ~= modStr.length ? ", Alt" : "Alt";
+			if (mod & Modifier.Shift)
+				modStr ~= modStr.length ? ", Shift" : "Shift";
+			if (mod & Modifier.Meta)
+				modStr ~= modStr.length ? ", Meta" : "Meta";
 			if (isChar())
-				return "{key:\'" ~ to!string(key) ~ "\', mod:" ~ mod.to!string ~ "}";
+				return "{key:\'" ~ to!string(key) ~ "\', mod:" ~ modStr ~ "}";
 			return
-				"{key:\'" ~ to!string(cast(Key)key) ~ "\', mod:" ~ mod.to!string ~"}";
+				"{key:\'" ~ to!string(cast(Key)key) ~ "\', mod:" ~ modStr ~"}";
 		}
 	}
 
