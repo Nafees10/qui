@@ -393,6 +393,7 @@ protected:
 					continue;
 				view.moveTo(0, wrapI);
 				view.write(wrapped, _fg, _bg);
+				view.fillLine(' ', textColor, backColor);
 			}
 			y -= logHeight;
 		}
