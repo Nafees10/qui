@@ -939,7 +939,8 @@ public:
 
 	override bool widgetIsActive(QWidget widget){
 		return (widget is null && activeWidgetIndex >= widgets.length) ||
-			(widgets[activeWidgetIndex] == widget);
+			(activeWidgetIndex < widgets.length &&
+			 widgets[activeWidgetIndex] == widget);
 	}
 
 	/// Adds a widget at end
@@ -1354,7 +1355,8 @@ private:
 				_isRunning = false;
 			}else{ // otherwise read it as a Ctrl+C
 				KeyboardEvent keyEvent;
-				keyEvent.key = KeyboardEvent.CtrlKeys.CtrlC;
+				keyEvent.key = 'c';
+				keyEvent.mod = KeyboardEvent.Modifier.Control;
 				keyboardEventCall(this, keyEvent, false);
 			}
 		}else if (event.type == Event.Type.Keyboard){
@@ -1413,19 +1415,18 @@ protected:
 	}
 
 	override bool keyboardEvent(KeyboardEvent key, bool cycle){
-		cycle = key.state == KeyboardEvent.State.Pressed &&
-			key.key == _activeWidgetCycleKey;
+		cycle = key == KeyboardEvent(_activeWidgetCycleKey);
 		if (_customKeyboardEvent)
 			_customKeyboardEvent(this, key, cycle);
 		if (keyboardEventCall(_widget, key, cycle))
 			return true;
 		if (!_pgScroll)
 			return false;
-		if (key.key == Key.PageUp && _scrollY > 0){
+		if (key == KeyboardEvent(Key.PageUp) && _scrollY > 0){
 			scrollY = scrollY - min(scrollY, height);
 			return true;
 		}
-		if (key.key == Key.PageDown && _scrollY < scrollYMax){
+		if (key == KeyboardEvent(Key.PageDown) && _scrollY < scrollYMax){
 			scrollY = scrollY + height;
 			return true;
 		}
