@@ -1475,7 +1475,7 @@ public:
 	this(){
 		// HACK: "fix" for issue #18 (resizing on alacritty borked)
 		// TODO: maybe move this to termwrap?
-		if (environment["TERM"] == "alacritty")
+		if (environment.get("TERM", "") == "alacritty")
 			environment["TERM"] = "xterm";
 
 		_termWrap = new TermWrapper;

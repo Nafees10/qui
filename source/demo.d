@@ -11,7 +11,7 @@ version(demo){
 	void main (){
 		QTerminal term = new QTerminal;
 		term.widget = new ScrollTestingWidget(true);
-		term.widget.minHeight = 80;
+		term.widget.heightConstraint(80);
 
 		term.run;
 		.destroy(term);

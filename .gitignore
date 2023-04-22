@@ -14,4 +14,5 @@ qui-test-*
 *.o
 *.obj
 *.lst
+*.pdb
 dub.selections.json
