@@ -5,6 +5,7 @@
 	"authors": ["Nafees Hassan"],
 	"license":"MIT",
 	"dependencies": {
+		"arsd-official:terminal": "~>10.9.10",
 		"utils": "~>0.7.0"
 	},"configurations": [
 		{
