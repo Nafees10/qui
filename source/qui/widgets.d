@@ -413,6 +413,7 @@ public:
 	/// constructor
 	this(dstring[] buffer = null){
 		_lines = buffer.dup;
+		_size;
 	}
 
 	/// lines
@@ -422,6 +423,7 @@ public:
 	/// ditto
 	@property const(dstring[]) lines(dstring[] newVal){
 		_lines = newVal.dup;
+		_size;
 		update;
 		return _lines;
 	}
