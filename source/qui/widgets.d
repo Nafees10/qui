@@ -8,6 +8,7 @@ import utils.misc;
 import utils.ds;
 
 import std.conv : to;
+import std.algorithm : max;
 debug import std.stdio;
 
 /// for testing only.
@@ -337,6 +338,110 @@ public:
 	}
 	override @property uint maxHeight(){
 		return 1;
+	}
+}
+
+/// a Memo Widget, mutli line readonly text
+class MemoWidget : QWidget{
+private:
+	/// text buffer
+	dstring[] _lines;
+	/// Colors
+	Color _fg = Color.Default, _bg = Color.Default;
+
+	/// updates minimum/maximum width/height based on _lines
+	void _size(){
+		uint w = uint.max;
+		foreach (line; _lines)
+			w = max(w, cast(uint)line.length);
+		_minWidth = _maxWidth = w;
+		_minHeight = _maxHeight = cast(uint)_lines.length;
+	}
+
+protected:
+	override bool activateEvent(bool isActive){
+		if (isActive)
+			update;
+		return true;
+	}
+
+	override bool adoptEvent(bool adopted){
+		if (adopted)
+			update;
+		return true;
+	}
+
+	override bool resizeEvent(){
+		update;
+		return true;
+	}
+
+	override bool scrollEvent(){
+		update;
+		return true;
+	}
+
+	override bool mouseEvent(MouseEvent){
+		// we dont do that here
+		return false;
+	}
+
+	override bool keyboardEvent(KeyboardEvent, bool){
+		// we dont do that here either
+		return false;
+	}
+
+	override bool updateEvent(){
+		uint vw = view.width, vh = view.height,
+				 vx = view.x, vy = view.y;
+		foreach (y; vy .. vy + vh){
+			view.moveTo(vx, y);
+			if (y >= _lines.length || _lines[y].length < vx){
+				view.fillLine(' ', _fg, _bg);
+				continue;
+			}
+			dstring line = _lines[y][vx .. $];
+			view.write(line, _fg, _bg);
+			if (line.length < vw)
+				view.fillLine(' ', _fg, _bg);
+			//cursorPos(-1, -1);
+		}
+		return true;
+	}
+
+public:
+	/// constructor
+	this(dstring[] buffer = null){
+		_lines = buffer.dup;
+	}
+
+	/// lines
+	@property const(dstring[]) lines(){
+		return _lines;
+	}
+	/// ditto
+	@property const(dstring[]) lines(dstring[] newVal){
+		_lines = newVal.dup;
+		update;
+		return _lines;
+	}
+
+	/// text color
+	@property Color textColor(){
+		return _fg;
+	}
+	/// ditto
+	@property Color textColor(Color newVal){
+		return _fg = newVal;
+	}
+
+	/// background color
+	@property Color backColor(){
+		return _bg;
+	}
+	/// ditto
+	@property Color backColor(Color newVal){
+		return _bg = newVal;
 	}
 }
 
