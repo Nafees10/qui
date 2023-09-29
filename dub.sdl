@@ -1,0 +1,16 @@
+name "qui"
+description "A Text User Interface library."
+copyright "Copyright © 2017-2022, Nafees Hassan"
+authors "Nafees Hassan"
+license "MIT"
+dependency "arsd-official:terminal" version="~>10.9.10"
+dependency "utils" version="~>0.7.0"
+configuration "default"{
+	targetType "library"
+	targetName "qui"
+}
+configuration "quidemo"{
+	targetType "executable"
+	targetName "quidemo"
+	versions "demo"
+}
