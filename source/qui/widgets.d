@@ -424,6 +424,7 @@ public:
 	@property const(dstring[]) lines(dstring[] newVal){
 		_lines = newVal.dup;
 		_size;
+		resize;
 		update;
 		return _lines;
 	}
