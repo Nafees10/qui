@@ -1,12 +1,9 @@
 ﻿module demo;
 version(demo){
-	import qui.qui;
-	import qui.widgets;
-	import std.conv : to;
-	import std.path;
+	import qui.qui,
+				 qui.widgets;
+
 	import std.stdio;
-	import std.file : thisExePath;
-	import utils.misc : fileToArray;
 
 	void main (){
 		QTerminal term = new QTerminal;

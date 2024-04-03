@@ -3,13 +3,10 @@
 +/
 module qui.qui;
 
-import utils.ds;
-
-import std.datetime.stopwatch;
-import std.conv : to;
-import std.process;
-import std.algorithm;
-debug import std.stdio;
+import std.datetime.stopwatch,
+			 std.conv,
+			 std.process,
+			 std.algorithm;
 
 import qui.termwrap;
 
@@ -1497,8 +1494,7 @@ public:
 		int timerUpdate, timerTimer;
 		while (_isRunning){
 			Event event;
-			if (_termWrap.getEvent(
-						cast(int)min(timerTimer, timerUpdate), event))
+			if (_termWrap.getEvent(cast(int)min(timerTimer, timerUpdate), event))
 				_readEvent(event);
 			int passed = cast(int)sw.peek.total!"msecs";
 			sw.reset;

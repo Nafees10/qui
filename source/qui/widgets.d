@@ -4,11 +4,10 @@
 module qui.widgets;
 
 import qui.qui;
-import utils.misc;
-import utils.ds;
 
-import std.conv : to;
-import std.algorithm : max;
+import std.conv,
+			 std.algorithm;
+
 debug import std.stdio;
 
 /// for testing only.
