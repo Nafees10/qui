@@ -4,7 +4,6 @@ copyright "Copyright © 2017-2024, Nafees Hassan"
 authors "Nafees Hassan"
 license "MIT"
 dependency "arsd-official:terminal" version="~>10.9.10"
-//dependency "utils" version="~>0.8.0"
 configuration "default"{
 	targetType "library"
 	targetName "qui"
