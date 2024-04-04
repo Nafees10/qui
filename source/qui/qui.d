@@ -470,7 +470,6 @@ public:
 
 /// Base class for parent widgets
 abstract class QParent : QWidget{
-private:
 protected:
 	/// Called when this widget was made to disown a child
 	void disownEvent(QWidget widget){}
@@ -846,7 +845,7 @@ protected:
 		int index = cast(int)widgets.countUntil(widget);
 		if (index < 0)
 			return;
-		widgets[index .. $ - 1] = widgets[index + 1 .. $]; // TODO: test this
+		widgets[index .. $ - 1] = widgets[index + 1 .. $];
 		widgets.length --;
 		_sizeCacheReset;
 		resize;
@@ -1369,7 +1368,7 @@ private:
 	void _flushBuffer(){
 		if (!view.height || !view.width)
 			return;
-		auto prev = view._buffer[0][0]; // TODO, abstract accessing VP buffer
+		Viewport.Cell prev = view._buffer[0][0];
 		_termWrap.color(prev.fg, prev.bg);
 		foreach (y, row; view._buffer){
 			foreach (x, cell; row){
@@ -1471,7 +1470,6 @@ public:
 	/// constructor
 	this(){
 		// HACK: "fix" for issue #18 (resizing on alacritty borked)
-		// TODO: maybe move this to termwrap?
 		if (environment.get("TERM", "") == "alacritty")
 			environment["TERM"] = "xterm";
 
